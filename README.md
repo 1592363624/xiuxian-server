@@ -24,6 +24,8 @@
 - **技能系统**：攻击技能和辅助技能，熟练度升级（使用获得熟练度，技能书 +1 级），等级越高蓝耗越大，金水木灵根熟练度 +30%
 - **装备系统**：装备穿戴/卸下，属性加成
 - **PVP 对战**：回合制玩家对战，支持技能施放、暴击、灵根特效（回血/增伤/减伤/暴击/MP减免等）
+- **PVE 战斗**：游历和秘境中随机遭遇妖兽，完整回合制战斗（技能、暴击、灵根特效全生效）；秘境含 Boss 战，各秘境专属守护者
+- **离线收益**：断线后修炼继续进行（50% 效率，上限 8 小时），上线时自动结算经验、HP/MP 恢复，心魔判定降频
 - **用户系统**：邮箱注册/验证码、JWT 双令牌认证、BCrypt 密码加密
 - **权限管理**：RBAC 角色权限系统，支持细粒度权限控制
 - **QQ 机器人**：OneBot 协议集成，支持私聊和群聊指令操作
@@ -85,7 +87,9 @@ src/main/java/com/mtxgdn/
 │   ├── entity/                     # 游戏实体
 │   │   ├── CelestialPhenomenon.java
 │   │   ├── ExplorationResult.java
+│   │   ├── Monster.java              # 怪物/Boss 实体（属性、掉落表、Boss 工厂）
 │   │   ├── PlayerInfo.java
+│   │   ├── PveCombatResult.java      # PVE 战斗结果
 │   │   ├── RealmBreakthroughResult.java
 │   │   ├── RealmConfig.java
 │   │   ├── RealmConfigFile.java
@@ -120,6 +124,7 @@ src/main/java/com/mtxgdn/
 │       ├── HeartDemonService.java  # 心魔系统
 │       ├── ItemService.java        # 物品管理
 │       ├── NewbieGuideService.java # 新手引导
+│       ├── OfflineRewardService.java # 离线收益（修炼/HP恢复/降频心魔）
 │       ├── PlayerService.java      # 玩家管理
 │       ├── RealmService.java       # 境界突破（含天劫）
 │       ├── SecretRealmService.java # 秘境探索
@@ -306,7 +311,7 @@ java -jar target/main-V0.0.0-alpha.jar
 
 | 方法 | 路径 | 权限 | 说明 |
 |------|------|------|------|
-| GET | `/api/game/player` | `game.player.info` | 获取玩家信息（含灵根详情） |
+| GET | `/api/game/player` | `game.player.info` | 获取玩家信息（含灵根详情和离线收益） |
 | POST | `/api/game/player/create` | `game.player.create` | 创建角色（灵根自动抽取） |
 | POST | `/api/game/realm/breakthrough` | `game.realm.breakthrough` | 境界突破（含天劫） |
 | GET | `/api/game/realm/config` | `game.realm.config` | 查看境界配置 |
@@ -393,6 +398,26 @@ java -jar target/main-V0.0.0-alpha.jar
 
 ```json
 {"type":"auth","msgId":1,"data":{"token":"<jwt_access_token>"}}
+```
+
+认证成功返回 `welcome` 消息，包含用户信息和离线收益（如有）：
+
+```json
+{
+  "type":"welcome",
+  "success":true,
+  "data":{
+    "userId":1001,
+    "username":"player1",
+    "message":"连接成功，欢迎进入修仙世界！",
+    "offlineReward":{
+      "offlineSeconds":3600,
+      "offlineMinutes":60,
+      "expGained":450,
+      "hpRecovered":120
+    }
+  }
+}
 ```
 
 支持的 `type`：
@@ -612,6 +637,50 @@ logging:
 
 ---
 
+### 🐉 PVE 战斗系统
+
+游历和秘境中遭遇妖兽时，触发完整回合制 PVE 战斗。
+
+**战斗机制**：
+- 回合制，速度高者先手，最多 30 回合
+- 自动选择可用的攻击技能，消耗 MP
+- 暴击率、暴击伤害、技能伤害、伤害加成/减免 → 全部灵根特效生效
+- 击败妖兽获得经验、金币、灵石，有概率掉落物品
+- **金火灵根**怪物经验 +25%，**火土木灵根**灵石掉落 +20%
+
+**秘境 Boss**（10% 遭遇概率）：
+
+| 秘境 | 需求境界 | Boss | 描述 |
+|------|:--:|------|------|
+| 荒野草原 | 凡人 | 草原霸主·奔雷兽 | 雷光闪烁，刀枪不入 |
+| 暗黑森林 | 炼气 | 暗影领主·噬魂蛛皇 | 毒液腐蚀护体灵气 |
+| 百兽山脉 | 筑基 | 兽王·金翼裂天雕 | 翅展遮天，爪裂金石 |
+| 古修遗迹 | 金丹 | 遗迹守卫·青铜巨像 | 拳风摧山岳 |
+| 古战场 | 元婴 | 战场英魂·不灭战将 | 战意不灭，杀伐冲天 |
+| 仙人洞府 | 化神 | 洞府守护灵·九霄剑魂 | 剑意化形，一剑光寒 |
+
+Boss 拥有 3 倍以上属性，更高掉落率和更丰富的稀有物品掉落。
+
+---
+
+### ⏳ 离线修炼收益
+
+玩家断线后修炼继续进行，无需保持在线。
+
+| 参数 | 值 |
+|------|------|
+| 离线修炼效率 | **50%**（在线的一半） |
+| 最大离线时间 | **8 小时**（超过不计） |
+| 最短触发时间 | 30 秒（短暂断触不触发） |
+| HP/MP 恢复 | 每分钟 2% 至满 |
+| 离线心魔概率 | 在线模式的 **50%** |
+| 天象加成 | ✅ 生效（紫气东来等） |
+| 灵根加成 | ✅ 生效（木水灵根 +15%） |
+
+> 重新上线时（WebSocket 连接或 REST 接口查询），自动结算离线收益并注入响应数据。
+
+---
+
 ### 📖 新手引导（主线 + 自由探索）
 
 创建角色后自动开启，采用**双轨引导**设计：
@@ -669,7 +738,7 @@ logging:
 |------|------|
 | `users` | 用户账户（用户名、密码哈希） |
 | `verification_codes` | 邮箱验证码 |
-| `players` | 玩家角色（属性、境界、修炼状态、灵根、引导进度） |
+| `players` | 玩家角色（属性、境界、修炼状态、灵根、引导进度、离线时间） |
 | `players_items` | 玩家背包物品（物品 key + 数量） |
 | `players_equipment` | 玩家装备槽位（weapon/armor/accessory） |
 | `players_skills` | 玩家技能（等级、熟练度） |
