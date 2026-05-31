@@ -32,6 +32,7 @@ import com.mtxgdn.util.GameLogger;
 import com.mtxgdn.util.LangManager;
 import com.mtxgdn.util.OneBotLogger;
 import com.mtxgdn.util.PlayerActionLogger;
+import com.mtxgdn.util.RateLimiter;
 import org.glassfish.grizzly.websockets.DataFrame;
 import org.glassfish.grizzly.websockets.WebSocket;
 import org.glassfish.grizzly.websockets.WebSocketApplication;
@@ -198,6 +199,11 @@ public class OneBotWebSocketServer extends WebSocketApplication {
         String cmd = parsed[0];
         String arg = parsed[1];
 
+        if (!RateLimiter.allow("qq:" + senderQq, 10, 60)) {
+            sendPrivateMsg(socket, selfId, senderQq, "操作太频繁，请稍后再试");
+            return;
+        }
+
         switch (cmd) {
             case "help", "帮助":
                 handleHelp(socket, selfId, senderQq, null);
@@ -327,6 +333,12 @@ public class OneBotWebSocketServer extends WebSocketApplication {
         String[] parsed = parseCommand(trimmed);
         String cmd = parsed[0];
         String arg = parsed[1];
+
+        if (!RateLimiter.allow("qq:" + senderQq, 10, 60)) {
+            sendGroupMsg(socket, selfId, groupId,
+                    "[CQ:at,qq=" + senderQq + "] 操作太频繁，请稍后再试");
+            return;
+        }
 
         switch (cmd) {
             case "help", "帮助":

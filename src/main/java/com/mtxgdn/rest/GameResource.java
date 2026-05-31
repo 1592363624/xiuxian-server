@@ -33,11 +33,13 @@ import com.mtxgdn.game.service.ChatService;
 import com.mtxgdn.game.service.FriendService;
 import com.mtxgdn.game.entity.Friend;
 import com.mtxgdn.game.entity.ChatMessage;
+import com.mtxgdn.util.RateLimiter;
 import com.mtxgdn.game.secretrealm.SecretRealm;
 import com.mtxgdn.game.entity.SpiritualRoot;
 import com.mtxgdn.permission.RequirePermission;
 import com.mtxgdn.util.PlayerActionLogger;
 import jakarta.ws.rs.*;
+import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
@@ -77,6 +79,21 @@ public class GameResource {
             return (Long) userId;
         }
         throw new WebApplicationException("未登录", 401);
+    }
+
+    private void checkActionRateLimit(String action) {
+        Long userId = getCurrentUserId();
+        String key = "rst:" + userId + ":" + action;
+        int limit = switch (action) {
+            case "chat" -> 10;
+            case "breakthrough", "cultivate" -> 5;
+            case "explore", "secret" -> 6;
+            case "heal", "friend" -> 15;
+            default -> 30;
+        };
+        if (!RateLimiter.allow(key, limit, 60)) {
+            throw new WebApplicationException("操作太频繁，请稍后再试", 429);
+        }
     }
 
     private String getPlayerName(Long userId) {
@@ -190,6 +207,7 @@ public class GameResource {
     @Produces(MediaType.APPLICATION_JSON)
     @RequirePermission("game.realm.breakthrough")
     public Response breakthrough() {
+        checkActionRateLimit("breakthrough");
         Long userId = getCurrentUserId();
         RealmBreakthroughResult btResult = realmService.tryBreakthrough(userId);
 
@@ -384,6 +402,7 @@ public class GameResource {
     @Produces(MediaType.APPLICATION_JSON)
     @RequirePermission("game.player.info")
     public Response healPlayer() {
+        checkActionRateLimit("heal");
         Long userId = getCurrentUserId();
         PlayerInfo player = playerService.getPlayerByUserId(userId);
         if (player == null) {
@@ -1230,6 +1249,7 @@ public class GameResource {
     @Produces(MediaType.APPLICATION_JSON)
     @RequirePermission("game.chat.world")
     public Response sendWorldChat(String body) {
+        checkActionRateLimit("chat");
         Long userId = getCurrentUserId();
         PlayerInfo player = playerService.getPlayerByUserId(userId);
         if (player == null) {
@@ -1254,6 +1274,7 @@ public class GameResource {
     @Produces(MediaType.APPLICATION_JSON)
     @RequirePermission("game.chat.private")
     public Response sendPrivateChat(String body) {
+        checkActionRateLimit("chat");
         Long userId = getCurrentUserId();
         PlayerInfo player = playerService.getPlayerByUserId(userId);
         if (player == null) {
@@ -1386,6 +1407,7 @@ public class GameResource {
     @Produces(MediaType.APPLICATION_JSON)
     @RequirePermission("game.friend.manage")
     public Response addFriend(String body) {
+        checkActionRateLimit("friend");
         Long userId = getCurrentUserId();
         PlayerInfo player = playerService.getPlayerByUserId(userId);
         if (player == null) {

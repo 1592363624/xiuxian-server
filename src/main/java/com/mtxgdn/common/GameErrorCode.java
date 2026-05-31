@@ -51,6 +51,7 @@ public enum GameErrorCode {
 
     UNKNOWN_TYPE(6001, "未知的消息类型"),
     MESSAGE_PARSE_ERROR(6002, "消息格式错误"),
+    RATE_LIMITED(6003, "操作太频繁，请稍后再试"),
 
     INTERNAL_ERROR(9001, "服务器内部错误"),
     NETWORK_ERROR(9002, "网络请求失败");

@@ -31,6 +31,7 @@ import com.mtxgdn.game.entity.ChatMessage;
 import com.mtxgdn.permission.PermissionService;
 import com.mtxgdn.util.JwtUtil;
 import com.mtxgdn.util.PlayerActionLogger;
+import com.mtxgdn.util.RateLimiter;
 import org.glassfish.grizzly.websockets.*;
 
 import java.util.List;
@@ -177,6 +178,12 @@ public class GameWebSocketApp extends WebSocketApplication {
         String type = req.getType();
         long msgId = req.getMsgId();
         JsonObject data = req.getData();
+
+        String rateKey = "ws:" + userId + ":" + type;
+        if (!RateLimiter.allow(rateKey, 20, 60)) {
+            socket.send(GameMessage.error(msgId, type, GameErrorCode.RATE_LIMITED).toJson());
+            return;
+        }
 
         switch (type) {
             case "chat":
@@ -1086,6 +1093,22 @@ public class GameWebSocketApp extends WebSocketApplication {
             socket.send(GameMessage.ok(msgId, "equipment_enhance", (String) result.get("message"), respData).toJson());
         } else {
             socket.send(GameMessage.error(msgId, "equipment_enhance", 400, (String) result.get("message")).toJson());
+        }
+    }
+
+    public void shutdownGracefully() {
+        try {
+            for (WebSocket socket : authenticated.keySet()) {
+                try {
+                    socket.close(1001, "服务器关闭");
+                } catch (Exception ignore) {
+                }
+            }
+            authenticated.clear();
+            sessionUsers.clear();
+            userSessions.clear();
+        } catch (Exception e) {
+            System.err.println("WebSocket 优雅关闭失败: " + e.getMessage());
         }
     }
 }

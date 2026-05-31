@@ -2,13 +2,17 @@ package com.mtxgdn.game.service;
 
 import com.mtxgdn.db.DatabaseManager;
 import com.mtxgdn.game.entity.ChatMessage;
+import com.mtxgdn.util.TextSanitizer;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 public class ChatService {
 
@@ -20,7 +24,7 @@ public class ChatService {
         if (content == null || content.trim().isEmpty()) {
             return null;
         }
-        content = content.trim();
+        content = TextSanitizer.sanitizeChatContent(content.trim());
         if (content.length() > MAX_CONTENT_LENGTH) {
             content = content.substring(0, MAX_CONTENT_LENGTH);
         }
@@ -48,7 +52,7 @@ public class ChatService {
         if (content == null || content.trim().isEmpty()) {
             return null;
         }
-        content = content.trim();
+        content = TextSanitizer.sanitizeChatContent(content.trim());
         if (content.length() > MAX_CONTENT_LENGTH) {
             content = content.substring(0, MAX_CONTENT_LENGTH);
         }
@@ -136,16 +140,27 @@ public class ChatService {
     }
 
     public void setSenderNames(List<ChatMessage> messages, PlayerService playerService) {
+        Map<Long, String> nameCache = new HashMap<>();
+        List<Long> ids = messages.stream()
+                .map(ChatMessage::getSenderPlayerId)
+                .collect(Collectors.toList());
         for (ChatMessage msg : messages) {
-            var sender = playerService.getPlayerById(msg.getSenderPlayerId());
-            if (sender != null) {
-                msg.setSenderName(sender.getName());
-            }
             if (msg.getReceiverPlayerId() != null) {
-                var receiver = playerService.getPlayerById(msg.getReceiverPlayerId());
-                if (receiver != null) {
-                    msg.setReceiverName(receiver.getName());
-                }
+                ids.add(msg.getReceiverPlayerId());
+            }
+        }
+
+        for (Long id : ids) {
+            if (!nameCache.containsKey(id)) {
+                var player = playerService.getPlayerById(id);
+                nameCache.put(id, player != null ? player.getName() : null);
+            }
+        }
+
+        for (ChatMessage msg : messages) {
+            msg.setSenderName(nameCache.getOrDefault(msg.getSenderPlayerId(), "未知"));
+            if (msg.getReceiverPlayerId() != null) {
+                msg.setReceiverName(nameCache.getOrDefault(msg.getReceiverPlayerId(), "未知"));
             }
         }
     }

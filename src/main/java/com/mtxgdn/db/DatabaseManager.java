@@ -73,6 +73,32 @@ public class DatabaseManager {
         return conn;
     }
 
+    @FunctionalInterface
+    public interface TransactionTask<T> {
+        T execute(Connection conn) throws SQLException;
+    }
+
+    public static <T> T runTransaction(TransactionTask<T> task) {
+        try (Connection conn = getConnection()) {
+            conn.setAutoCommit(false);
+            try {
+                T result = task.execute(conn);
+                conn.commit();
+                return result;
+            } catch (Exception e) {
+                try {
+                    conn.rollback();
+                } catch (SQLException ignored) {
+                }
+                throw e;
+            } finally {
+                conn.setAutoCommit(true);
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("事务执行失败", e);
+        }
+    }
+
     public static void initTable() {
         String pkMySql = "BIGINT AUTO_INCREMENT PRIMARY KEY";
         String pkSqlite = "INTEGER PRIMARY KEY AUTOINCREMENT";

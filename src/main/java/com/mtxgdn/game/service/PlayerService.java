@@ -244,8 +244,7 @@ public class PlayerService {
         }
 
         long cost = (player.getRealm() + 1) * 50L;
-        ItemService itemService = new ItemService();
-        long currentStones = itemService.getSpiritStoneCount(playerId);
+        long currentStones = getSpiritStoneCount(playerId);
 
         if (currentStones < cost) {
             result.put("success", false);
@@ -256,8 +255,7 @@ public class PlayerService {
             return result;
         }
 
-        boolean removed = itemService.removeSpiritStones(playerId, cost);
-        if (!removed) {
+        if (!removeSpiritStoneRaw(playerId, cost)) {
             result.put("success", false);
             result.put("message", "扣除灵石失败，请重试。");
             return result;
@@ -279,6 +277,32 @@ public class PlayerService {
         result.put("cost", cost);
         result.put("message", "消耗 " + cost + " 灵石，伤势痊愈！\n生命值: " + hpBefore + " → " + player.getMaxHp() + "（法力也一并恢复）");
         return result;
+    }
+
+    private long getSpiritStoneCount(long playerId) {
+        String sql = "SELECT quantity FROM players_items WHERE player_id = ? AND item_key = 'spirit_stone'";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, playerId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return rs.getLong("quantity");
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("查询灵石数量失败", e);
+        }
+        return 0;
+    }
+
+    private boolean removeSpiritStoneRaw(long playerId, long amount) {
+        String sql = "UPDATE players_items SET quantity = quantity - ? WHERE player_id = ? AND item_key = 'spirit_stone'";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, amount);
+            ps.setLong(2, playerId);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            throw new RuntimeException("扣除灵石失败", e);
+        }
     }
 
     public void addMp(long playerId, int amount) {

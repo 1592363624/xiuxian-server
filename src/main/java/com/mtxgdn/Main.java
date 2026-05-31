@@ -28,6 +28,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.concurrent.Executors;
 
 public class Main {
 
@@ -39,6 +40,30 @@ public class Main {
     public static HttpServer oneBotServer;
 
     public static void main(String[] args) throws Exception {
+        Thread.setDefaultUncaughtExceptionHandler((t, e) -> {
+            LOG.error("未捕获异常 线程=" + t.getName(), e);
+        });
+
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            LOG.info("服务器正在优雅关闭...");
+            if (gameWebSocketApp != null) {
+                try {
+                    gameWebSocketApp.shutdownGracefully();
+                } catch (Exception ignore) {
+                }
+            }
+            LOG.info("服务器已关闭");
+        }, "shutdown-hook"));
+
+        try {
+            doMain(args);
+        } catch (Exception e) {
+            LOG.error("服务器启动失败", e);
+            System.exit(1);
+        }
+    }
+
+    private static void doMain(String[] args) throws Exception {
         boolean demo = hasArg(args, "--demo");
         boolean nogui = hasArg(args, "--nogui");
 

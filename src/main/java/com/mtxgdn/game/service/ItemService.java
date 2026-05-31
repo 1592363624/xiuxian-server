@@ -164,6 +164,12 @@ public class ItemService {
         }
 
         String occupied = getEquippedItem(playerId, slot);
+        if (occupied != null && occupied.equals(itemKey)) {
+            result.put("success", false);
+            result.put("message", "已装备该物品");
+            return result;
+        }
+
         if (occupied != null) {
             Item oldItem = ItemRegistry.get(occupied);
             if (oldItem != null) {
@@ -178,8 +184,6 @@ public class ItemService {
                 addItem(playerId, occupied, 1);
             }
         }
-
-        removeItem(playerId, itemKey, 1);
 
         String upsertSql;
         if (DatabaseManager.isSqlite()) {
@@ -204,6 +208,8 @@ public class ItemService {
         } catch (SQLException e) {
             throw new RuntimeException("装备失败", e);
         }
+
+        removeItem(playerId, itemKey, 1);
 
         String msg;
         if (msgBuilder.length() > 0) {
