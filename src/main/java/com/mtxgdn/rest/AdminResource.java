@@ -8,8 +8,11 @@ import com.mtxgdn.db.DatabaseManager;
 import com.mtxgdn.game.entity.PlayerInfo;
 import com.mtxgdn.game.item.Item;
 import com.mtxgdn.game.item.ItemRegistry;
+import com.mtxgdn.game.service.CraftingService;
 import com.mtxgdn.game.service.ItemService;
 import com.mtxgdn.game.service.PlayerService;
+import com.mtxgdn.game.service.SkillService;
+import com.mtxgdn.game.service.TechniqueService;
 import com.mtxgdn.permission.PermissionCode;
 import com.mtxgdn.permission.PermissionService;
 import com.mtxgdn.util.GameLogger;
@@ -279,6 +282,10 @@ public class AdminResource {
     public Response resetAllData() {
         System.out.println("[Admin] >>> POST /admin/database/reset_all");
         Map<String, Integer> counts = DatabaseManager.resetAllData();
+
+        new SkillService().insertDefaultSkills();
+        new TechniqueService().insertDefaultTechniques();
+        new CraftingService().insertDefaultRecipes();
 
         int total = counts.values().stream().mapToInt(Integer::intValue).sum();
 

@@ -349,6 +349,7 @@ public class DatabaseManager {
                 stmt.execute("SET FOREIGN_KEY_CHECKS = 0");
             }
             int ps = stmt.executeUpdate("DELETE FROM players_skills");
+            int pt = stmt.executeUpdate("DELETE FROM players_techniques");
             int pi = stmt.executeUpdate("DELETE FROM players_items");
             int pe = stmt.executeUpdate("DELETE FROM players_equipment");
             int pd = stmt.executeUpdate("DELETE FROM player_daily");
@@ -359,6 +360,7 @@ public class DatabaseManager {
             }
 
             result.put("players_skills", ps);
+            result.put("players_techniques", pt);
             result.put("players_items", pi);
             result.put("players_equipment", pe);
             result.put("player_daily", pd);
@@ -380,6 +382,7 @@ public class DatabaseManager {
                 stmt.execute("SET FOREIGN_KEY_CHECKS = 0");
             }
             int ps = stmt.executeUpdate("DELETE FROM players_skills");
+            int pt = stmt.executeUpdate("DELETE FROM players_techniques");
             int pi = stmt.executeUpdate("DELETE FROM players_items");
             int pe = stmt.executeUpdate("DELETE FROM players_equipment");
             int pd = stmt.executeUpdate("DELETE FROM player_daily");
@@ -396,6 +399,7 @@ public class DatabaseManager {
             }
 
             result.put("players_skills", ps);
+            result.put("players_techniques", pt);
             result.put("players_items", pi);
             result.put("players_equipment", pe);
             result.put("player_daily", pd);
