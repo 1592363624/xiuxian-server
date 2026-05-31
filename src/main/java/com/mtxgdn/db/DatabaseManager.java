@@ -207,6 +207,7 @@ public class DatabaseManager {
                 "player_id BIGINT NOT NULL, " +
                 "slot VARCHAR(32) NOT NULL, " +
                 "item_key VARCHAR(128) NOT NULL, " +
+                "enhance_level INT DEFAULT 0, " +
                 "created_at " + tsDefault + ", " +
                 "updated_at " + tsUpdate + ", " +
                 (IS_SQLITE ? "" : "FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE, ") +
@@ -338,6 +339,19 @@ public class DatabaseManager {
         }
 
         PermissionService.initDefaultData();
+        migrateColumns();
+    }
+
+    private static void migrateColumns() {
+        try (Connection conn = getConnection();
+             Statement stmt = conn.createStatement()) {
+            try {
+                stmt.execute("ALTER TABLE players_equipment ADD COLUMN enhance_level INT DEFAULT 0");
+            } catch (SQLException ignored) {
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("数据库迁移失败", e);
+        }
     }
 
     public static Map<String, Integer> clearPlayerData() {

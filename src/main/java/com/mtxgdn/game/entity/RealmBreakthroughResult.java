@@ -24,6 +24,7 @@ public class RealmBreakthroughResult {
     private double finalSuccessRate;
     private int roll;
     private List<String> successRateBreakdown;
+    private String tribulationItemUsed;
 
     private long expPenalty;
     private int hpPenalty;
@@ -94,4 +95,7 @@ public class RealmBreakthroughResult {
 
     public int getHpPenalty() { return hpPenalty; }
     public void setHpPenalty(int hpPenalty) { this.hpPenalty = hpPenalty; }
+
+    public String getTribulationItemUsed() { return tribulationItemUsed; }
+    public void setTribulationItemUsed(String item) { this.tribulationItemUsed = item; }
 }

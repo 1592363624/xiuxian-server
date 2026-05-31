@@ -22,7 +22,7 @@ public class HerbEvent extends ExplorationEvent {
         result.setEventType("herb");
         result.setEventDescription("采集灵草");
 
-        String[] herbs = {"spirit_grass", "healing_pill", "mana_pill"};
+        String[] herbs = {"spirit_grass", "healing_pill", "mana_pill", "spirit_spring_water"};
         String herbItem = herbs[random.nextInt(herbs.length)];
         int quantity = random.nextInt(1, 3);
 

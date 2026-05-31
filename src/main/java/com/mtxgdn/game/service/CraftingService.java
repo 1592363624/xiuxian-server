@@ -162,6 +162,9 @@ public class CraftingService {
             {"炼制护体玉符", "用灵草和灵石炼制的护身符，可抵挡伤害", "EQUIPMENT", 2, "guardian_jade", 1, "spirit_grass", 3, "healing_pill", 2, "iron_ore", 2, 600L, 150L, 0.70, 60L, 150L},
             {"炼制聚灵石", "浓缩灵石精华而成，蕴含大量灵石能量", "CONSUMABLE", 1, "spirit_stone_pouch", 1, "spirit_stone", 5, "iron_ore", 3, null, 0, 100L, 0L, 0.90, 10L, 40L},
             {"炼制加速符", "以疾风灵力绘制的符箓，使用后提升速度", "CONSUMABLE", 2, "speed_talisman", 1, "spirit_grass", 4, "mana_pill", 2, "heaven_pill", 1, 500L, 120L, 0.65, 40L, 100L},
+            {"炼制强化石", "将铁矿石和妖兽内丹熔炼成强化石", "CONSUMABLE", 1, "enhance_stone", 1, "iron_ore", 3, "beast_core", 1, null, 0, 200L, 30L, 0.80, 15L, 40L},
+            {"炼制渡劫丹", "以天材地宝和灵泉水炼制的护体仙丹", "PILL", 3, "tribulation_pill", 1, "heavenly_jade", 1, "spirit_spring_water", 3, "cultivation_elixir", 1, 1000L, 500L, 0.50, 100L, 300L},
+            {"炼制保护符", "蕴含守护道韵的符箓，强化时可保装备不碎", "CONSUMABLE", 2, "protect_charm", 1, "spirit_spring_water", 2, "healing_pill", 3, "beast_core", 2, 400L, 80L, 0.70, 30L, 80L},
         };
 
         try (Connection conn = DatabaseManager.getConnection();

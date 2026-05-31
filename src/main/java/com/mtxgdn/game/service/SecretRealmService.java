@@ -320,14 +320,15 @@ public class SecretRealmService {
     }
 
     private String getHerbItem() {
-        String[] herbs = {"spirit_grass", "healing_pill", "mana_pill"};
+        String[] herbs = {"spirit_grass", "healing_pill", "mana_pill", "spirit_spring_water", "beast_core"};
         return herbs[random.nextInt(herbs.length)];
     }
 
     private String getRareItem() {
         String[] rareItems = {"cultivation_elixir", "scripture_page", "spirit_sword", "guardian_jade",
                 "basic_sword_manual", "fire_dragon_art", "jade_armor", "power_buff_pill",
-                "speed_talisman", "thunder_bolt_talisman", "dragon_blood_crystal", "spirit_stone_pouch"};
+                "speed_talisman", "thunder_bolt_talisman", "dragon_blood_crystal", "spirit_stone_pouch",
+                "heavenly_jade", "enhance_stone", "protect_charm", "tribulation_pill"};
         return rareItems[random.nextInt(rareItems.length)];
     }
 

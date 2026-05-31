@@ -38,7 +38,7 @@ public class CultivatorEvent extends ExplorationEvent {
             log.add("获得了 " + spiritStones + " 灵石。");
             result.setMessage("散修赠礼，获得 " + spiritStones + " 灵石");
         } else {
-            String[] items = {"spirit_grass", "iron_ore", "healing_pill", "mana_pill", "spirit_recovery_pill"};
+            String[] items = {"spirit_grass", "iron_ore", "healing_pill", "mana_pill", "spirit_recovery_pill", "enhance_stone", "spirit_spring_water"};
             String giftItem = items[random.nextInt(items.length)];
             if (ItemRegistry.contains(giftItem) && random.nextDouble() < 0.6) {
                 itemService.addItem(player.getId(), giftItem, 1);

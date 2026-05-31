@@ -23,6 +23,7 @@ import com.mtxgdn.game.service.PlayerService;
 import com.mtxgdn.game.service.RealmService;
 import com.mtxgdn.game.service.TechniqueService;
 import com.mtxgdn.game.service.CraftingService;
+import com.mtxgdn.game.service.EnhanceService;
 import com.mtxgdn.permission.PermissionService;
 import com.mtxgdn.util.JwtUtil;
 import com.mtxgdn.util.PlayerActionLogger;
@@ -44,6 +45,7 @@ public class GameWebSocketApp extends WebSocketApplication {
     private static final HeartDemonService heartDemonService = new HeartDemonService();
     private static final TechniqueService techniqueService = new TechniqueService();
     private static final CraftingService craftingService = new CraftingService();
+    private static final EnhanceService enhanceService = new EnhanceService();
 
     private final Map<WebSocket, Long> sessionUsers = new ConcurrentHashMap<>();
     private final Map<Long, WebSocket> userSessions = new ConcurrentHashMap<>();
@@ -251,6 +253,10 @@ public class GameWebSocketApp extends WebSocketApplication {
             case "crafting_craft":
                 if (!checkWsPermission(socket, msgId, userId, "game.crafting.craft")) break;
                 handleCraftingCraft(socket, msgId, userId, data);
+                break;
+            case "equipment_enhance":
+                if (!checkWsPermission(socket, msgId, userId, "game.equipment.enhance")) break;
+                handleEquipmentEnhance(socket, msgId, userId, data);
                 break;
             default:
                 GameMessage err = GameMessage.error(msgId, type, GameErrorCode.UNKNOWN_TYPE);
@@ -755,6 +761,26 @@ public class GameWebSocketApp extends WebSocketApplication {
             socket.send(GameMessage.ok(msgId, "crafting_craft", (String) result.get("message"), respData).toJson());
         } else {
             socket.send(GameMessage.error(msgId, "crafting_craft", 400, (String) result.get("message")).toJson());
+        }
+    }
+
+    private void handleEquipmentEnhance(WebSocket socket, long msgId, Long userId, JsonObject data) {
+        if (data == null || !data.has("slot")) {
+            socket.send(GameMessage.error(msgId, "equipment_enhance", GameErrorCode.PARAM_MISSING).toJson());
+            return;
+        }
+        PlayerInfo player = playerService.getPlayerByUserId(userId);
+        if (player == null) {
+            socket.send(GameMessage.error(msgId, "equipment_enhance", GameErrorCode.PLAYER_NOT_FOUND).toJson());
+            return;
+        }
+        String slot = data.get("slot").getAsString();
+        Map<String, Object> result = enhanceService.enhanceItem(player.getId(), slot);
+        if (Boolean.TRUE.equals(result.get("success"))) {
+            JsonObject respData = gson.toJsonTree(result).getAsJsonObject();
+            socket.send(GameMessage.ok(msgId, "equipment_enhance", (String) result.get("message"), respData).toJson());
+        } else {
+            socket.send(GameMessage.error(msgId, "equipment_enhance", 400, (String) result.get("message")).toJson());
         }
     }
 }

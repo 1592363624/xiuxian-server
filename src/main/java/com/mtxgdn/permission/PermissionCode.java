@@ -20,6 +20,8 @@ public enum PermissionCode {
     GAME_TECHNIQUE_UPGRADE("game.technique.upgrade", "升级功法", "游戏功能"),
     GAME_CRAFTING_RECIPES("game.crafting.recipes", "查看配方", "游戏功能"),
     GAME_CRAFTING_CRAFT("game.crafting.craft", "制造物品", "游戏功能"),
+    GAME_EQUIPMENT_ENHANCE("game.equipment.enhance", "装备强化", "游戏功能"),
+    GAME_EQUIPMENT_EQUIP("game.equipment.equip", "装备物品", "游戏功能"),
 
     QQ_BIND("qq.bind", "绑定QQ", "QQ指令"),
     QQ_UNBIND("qq.unbind", "解绑QQ", "QQ指令"),

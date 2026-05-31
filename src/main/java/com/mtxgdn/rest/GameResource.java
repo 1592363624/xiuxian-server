@@ -28,6 +28,7 @@ import com.mtxgdn.game.service.SkillService;
 import com.mtxgdn.game.service.TradeService;
 import com.mtxgdn.game.entity.Technique;
 import com.mtxgdn.game.service.TechniqueService;
+import com.mtxgdn.game.service.EnhanceService;
 import com.mtxgdn.game.secretrealm.SecretRealm;
 import com.mtxgdn.game.entity.SpiritualRoot;
 import com.mtxgdn.permission.RequirePermission;
@@ -59,6 +60,7 @@ public class GameResource {
     private static final HeartDemonService heartDemonService = new HeartDemonService();
     private static final TechniqueService techniqueService = new TechniqueService();
     private static final CraftingService craftingService = new CraftingService();
+    private static final EnhanceService enhanceService = new EnhanceService();
 
     @Context
     private ContainerRequestContext requestContext;
@@ -486,6 +488,15 @@ public class GameResource {
             Item item = ItemRegistry.get(entry.getValue());
             if (item != null) {
                 JsonObject slotData = gson.toJsonTree(item).getAsJsonObject();
+                int enhanceLevel = enhanceService.getEnhanceLevel(playerId, entry.getKey());
+                slotData.addProperty("enhanceLevel", enhanceLevel);
+                if (enhanceLevel > 0) {
+                    int[] bonuses = EnhanceService.getEnhanceStatBonus(enhanceLevel);
+                    slotData.addProperty("enhanceAtk", bonuses[0]);
+                    slotData.addProperty("enhanceDef", bonuses[1]);
+                    slotData.addProperty("enhanceSpd", bonuses[2]);
+                    slotData.addProperty("enhanceSpirit", bonuses[3]);
+                }
                 slots.add(entry.getKey(), slotData);
             }
         }
@@ -533,6 +544,30 @@ public class GameResource {
 
         var result = itemService.unequipItem(playerId, slot);
         return Response.ok(GameMessage.restOk(result.get("message").toString(), null).toString()).build();
+    }
+
+    @POST
+    @Path("/equipment/enhance")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("game.equipment.enhance")
+    public Response enhanceEquipment(String body) {
+        Long userId = getCurrentUserId();
+        int playerId = getPlayerIdByUserId(userId);
+
+        JsonObject json = com.google.gson.JsonParser.parseString(body).getAsJsonObject();
+        String slot = json.has("slot") ? json.get("slot").getAsString() : "";
+
+        if (slot.isEmpty()) {
+            return Response.ok(GameMessage.restError(GameErrorCode.PARAM_MISSING).toString()).build();
+        }
+
+        Map<String, Object> result = enhanceService.enhanceItem(playerId, slot);
+        if (Boolean.TRUE.equals(result.get("success"))) {
+            JsonObject respData = gson.toJsonTree(result).getAsJsonObject();
+            return Response.ok(GameMessage.restOk((String) result.get("message"), respData).toString()).build();
+        }
+        return Response.ok(GameMessage.restError(400, (String) result.get("message")).toString()).build();
     }
 
     @GET

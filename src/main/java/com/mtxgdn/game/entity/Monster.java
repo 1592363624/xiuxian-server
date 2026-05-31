@@ -58,12 +58,12 @@ public class Monster {
     private static final String[] MONSTER_NAMES = {"妖狼", "巨蟒", "魔蛛", "赤虎", "黑熊", "妖鹰", "石魔", "蛇妖", "蝎王", "魅狐", "尸鬼", "蝠妖"};
 
     private static final String[][] COMMON_LOOT = {
-        {"spirit_grass"}, {"iron_ore"}, {"healing_pill"}, {"mana_pill"}, {"spirit_recovery_pill"}
+        {"spirit_grass"}, {"iron_ore"}, {"healing_pill"}, {"mana_pill"}, {"spirit_recovery_pill"}, {"beast_core"}
     };
     private static final String[][] BOSS_LOOT = {
-        {"spirit_grass", "iron_ore", "healing_pill", "mana_pill"},
-        {"cultivation_elixir", "spirit_stone_pouch", "spirit_sword", "guardian_jade"},
-        {"scripture_page", "basic_sword_manual", "power_buff_pill", "speed_talisman"}
+        {"spirit_grass", "iron_ore", "healing_pill", "mana_pill", "beast_core", "enhance_stone"},
+        {"cultivation_elixir", "spirit_stone_pouch", "spirit_sword", "guardian_jade", "protect_charm"},
+        {"scripture_page", "basic_sword_manual", "power_buff_pill", "speed_talisman", "spirit_spring_water", "heavenly_jade"}
     };
 
     public static Monster random(int playerRealm, Random random) {

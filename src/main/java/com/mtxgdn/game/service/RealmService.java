@@ -6,6 +6,7 @@ import com.mtxgdn.game.entity.RealmBreakthroughResult;
 import com.mtxgdn.game.entity.RealmConfig;
 import com.mtxgdn.game.entity.SpiritualRoot;
 
+import java.util.List;
 import java.util.Random;
 
 public class RealmService {
@@ -20,6 +21,20 @@ public class RealmService {
         {"雷劫", "九天神雷", "九天之上雷云翻滚，一道水桶粗的紫色天雷当头劈下！"},
         {"心魔劫", "心魔噬魂", "一股黑气自丹田涌出，眼前浮现过往种种执念，心神剧震..."},
         {"风火劫", "风火炼体", "阴风自脚下升起，三昧真火从天灵灌入，风火交加，肉身几欲崩溃！"},
+        {"水劫", "玄冥弱水", "天空裂开一道缝隙，玄冥弱水倾泻而下，每一滴重逾千斤，欲将你碾为齑粉！"},
+        {"五行劫", "五行颠倒", "金木水火土五行之力同时暴走，天地为之色变，大道规则混乱不堪！"},
+        {"阴阳劫", "阴阳逆转", "黑白两道雷霆交织成太极图，缓缓压下，阴阳逆转之力撕扯灵魂！"},
+        {"轮回劫", "六道轮回", "眼前浮现六道轮回之门，因果业力化作锁链缠身，欲将你拖入轮回深渊！"},
+    };
+
+    private static final int[][] TRIBULATION_REALMS = {
+        {0, 1, 2},  // 雷劫: 凡人->金丹
+        {3, 4},     // 心魔劫: 元婴->化神
+        {2, 3, 4},  // 风火劫: 金丹->化神
+        {3, 4, 5},  // 水劫: 元婴->大乘
+        {4, 5},     // 五行劫: 化神->大乘
+        {5},        // 阴阳劫: 大乘
+        {5},        // 轮回劫: 大乘
     };
 
     public RealmService(PlayerService playerService) {
@@ -81,7 +96,7 @@ public class RealmService {
     private RealmBreakthroughResult executeTribulation(Player player, RealmConfig nextConfig, RealmBreakthroughResult result) {
         result.setHasTribulation(true);
 
-        String[] trib = TRIBULATION_TYPES[random.nextInt(TRIBULATION_TYPES.length)];
+        String[] trib = pickTribulationForRealm(player.getRealm());
         String tribName = trib[0];
         String tribSubtitle = trib[1];
         String tribDesc = trib[2];
@@ -92,6 +107,7 @@ public class RealmService {
         result.addTribulationLog("你开始突破【" + nextConfig.getFullName() + "】...");
         result.addTribulationLog("天地感应，" + tribName + "降临！");
         result.addTribulationLog("——" + tribSubtitle + "——");
+        result.addTribulationLog("【" + tribDesc + "】");
 
         double baseRate = getBaseSuccessRate(player.getRealm());
         result.setBaseSuccessRate(baseRate);
@@ -114,7 +130,16 @@ public class RealmService {
             result.addSuccessRateBreakdown(tribName + "对应属性加成: +" + String.format("%.3f", statBonus * 100) + "%");
         }
 
-        double finalRate = Math.min(95.0, baseRate + spiritBonus + rootBonus + statBonus * 100);
+        double pillBonus = 0;
+        if (itemService.hasItem(player.getId(), "tribulation_pill", 1)) {
+            itemService.removeItem(player.getId(), "tribulation_pill", 1);
+            pillBonus = 10.0;
+            result.addSuccessRateBreakdown("渡劫丹加成: +10%");
+            result.setTribulationItemUsed("tribulation_pill");
+            result.addTribulationLog("你服下渡劫丹，体内灵力暴涨，对抗天劫的把握大增！");
+        }
+
+        double finalRate = Math.min(95.0, baseRate + spiritBonus + rootBonus + statBonus * 100 + pillBonus);
         result.setFinalSuccessRate(finalRate);
 
         int roll = random.nextInt(10000);
@@ -216,8 +241,28 @@ public class RealmService {
             case "雷劫" -> player.getDefense() / 500.0;
             case "心魔劫" -> player.getSpirit() / 400.0;
             case "风火劫" -> player.getSpeed() / 300.0;
+            case "水劫" -> player.getDefense() / 350.0;
+            case "五行劫" -> (player.getAttack() + player.getDefense() + player.getSpirit()) / 1200.0;
+            case "阴阳劫" -> (player.getSpirit() * 2 + player.getDefense()) / 900.0;
+            case "轮回劫" -> player.getSpirit() / 300.0;
             default -> 0;
         };
+    }
+
+    private String[] pickTribulationForRealm(int realm) {
+        List<String[]> available = new java.util.ArrayList<>();
+        for (int i = 0; i < TRIBULATION_TYPES.length; i++) {
+            for (int r : TRIBULATION_REALMS[i]) {
+                if (r == realm) {
+                    available.add(TRIBULATION_TYPES[i]);
+                    break;
+                }
+            }
+        }
+        if (available.isEmpty()) {
+            return TRIBULATION_TYPES[random.nextInt(TRIBULATION_TYPES.length)];
+        }
+        return available.get(random.nextInt(available.size()));
     }
 
     private RealmBreakthroughResult failure(String message) {
