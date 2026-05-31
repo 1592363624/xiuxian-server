@@ -12,13 +12,16 @@
 
 - **灵根系统**：15 种灵根（天/异/双/三/四/杂 6 个等级），创建角色时随机抽取，每种灵根拥有独特属性加成和特殊效果（如暴击率、回血、蓝耗降低、暴击伤害、技能伤害、游历 CD 缩减、修炼效率、坊市手续费减半、灵石掉落、熟练度加成、后期觉醒等）
 - **修炼系统**：挂机修炼，根据境界获得经验倍率加成；修炼中可能触发**心魔**——有概率修为倒退（轻微/中等/严重三种程度，灵力越高越能抵抗）
-- **境界突破**：11 大境界（凡人→炼气→筑基→金丹→元婴→化神→合体→大乘→渡劫→真仙→金仙），每境含初/中/后三期。小境界 100% 成功，大境界突破触发**天劫**（雷劫/心魔劫/风火劫），成功率随境界递减（80%→10%），受灵根等级、灵力属性、天劫对应属性影响，上限 95%；失败则损失 1/3 经验并重伤
+- **境界突破**：11 大境界（凡人→炼气→筑基→金丹→元婴→化神→合体→大乘→渡劫→真仙→金仙），每境含初/中/后三期。小境界 100% 成功，大境界突破触发**天劫**（7 种天劫按境界匹配：雷劫/心魔劫/风火劫/水劫/五行劫/阴阳劫/轮回劫），成功率随境界递减（80%→10%），受灵根等级、灵力属性、天劫对应属性影响，可服用渡劫丹 +10%，上限 95%；失败则损失 1/3 经验并重伤
+- **功法/心法系统**：11 种内功心法（4 种类型：攻击/防御/修炼/辅助），可学习/装备/升级，最多同时运转 3 门，每级属性 +12%，装备即获被动加成（HP/MP/攻/防/速/灵力/修炼速度/经验/伤害/减伤）
+- **制造系统**：炼丹和炼器，11 种配方（丹药/装备/消耗品），最多 3 种材料，成功率 + 失败安慰经验，可制造回血丹、回蓝丹、培元丹、灵剑、强化石、渡劫丹等
+- **装备强化**：穿戴装备可强化至 +15，成功率逐级递减（95%→3%），+5 以上可能降级或碎装备，强化增加攻击/防御/速度/灵力加成
 - **天象系统**：全服每日随机天象（紫气东来/星辰耀天/血月当空/灵潮涌动/枯荣交替/万籁俱寂），影响修炼/游历/战斗/灵石掉落倍率
 - **晨修·紫气东来**：每日一次的修炼收益加成，连续天数越多紫气越精纯
 - **今日机缘**：嵌入游戏行为的每日目标（游历3次/PvP1次/秘境1次/学技能1次），完成后当场发放奖励，无需手动领取
 - **灵根共鸣**：连续活跃 7 天和 30 天时触发，永久提升属性
 - **游历探索**：随机事件系统，权重抽奖机制，巽风灵根可缩减冷却时间
-- **秘境探索**：6 个秘境区域，随机遭遇宝藏/妖兽/灵草/陷阱/古修/遗迹等事件
+- **秘境探索**：8 个秘境区域，随机遭遇宝藏/妖兽/Boss/灵草/陷阱/古修/遗迹等事件
 - **坊市交易**：玩家间物品交易，使用灵石结算，5% 手续费（土金灵根减半），挂单/购买/撤单完整流程
 - **物品系统**：7 种类型、6 种稀有度，组件化效果（经验/回血/货币/buff/技能书），支持按中文名称/key 使用物品
 - **技能系统**：攻击技能和辅助技能，熟练度升级（使用获得熟练度，技能书 +1 级），等级越高蓝耗越大，金水木灵根熟练度 +30%
@@ -93,9 +96,11 @@ src/main/java/com/mtxgdn/
 │   │   ├── RealmBreakthroughResult.java
 │   │   ├── RealmConfig.java
 │   │   ├── RealmConfigFile.java
+│   │   ├── Recipe.java               # 制造配方实体
 │   │   ├── SecretRealmResult.java
 │   │   ├── Skill.java
-│   │   └── SpiritualRoot.java
+│   │   ├── SpiritualRoot.java
+│   │   └── Technique.java            # 功法实体
 │   ├── explorationevent/           # 游历事件系统
 │   │   ├── ExplorationEvent.java       # 事件抽象基类
 │   │   ├── ExplorationEventRegistry.java  # 事件注册中心
@@ -119,7 +124,9 @@ src/main/java/com/mtxgdn/
 │   │   └── SecretRealmScanner.java
 │   └── service/                    # 游戏服务层
 │       ├── CombatService.java      # 战斗系统（含灵根特效）
+│       ├── CraftingService.java    # 制造系统（炼丹/炼器）
 │       ├── DailyService.java       # 每日系统（晨修/机缘/天象/灵根共鸣）
+│       ├── EnhanceService.java     # 装备强化系统
 │       ├── ExplorationService.java # 游历探索（含灵根 CD 缩减）
 │       ├── HeartDemonService.java  # 心魔系统
 │       ├── ItemService.java        # 物品管理
@@ -129,6 +136,7 @@ src/main/java/com/mtxgdn/
 │       ├── RealmService.java       # 境界突破（含天劫）
 │       ├── SecretRealmService.java # 秘境探索
 │       ├── SkillService.java       # 技能管理（含熟练度/灵根加成）
+│       ├── TechniqueService.java   # 功法/心法系统
 │       └── TradeService.java       # 坊市交易
 │
 ├── minecraft/
@@ -173,43 +181,54 @@ src/main/java/com/mtxgdn/
     └── GameWebSocketApp.java       # WebSocket 游戏服务
 
 src/main/java/data/mtxgdn/          # 游戏数据定义
-├── explorationevent/               # 7 种游历事件实体
+├── explorationevent/               # 10 种游历事件实体
 │   ├── CultivatorEvent.java
 │   ├── HerbEvent.java
+│   ├── MerchantEvent.java
 │   ├── MonsterEvent.java
 │   ├── NothingEvent.java
 │   ├── RuinsEvent.java
+│   ├── SpiritSpringEvent.java
+│   ├── StrangeTowerEvent.java
 │   ├── TrapEvent.java
 │   └── TreasureEvent.java
-├── item/                           # 20 种物品实体
+├── item/                           # 28 种物品实体
 │   ├── BasicSwordManual.java
+│   ├── BeastCore.java
 │   ├── CultivationElixir.java
 │   ├── DragonBloodCrystal.java
+│   ├── EnhanceStone.java
 │   ├── FireDragonArt.java
 │   ├── GoldBag.java
 │   ├── GuardianJade.java
 │   ├── HealingPill.java
+│   ├── HeavenlyJade.java
 │   ├── HeavenPill.java
 │   ├── IronOre.java
 │   ├── JadeArmor.java
 │   ├── ManaPill.java
 │   ├── PowerBuffPill.java
+│   ├── ProtectCharm.java
 │   ├── ScripturePage.java
 │   ├── SpeedTalisman.java
 │   ├── SpiritGrass.java
 │   ├── SpiritRecoveryPill.java
+│   ├── SpiritSpringWater.java
 │   ├── SpiritStone.java
 │   ├── SpiritStonePouch.java
 │   ├── SpiritSword.java
-│   └── ThunderBoltTalisman.java
+│   ├── ThunderBoltTalisman.java
+│   └── TribulationPill.java
 ├── lang/                           # 多语言翻译文件
 │   └── zh_cn.json                  # 简体中文翻译（物品/秘境/事件/系统消息）
-└── secretrealm/                    # 6 个秘境区域
+└── secretrealm/                    # 8 个秘境区域
     ├── AncientBattlefield.java
     ├── AncientRuins.java
     ├── BeastMountain.java
     ├── DarkForest.java
     ├── ImmortalCave.java
+    ├── NineHeavensPlatform.java
+    ├── ThunderValley.java
     └── WildGrassland.java
 ```
 
@@ -331,6 +350,15 @@ java -jar target/main-V0.0.0-alpha.jar
 | GET | `/api/game/equipment` | `game.inventory.view` | 查看已装备 |
 | POST | `/api/game/equipment/equip` | `game.equipment.equip` | 装备物品 |
 | POST | `/api/game/equipment/unequip` | `game.equipment.equip` | 卸下装备 |
+| POST | `/api/game/equipment/enhance` | `game.equipment.enhance` | 装备强化 |
+| GET | `/api/game/techniques` | `game.technique.learn` | 功法列表 |
+| GET | `/api/game/technique/my` | `game.technique.learn` | 我的功法 |
+| POST | `/api/game/technique/learn` | `game.technique.learn` | 学习功法 |
+| POST | `/api/game/technique/equip` | `game.technique.equip` | 装备功法 |
+| POST | `/api/game/technique/unequip` | `game.technique.equip` | 卸下功法 |
+| POST | `/api/game/technique/upgrade` | `game.technique.upgrade` | 升级功法 |
+| GET | `/api/game/crafting/recipes` | `game.crafting.recipes` | 查看配方（?category=PILL） |
+| POST | `/api/game/crafting/craft` | `game.crafting.craft` | 制造物品 |
 | GET | `/api/game/spiritual_roots` | `game.player.info` | 灵根图鉴 |
 | POST | `/api/game/daily/morning_cultivation` | `game.daily` | 晨修 |
 | GET | `/api/game/daily` | `game.daily` | 今日天象与机缘进度 |
@@ -386,7 +414,7 @@ java -jar target/main-V0.0.0-alpha.jar
 
 | 分类 | 前缀 | 数量 | 示例 |
 |------|------|------|------|
-| 游戏功能 | `game.*` | 20+ | `game.cultivate`, `game.explore`, `game.market.list` |
+| 游戏功能 | `game.*` | 25+ | `game.cultivate`, `game.explore`, `game.technique.learn`, `game.crafting.craft`, `game.equipment.enhance` |
 | QQ 指令 | `qq.*` | 5 | `qq.bind`, `qq.command.admin` |
 | 管理后台 | `admin.*` | 8 | `admin.shutdown`, `admin.database.reset_all` |
 
@@ -436,6 +464,15 @@ java -jar target/main-V0.0.0-alpha.jar
 | `secret_realm_areas` | 查看可用秘境 |
 | `secret_realm_enter` | 进入秘境 |
 | `exploration` | 游历探索 |
+| `techniques` | 功法列表 |
+| `my_techniques` | 我的功法 |
+| `technique_learn` | 学习功法 |
+| `technique_equip` | 装备功法 |
+| `technique_unequip` | 卸下功法 |
+| `technique_upgrade` | 升级功法 |
+| `crafting_recipes` | 查看配方（可选 category） |
+| `crafting_craft` | 制造物品 |
+| `equipment_enhance` | 装备强化 |
 
 ---
 
@@ -472,6 +509,15 @@ java -jar target/main-V0.0.0-alpha.jar
 | `/equip <物品名称> <部位>` / `/装备` | 装备物品（部位：weapon/armor/accessory） |
 | `/unequip <部位>` / `/卸下` | 卸下装备 |
 | `/equipped` / `/已装备` | 查看已装备的物品 |
+| `/techniques` / `/功法` | 查看功法列表 |
+| `/mytechniques` / `/我的功法` | 查看已学习功法 |
+| `/learn_tech <功法ID>` / `/学功法` | 学习功法 |
+| `/equiptech <功法ID>` / `/装功法` | 装备功法 |
+| `/unequiptech <功法ID>` / `/卸功法` | 卸下功法 |
+| `/upgradetech <功法ID>` / `/升功法` | 升级功法 |
+| `/recipes [类型]` / `/配方` | 查看制造配方 |
+| `/craft <配方ID>` / `/制造` | 制造物品 |
+| `/enhance <部位>` / `/强化` | 强化装备（部位：weapon/armor/accessory） |
 | `/cleardb_players` / `/清除玩家数据` | 清除所有玩家数据（SUPER_ADMIN，仅私聊） |
 | `/cleardb_all` / `/重置全部数据` | 重置全部数据并重新初始化（SUPER_ADMIN，仅私聊） |
 
@@ -556,7 +602,7 @@ logging:
 
 **小境界**（同一大境界内）：100% 成功，无天劫。
 
-**大境界突破**：触发随机天劫（雷劫/心魔劫/风火劫）。
+**大境界突破**：触发天劫（7 种，按境界匹配：雷劫/心魔劫/风火劫/水劫/五行劫/阴阳劫/轮回劫）。
 
 | 突破 | 基础成功率 |
 |------|:--:|
@@ -570,7 +616,7 @@ logging:
 | 大乘 → 渡劫 | 15% |
 | 渡劫 → 真仙 | 10% |
 
-**成功率修正**：天灵根 +15% | 异灵根 +10% | 双灵根 +5% | 灵力每 50 点 +1%（上限 15%） | 天劫对应属性加成 | 最终上限 95%
+**成功率修正**：天灵根 +15% | 异灵根 +10% | 双灵根 +5% | 灵力每 50 点 +1%（上限 15%） | 天劫对应属性加成 | 渡劫丹 +10% | 最终上限 95%
 
 **失败惩罚**：扣除该境界 1/3 经验 + HP 降为 1（混沌灵根失败也小幅成长）
 
@@ -655,7 +701,9 @@ logging:
 | 荒野草原 | 凡人 | 草原霸主·奔雷兽 | 雷光闪烁，刀枪不入 |
 | 暗黑森林 | 炼气 | 暗影领主·噬魂蛛皇 | 毒液腐蚀护体灵气 |
 | 百兽山脉 | 筑基 | 兽王·金翼裂天雕 | 翅展遮天，爪裂金石 |
+| 雷渊谷 | 金丹 | 雷渊守护者·雷霆巨蟒 | 万雷淬体，电光如龙 |
 | 古修遗迹 | 金丹 | 遗迹守卫·青铜巨像 | 拳风摧山岳 |
+| 九霄台 | 元婴 | 九霄试炼官·天罡战神 | 九天之力，镇压苍穹 |
 | 古战场 | 元婴 | 战场英魂·不灭战将 | 战意不灭，杀伐冲天 |
 | 仙人洞府 | 化神 | 洞府守护灵·九霄剑魂 | 剑意化形，一剑光寒 |
 
@@ -740,8 +788,11 @@ Boss 拥有 3 倍以上属性，更高掉落率和更丰富的稀有物品掉落
 | `verification_codes` | 邮箱验证码 |
 | `players` | 玩家角色（属性、境界、修炼状态、灵根、引导进度、离线时间） |
 | `players_items` | 玩家背包物品（物品 key + 数量） |
-| `players_equipment` | 玩家装备槽位（weapon/armor/accessory） |
+| `players_equipment` | 玩家装备槽位（weapon/armor/accessory，含 enhance_level 强化等级） |
 | `players_skills` | 玩家技能（等级、熟练度） |
+| `players_techniques` | 玩家功法（功法 ID、等级、熟练度、是否装备） |
+| `techniques` | 功法定义（名称、类型、属性加成、最大等级等） |
+| `recipes` | 制造配方（名称、分类、材料、产出、成功率等） |
 | `skills` | 技能定义（名称、伤害、蓝耗、境界要求等） |
 | `trade_listings` | 坊市挂单（卖家、物品、数量、价格、状态） |
 | `player_daily` | 每日数据（晨修时间、机缘进度、活跃天数） |
