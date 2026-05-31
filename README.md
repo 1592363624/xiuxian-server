@@ -29,6 +29,7 @@
 - **聊天系统**：世界频道（全服广播）+ 私聊（点对点消息），消息持久化存储，WebSocket 实时推送
 - **排行榜**：境界榜/战力榜/财富榜，支持 REST/WebSocket/QQ 三种方式查看
 - **好友系统**：好友申请/接受/删除/列表，双向确认机制，支持跨端操作
+- **重伤疗伤**：战败重伤（HP≤0）后可用灵石瞬间疗伤（境界越高花费越多）+ 法力一并恢复；也可服用回血丹等消耗品回复；离线自然恢复兜底
 - **PVP 对战**：回合制玩家对战，支持技能施放、暴击、灵根特效（回血/增伤/减伤/暴击/MP减免等）
 - **PVE 战斗**：游历和秘境中随机遭遇妖兽，完整回合制战斗（技能、暴击、灵根特效全生效）；秘境含 Boss 战，各秘境专属守护者
 - **离线收益**：断线后修炼继续进行（50% 效率，上限 8 小时），上线时自动结算经验、HP/MP 恢复，心魔判定降频
@@ -344,6 +345,7 @@ java -jar target/main-V0.0.0-alpha.jar
 | POST | `/api/game/cultivate/start` | `game.cultivate` | 开始修炼 |
 | POST | `/api/game/cultivate/stop` | `game.cultivate` | 停止修炼（含心魔判定） |
 | POST | `/api/game/exploration` | `game.explore` | 游历探索 |
+| POST | `/api/game/heal` | `game.player.info` | 灵石疗伤（HP≤0可用，境界越高花费越多） |
 | GET | `/api/game/secret_realm/areas` | `game.secret_realm` | 查看可用秘境 |
 | POST | `/api/game/secret_realm/enter` | `game.secret_realm` | 进入秘境 |
 | GET | `/api/game/inventory` | `game.inventory.view` | 查看背包 |
@@ -483,6 +485,7 @@ java -jar target/main-V0.0.0-alpha.jar
 | `secret_realm_areas` | 查看可用秘境 |
 | `secret_realm_enter` | 进入秘境 |
 | `exploration` | 游历探索 |
+| `heal` | 灵石疗伤 |
 | `techniques` | 功法列表 |
 | `my_techniques` | 我的功法 |
 | `technique_learn` | 学习功法 |
@@ -543,6 +546,7 @@ java -jar target/main-V0.0.0-alpha.jar
 | `/recipes [类型]` / `/配方` | 查看制造配方 |
 | `/craft <配方ID>` / `/制造` | 制造物品 |
 | `/enhance <部位>` / `/强化` | 强化装备（部位：weapon/armor/accessory） |
+| `/heal` / `/疗伤` | 灵石疗伤（消耗灵石瞬间回满HP+MP，境界越高花费越多） |
 | `/msg <玩家名> <内容>` / `/私聊` | 发送私聊消息给指定玩家 |
 | `/rank [类型]` / `/排行` / `/排行榜` | 查看排行榜（realm/power/wealth） |
 | `/好友 <add\|accept\|remove\|list>` | 好友管理（添加/接受/删除/列表） |

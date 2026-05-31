@@ -214,6 +214,10 @@ public class GameWebSocketApp extends WebSocketApplication {
                 if (!checkWsPermission(socket, msgId, userId, "game.friend.manage")) break;
                 handleFriendPending(socket, msgId, userId);
                 break;
+            case "heal":
+                if (!checkWsPermission(socket, msgId, userId, "game.player.info")) break;
+                handleHeal(socket, msgId, userId);
+                break;
             case "player_info":
                 if (!checkWsPermission(socket, msgId, userId, "game.player.info")) break;
                 handlePlayerInfo(socket, msgId, userId);
@@ -567,6 +571,21 @@ public class GameWebSocketApp extends WebSocketApplication {
         JsonObject respData = new JsonObject();
         respData.add("requests", arr);
         socket.send(GameMessage.ok(msgId, "friend_pending", respData).toJson());
+    }
+
+    private void handleHeal(WebSocket socket, long msgId, Long userId) {
+        PlayerInfo player = playerService.getPlayerByUserId(userId);
+        if (player == null) {
+            socket.send(GameMessage.error(msgId, "heal", GameErrorCode.PLAYER_NOT_FOUND).toJson());
+            return;
+        }
+        Map<String, Object> result = playerService.healPlayer(player.getId());
+        if (Boolean.TRUE.equals(result.get("success"))) {
+            JsonObject data = gson.toJsonTree(result).getAsJsonObject();
+            socket.send(GameMessage.ok(msgId, "heal", (String) result.get("message"), data).toJson());
+        } else {
+            socket.send(GameMessage.error(msgId, "heal", 400, (String) result.get("message")).toJson());
+        }
     }
 
     private boolean checkWsPermission(WebSocket socket, long msgId, Long userId, String permission) {

@@ -12,7 +12,9 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 public class PlayerService {
 
@@ -225,6 +227,58 @@ public class PlayerService {
         } catch (SQLException e) {
             throw new RuntimeException("恢复生命值失败", e);
         }
+    }
+
+    public Map<String, Object> healPlayer(long playerId) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        Player player = getPlayerById(playerId);
+        if (player == null) {
+            result.put("success", false);
+            result.put("message", "角色不存在");
+            return result;
+        }
+        if (player.getHp() >= player.getMaxHp()) {
+            result.put("success", true);
+            result.put("message", "你的生命值已满，无需治疗。");
+            return result;
+        }
+
+        long cost = (player.getRealm() + 1) * 50L;
+        ItemService itemService = new ItemService();
+        long currentStones = itemService.getSpiritStoneCount(playerId);
+
+        if (currentStones < cost) {
+            result.put("success", false);
+            result.put("message", "灵石不足！疗伤需要 " + cost + " 灵石，你只有 " + currentStones + " 灵石。\n"
+                    + "你可以服用回血丹回复生命，或等待自然恢复。");
+            result.put("cost", cost);
+            result.put("currentStones", currentStones);
+            return result;
+        }
+
+        boolean removed = itemService.removeSpiritStones(playerId, cost);
+        if (!removed) {
+            result.put("success", false);
+            result.put("message", "扣除灵石失败，请重试。");
+            return result;
+        }
+
+        int hpBefore = player.getHp();
+        String sql = "UPDATE players SET hp = max_hp, mp = max_mp WHERE id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, playerId);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new RuntimeException("疗伤失败", e);
+        }
+
+        result.put("success", true);
+        result.put("hpBefore", hpBefore);
+        result.put("hpAfter", player.getMaxHp());
+        result.put("cost", cost);
+        result.put("message", "消耗 " + cost + " 灵石，伤势痊愈！\n生命值: " + hpBefore + " → " + player.getMaxHp() + "（法力也一并恢复）");
+        return result;
     }
 
     public void addMp(long playerId, int amount) {

@@ -297,6 +297,10 @@ public class OneBotWebSocketServer extends WebSocketApplication {
                 handleFriendCmd(socket, selfId, senderQq, arg, null);
                 break;
 
+            case "heal", "疗伤":
+                handleHealCmd(socket, selfId, senderQq, null);
+                break;
+
             case "cleardb_players", "清除玩家数据":
                 handleClearPlayersDb(socket, selfId, senderQq, null);
                 break;
@@ -417,6 +421,9 @@ public class OneBotWebSocketServer extends WebSocketApplication {
                 break;
             case "friend", "好友":
                 handleFriendCmd(socket, selfId, senderQq, arg, groupId);
+                break;
+            case "heal", "疗伤":
+                handleHealCmd(socket, selfId, senderQq, groupId);
                 break;
         }
     }
@@ -1829,6 +1836,25 @@ public class OneBotWebSocketServer extends WebSocketApplication {
         sb.append("共 ").append(friends.size()).append(" 位好友");
 
         sendReply(socket, selfId, senderQq, groupId, sb.toString());
+    }
+
+    // ==================== 疗伤指令 ====================
+
+    private void handleHealCmd(WebSocket socket, String selfId, String senderQq, Long groupId) {
+        Long userId = requireBinding(socket, selfId, senderQq, groupId);
+        if (userId == null) return;
+
+        PlayerInfo p = requirePlayer(socket, selfId, senderQq, userId, groupId);
+        if (p == null) return;
+
+        if (p.getHp() >= p.getMaxHp()) {
+            sendReply(socket, selfId, senderQq, groupId, "你的生命值已满，无需治疗。");
+            return;
+        }
+
+        Map<String, Object> result = playerService.healPlayer(p.getId());
+        String msg = (String) result.getOrDefault("message", "疗伤失败");
+        sendReply(socket, selfId, senderQq, groupId, msg);
     }
 
     // ==================== API 发送 ====================

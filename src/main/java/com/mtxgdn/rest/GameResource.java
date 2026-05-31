@@ -379,6 +379,26 @@ public class GameResource {
         return Response.ok(GameMessage.restOk(expResult.getMessage(), data).toString()).build();
     }
 
+    @POST
+    @Path("/heal")
+    @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("game.player.info")
+    public Response healPlayer() {
+        Long userId = getCurrentUserId();
+        PlayerInfo player = playerService.getPlayerByUserId(userId);
+        if (player == null) {
+            return Response.ok(GameMessage.restError(GameErrorCode.PLAYER_NOT_FOUND).toString()).build();
+        }
+        Map<String, Object> result = playerService.healPlayer(player.getId());
+        JsonObject data = gson.toJsonTree(result).getAsJsonObject();
+        boolean success = (boolean) result.getOrDefault("success", false);
+        if (success) {
+            return Response.ok(GameMessage.restOk((String) result.get("message"), data).toString()).build();
+        } else {
+            return Response.ok(GameMessage.restError(400, (String) result.get("message")).toString()).build();
+        }
+    }
+
     @GET
     @Path("/item/registry")
     @Produces(MediaType.APPLICATION_JSON)
