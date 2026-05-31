@@ -1120,15 +1120,16 @@ public class GameWebSocketApp extends WebSocketApplication {
 
     public void shutdownGracefully() {
         try {
-            for (WebSocket socket : authenticated.keySet()) {
+            var sockets = new java.util.ArrayList<>(authenticated.keySet());
+            authenticated.clear();
+            sessionUsers.clear();
+            userSessions.clear();
+            for (WebSocket socket : sockets) {
                 try {
                     socket.close(1001, "服务器关闭");
                 } catch (Exception ignore) {
                 }
             }
-            authenticated.clear();
-            sessionUsers.clear();
-            userSessions.clear();
         } catch (Exception e) {
             System.err.println("WebSocket 优雅关闭失败: " + e.getMessage());
         }
