@@ -400,6 +400,72 @@ public class PlayerService {
         return 0;
     }
 
+    public List<PlayerInfo> getTopByRealm(int limit) {
+        String sql = "SELECT * FROM players ORDER BY realm DESC, experience DESC LIMIT ?";
+        return queryPlayerInfoList(sql, limit);
+    }
+
+    public List<PlayerInfo> getTopByPower(int limit) {
+        String sql = "SELECT * FROM players ORDER BY (attack + defense + speed + max_hp) DESC LIMIT ?";
+        return queryPlayerInfoList(sql, limit);
+    }
+
+    public List<PlayerInfo> getTopByWealth(int limit) {
+        String sql = """
+            SELECT p.*, COALESCE(SUM(CASE WHEN pi.item_key = 'spirit_stone' THEN pi.quantity ELSE 0 END), 0) AS spirit_stones
+            FROM players p
+            LEFT JOIN players_items pi ON p.id = pi.player_id
+            GROUP BY p.id
+            ORDER BY (p.gold + COALESCE(SUM(CASE WHEN pi.item_key = 'spirit_stone' THEN pi.quantity ELSE 0 END), 0)) DESC
+            LIMIT ?
+            """;
+        List<PlayerInfo> players = new ArrayList<>();
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, limit);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    players.add(mapPlayerInfo(rs));
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("获取财富榜失败", e);
+        }
+        return players;
+    }
+
+    public PlayerInfo getPlayerInfoById(long playerId) {
+        String sql = "SELECT * FROM players WHERE id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, playerId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return mapPlayerInfo(rs);
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("获取玩家信息失败", e);
+        }
+        return null;
+    }
+
+    private List<PlayerInfo> queryPlayerInfoList(String sql, int limit) {
+        List<PlayerInfo> players = new ArrayList<>();
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, limit);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    players.add(mapPlayerInfo(rs));
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("查询玩家列表失败", e);
+        }
+        return players;
+    }
+
     private PlayerInfo mapPlayerInfo(ResultSet rs) throws SQLException {
         PlayerInfo pi = new PlayerInfo();
         pi.setId(rs.getLong("id"));

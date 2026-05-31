@@ -315,6 +315,27 @@ public class DatabaseManager {
                 "UNIQUE (user_id, role_name)" +
                 ")";
 
+        String chatMessagesTableSql = "CREATE TABLE IF NOT EXISTS chat_messages (" +
+                "id " + pk + ", " +
+                "channel VARCHAR(16) NOT NULL DEFAULT 'world', " +
+                "sender_player_id BIGINT NOT NULL, " +
+                "receiver_player_id BIGINT DEFAULT NULL, " +
+                "content VARCHAR(1024) NOT NULL, " +
+                "created_at " + tsDefault +
+                (IS_SQLITE ? "" : ", INDEX idx_chat_channel (channel), INDEX idx_chat_receiver (receiver_player_id)") +
+                ")";
+
+        String friendsTableSql = "CREATE TABLE IF NOT EXISTS friends (" +
+                "id " + pk + ", " +
+                "player_id BIGINT NOT NULL, " +
+                "friend_player_id BIGINT NOT NULL, " +
+                "status VARCHAR(16) NOT NULL DEFAULT 'pending', " +
+                "created_at " + tsDefault + ", " +
+                "updated_at " + tsUpdate + ", " +
+                (IS_SQLITE ? "" : "FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE, FOREIGN KEY (friend_player_id) REFERENCES players(id) ON DELETE CASCADE, ") +
+                "UNIQUE (player_id, friend_player_id)" +
+                ")";
+
         try (Connection conn = getConnection();
              Statement stmt = conn.createStatement()) {
             stmt.execute(userTableSql);
@@ -334,6 +355,8 @@ public class DatabaseManager {
             stmt.execute(permissionsTableSql);
             stmt.execute(rolePermissionsTableSql);
             stmt.execute(userRolesTableSql);
+            stmt.execute(chatMessagesTableSql);
+            stmt.execute(friendsTableSql);
         } catch (SQLException e) {
             throw new RuntimeException("创建数据库表失败", e);
         }
@@ -368,6 +391,8 @@ public class DatabaseManager {
             int pe = stmt.executeUpdate("DELETE FROM players_equipment");
             int pd = stmt.executeUpdate("DELETE FROM player_daily");
             int tl = stmt.executeUpdate("DELETE FROM trade_listings");
+            int cm = stmt.executeUpdate("DELETE FROM chat_messages");
+            int fr = stmt.executeUpdate("DELETE FROM friends");
             int pl = stmt.executeUpdate("DELETE FROM players");
             if (!IS_SQLITE) {
                 stmt.execute("SET FOREIGN_KEY_CHECKS = 1");
@@ -379,6 +404,8 @@ public class DatabaseManager {
             result.put("players_equipment", pe);
             result.put("player_daily", pd);
             result.put("trade_listings", tl);
+            result.put("chat_messages", cm);
+            result.put("friends", fr);
             result.put("players", pl);
         } catch (SQLException e) {
             throw new RuntimeException("清除玩家数据失败", e);
@@ -401,6 +428,8 @@ public class DatabaseManager {
             int pe = stmt.executeUpdate("DELETE FROM players_equipment");
             int pd = stmt.executeUpdate("DELETE FROM player_daily");
             int tl = stmt.executeUpdate("DELETE FROM trade_listings");
+            int cm = stmt.executeUpdate("DELETE FROM chat_messages");
+            int fr = stmt.executeUpdate("DELETE FROM friends");
             int pl = stmt.executeUpdate("DELETE FROM players");
             int qb = stmt.executeUpdate("DELETE FROM qq_bindings");
             int ur = stmt.executeUpdate("DELETE FROM user_roles");
@@ -418,6 +447,8 @@ public class DatabaseManager {
             result.put("players_equipment", pe);
             result.put("player_daily", pd);
             result.put("trade_listings", tl);
+            result.put("chat_messages", cm);
+            result.put("friends", fr);
             result.put("players", pl);
             result.put("qq_bindings", qb);
             result.put("user_roles", ur);

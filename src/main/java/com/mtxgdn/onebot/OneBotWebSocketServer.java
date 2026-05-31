@@ -7,6 +7,8 @@ import com.mtxgdn.game.entity.ExplorationResult;
 import com.mtxgdn.game.entity.PlayerInfo;
 import com.mtxgdn.game.entity.RealmBreakthroughResult;
 import com.mtxgdn.game.entity.SecretRealmResult;
+import com.mtxgdn.game.entity.Friend;
+import com.mtxgdn.game.entity.ChatMessage;
 import com.mtxgdn.game.entity.Skill;
 import com.mtxgdn.game.config.GameConfigLoader;
 import com.mtxgdn.game.item.Item;
@@ -23,6 +25,8 @@ import com.mtxgdn.game.service.RealmService;
 import com.mtxgdn.game.service.SecretRealmService;
 import com.mtxgdn.game.service.SkillService;
 import com.mtxgdn.game.service.TradeService;
+import com.mtxgdn.game.service.ChatService;
+import com.mtxgdn.game.service.FriendService;
 import com.mtxgdn.permission.PermissionService;
 import com.mtxgdn.util.GameLogger;
 import com.mtxgdn.util.LangManager;
@@ -62,6 +66,8 @@ public class OneBotWebSocketServer extends WebSocketApplication {
     private static final DailyService dailyService = new DailyService();
     private static final TradeService tradeService = new TradeService();
     private static final HeartDemonService heartDemonService = new HeartDemonService();
+    private static final ChatService chatService = new ChatService();
+    private static final FriendService friendService = new FriendService();
 
     private final Map<WebSocket, String> sessionBots = new ConcurrentHashMap<>();
     private final Map<String, WebSocket> botSessions = new ConcurrentHashMap<>();
@@ -280,6 +286,17 @@ public class OneBotWebSocketServer extends WebSocketApplication {
                 handleDaily(socket, selfId, senderQq, null);
                 break;
 
+            case "msg", "私聊":
+                handlePrivateMessageCmd(socket, selfId, senderQq, arg, null);
+                break;
+            case "rank", "排行":
+            case "rank2", "排行榜":
+                handleRankCmd(socket, selfId, senderQq, arg, null);
+                break;
+            case "friend", "好友":
+                handleFriendCmd(socket, selfId, senderQq, arg, null);
+                break;
+
             case "cleardb_players", "清除玩家数据":
                 handleClearPlayersDb(socket, selfId, senderQq, null);
                 break;
@@ -390,6 +407,13 @@ public class OneBotWebSocketServer extends WebSocketApplication {
                 break;
             case "daily", "天象":
                 handleDaily(socket, selfId, senderQq, groupId);
+                break;
+            case "msg", "私聊":
+            case "rank", "排行":
+            case "rank2", "排行榜":
+            case "friend", "好友":
+                sendGroupMsg(socket, selfId, groupId,
+                        "[CQ:at,qq=" + senderQq + "] 此指令请私聊使用。");
                 break;
         }
     }
@@ -1584,6 +1608,224 @@ public class OneBotWebSocketServer extends WebSocketApplication {
             throw new RuntimeException("用户插入失败", e);
         }
         return null;
+    }
+
+    // ==================== 聊天指令 ====================
+
+    private void handlePrivateMessageCmd(WebSocket socket, String selfId, String senderQq, String arg, Long groupId) {
+        Long userId = requireBinding(socket, selfId, senderQq, groupId);
+        if (userId == null) return;
+        if (!checkQqPermission(socket, selfId, senderQq, groupId, "game.chat.private")) return;
+
+        PlayerInfo p = requirePlayer(socket, selfId, senderQq, userId, groupId);
+        if (p == null) return;
+
+        String[] parts = arg.split("\\s+", 2);
+        if (parts.length < 2 || parts[0].isBlank() || parts[1].isBlank()) {
+            sendReply(socket, selfId, senderQq, groupId, "用法: /msg <玩家名> <消息内容>\n或 /私聊 <玩家名> <消息内容>");
+            return;
+        }
+
+        String targetName = parts[0].trim();
+        String content = parts[1].trim();
+
+        List<PlayerInfo> targets = playerService.searchPlayersByName(targetName, 1, 0);
+        if (targets.isEmpty()) {
+            sendReply(socket, selfId, senderQq, groupId, "找不到玩家: " + targetName);
+            return;
+        }
+        PlayerInfo target = targets.get(0);
+
+        if (target.getId() == p.getId()) {
+            sendReply(socket, selfId, senderQq, groupId, "不能给自己发私聊消息。");
+            return;
+        }
+
+        ChatMessage msg = chatService.sendPrivateMessage(p.getId(), p.getName(), target.getId(), content);
+        actionLog.logChat(userId, p.getName(), "[私聊→" + target.getName() + "] " + content);
+        sendReply(socket, selfId, senderQq, groupId, "私聊消息已发送给 " + target.getName());
+    }
+
+    // ==================== 排行榜指令 ====================
+
+    private void handleRankCmd(WebSocket socket, String selfId, String senderQq, String arg, Long groupId) {
+        Long userId = requireBinding(socket, selfId, senderQq, groupId);
+        if (userId == null) return;
+        if (!checkQqPermission(socket, selfId, senderQq, groupId, "game.rank.view")) return;
+
+        String type = arg.trim().toLowerCase();
+        List<PlayerInfo> players;
+        String title;
+        switch (type) {
+            case "power", "战力":
+                players = playerService.getTopByPower(10);
+                title = "战力排行榜";
+                break;
+            case "wealth", "财富":
+                players = playerService.getTopByWealth(10);
+                title = "财富排行榜";
+                break;
+            default:
+                players = playerService.getTopByRealm(10);
+                title = "境界排行榜";
+                break;
+        }
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("===== ").append(title).append(" =====\n");
+        sb.append("排名  玩家              境界\n");
+
+        int rank = 1;
+        for (PlayerInfo p : players) {
+            String realmName = p.getRealmName() != null ? p.getRealmName() : "凡人";
+            String name = p.getName();
+            if (name.length() < 8) {
+                name = name + "                ".substring(0, 8 - name.length());
+            }
+            sb.append(String.format("%-5d %-18s %s\n", rank++, name, realmName));
+        }
+
+        if (type.equals("power")) {
+            sb.append("\n---\n");
+            sb.append("战力 = 攻击 + 防御 + 速度 + 生命上限");
+        } else if (type.equals("wealth")) {
+            sb.append("\n---\n");
+            sb.append("财富 = 金币 + 灵石");
+        }
+
+        sendReply(socket, selfId, senderQq, groupId, sb.toString());
+    }
+
+    // ==================== 好友指令 ====================
+
+    private void handleFriendCmd(WebSocket socket, String selfId, String senderQq, String arg, Long groupId) {
+        Long userId = requireBinding(socket, selfId, senderQq, groupId);
+        if (userId == null) return;
+        if (!checkQqPermission(socket, selfId, senderQq, groupId, "game.friend.manage")) return;
+
+        PlayerInfo p = requirePlayer(socket, selfId, senderQq, userId, groupId);
+        if (p == null) return;
+
+        String[] parts = arg.split("\\s+", 2);
+        String subCmd = parts.length > 0 ? parts[0].trim().toLowerCase() : "";
+        String subArg = parts.length > 1 ? parts[1].trim() : "";
+
+        switch (subCmd) {
+            case "add", "添加":
+                handleFriendAddCmd(socket, selfId, senderQq, groupId, p, subArg);
+                break;
+            case "accept", "接受":
+                handleFriendAcceptCmd(socket, selfId, senderQq, groupId, p, subArg);
+                break;
+            case "remove", "删除":
+                handleFriendRemoveCmd(socket, selfId, senderQq, groupId, p, subArg);
+                break;
+            case "list", "列表":
+                handleFriendListCmd(socket, selfId, senderQq, groupId, p);
+                break;
+            default:
+                sendReply(socket, selfId, senderQq, groupId,
+                        "用法:\n" +
+                        "/好友 add <玩家名>   发送好友申请\n" +
+                        "/好友 accept <玩家名> 接受好友申请\n" +
+                        "/好友 remove <玩家名> 删除好友\n" +
+                        "/好友 list           查看好友列表");
+                break;
+        }
+    }
+
+    private void handleFriendAddCmd(WebSocket socket, String selfId, String senderQq, Long groupId, PlayerInfo p, String targetName) {
+        if (targetName.isEmpty()) {
+            sendReply(socket, selfId, senderQq, groupId, "用法: /好友 add <玩家名>");
+            return;
+        }
+
+        List<PlayerInfo> targets = playerService.searchPlayersByName(targetName, 1, 0);
+        if (targets.isEmpty()) {
+            sendReply(socket, selfId, senderQq, groupId, "找不到玩家: " + targetName);
+            return;
+        }
+        PlayerInfo target = targets.get(0);
+
+        if (target.getId() == p.getId()) {
+            sendReply(socket, selfId, senderQq, groupId, "不能添加自己为好友。");
+            return;
+        }
+
+        Friend result = friendService.sendRequest(p.getId(), target.getId());
+        if (result == null) {
+            sendReply(socket, selfId, senderQq, groupId, "发送好友申请失败。");
+            return;
+        }
+        if ("exists".equals(result.getStatus())) {
+            sendReply(socket, selfId, senderQq, groupId, "已经是好友或已发送过申请。");
+            return;
+        }
+
+        sendReply(socket, selfId, senderQq, groupId, "好友申请已发送给 " + target.getName());
+    }
+
+    private void handleFriendAcceptCmd(WebSocket socket, String selfId, String senderQq, Long groupId, PlayerInfo p, String targetName) {
+        if (targetName.isEmpty()) {
+            sendReply(socket, selfId, senderQq, groupId, "用法: /好友 accept <玩家名>");
+            return;
+        }
+
+        List<PlayerInfo> targets = playerService.searchPlayersByName(targetName, 1, 0);
+        if (targets.isEmpty()) {
+            sendReply(socket, selfId, senderQq, groupId, "找不到玩家: " + targetName);
+            return;
+        }
+        PlayerInfo target = targets.get(0);
+
+        boolean success = friendService.acceptRequest(p.getId(), target.getId());
+        if (!success) {
+            sendReply(socket, selfId, senderQq, groupId, "没有来自 " + target.getName() + " 的好友申请。");
+            return;
+        }
+
+        sendReply(socket, selfId, senderQq, groupId, "已与 " + target.getName() + " 结为好友！");
+    }
+
+    private void handleFriendRemoveCmd(WebSocket socket, String selfId, String senderQq, Long groupId, PlayerInfo p, String targetName) {
+        if (targetName.isEmpty()) {
+            sendReply(socket, selfId, senderQq, groupId, "用法: /好友 remove <玩家名>");
+            return;
+        }
+
+        List<PlayerInfo> targets = playerService.searchPlayersByName(targetName, 1, 0);
+        if (targets.isEmpty()) {
+            sendReply(socket, selfId, senderQq, groupId, "找不到玩家: " + targetName);
+            return;
+        }
+        PlayerInfo target = targets.get(0);
+
+        boolean success = friendService.removeFriend(p.getId(), target.getId());
+        if (!success) {
+            sendReply(socket, selfId, senderQq, groupId, target.getName() + " 不是你的好友。");
+            return;
+        }
+
+        sendReply(socket, selfId, senderQq, groupId, "已删除好友 " + target.getName());
+    }
+
+    private void handleFriendListCmd(WebSocket socket, String selfId, String senderQq, Long groupId, PlayerInfo p) {
+        List<Friend> friends = friendService.getFriends(p.getId());
+        if (friends.isEmpty()) {
+            sendReply(socket, selfId, senderQq, groupId, "你还没有好友。\n使用 /好友 add <玩家名> 发送好友申请");
+            return;
+        }
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("===== 好友列表 =====\n");
+        for (Friend f : friends) {
+            String name = f.getFriendName() != null ? f.getFriendName() : "未知";
+            String realm = f.getFriendRealm() != null ? f.getFriendRealm() : "未知";
+            sb.append(name).append("  ").append(realm).append("\n");
+        }
+        sb.append("共 ").append(friends.size()).append(" 位好友");
+
+        sendReply(socket, selfId, senderQq, groupId, sb.toString());
     }
 
     // ==================== API 发送 ====================

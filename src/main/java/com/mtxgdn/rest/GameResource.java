@@ -29,6 +29,10 @@ import com.mtxgdn.game.service.TradeService;
 import com.mtxgdn.game.entity.Technique;
 import com.mtxgdn.game.service.TechniqueService;
 import com.mtxgdn.game.service.EnhanceService;
+import com.mtxgdn.game.service.ChatService;
+import com.mtxgdn.game.service.FriendService;
+import com.mtxgdn.game.entity.Friend;
+import com.mtxgdn.game.entity.ChatMessage;
 import com.mtxgdn.game.secretrealm.SecretRealm;
 import com.mtxgdn.game.entity.SpiritualRoot;
 import com.mtxgdn.permission.RequirePermission;
@@ -61,6 +65,8 @@ public class GameResource {
     private static final TechniqueService techniqueService = new TechniqueService();
     private static final CraftingService craftingService = new CraftingService();
     private static final EnhanceService enhanceService = new EnhanceService();
+    private static final ChatService chatService = new ChatService();
+    private static final FriendService friendService = new FriendService();
 
     @Context
     private ContainerRequestContext requestContext;
@@ -1142,6 +1148,303 @@ public class GameResource {
             return Response.ok(GameMessage.restOk((String) result.get("message"), data).toString()).build();
         }
         return Response.ok(GameMessage.restError(400, (String) result.get("message")).toString()).build();
+    }
+
+    @GET
+    @Path("/chat/world")
+    @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("game.chat.world")
+    public Response getWorldChat(@QueryParam("limit") @DefaultValue("50") int limit) {
+        List<ChatMessage> messages = chatService.getWorldMessages(limit);
+        chatService.setSenderNames(messages, playerService);
+
+        JsonArray arr = new JsonArray();
+        for (ChatMessage msg : messages) {
+            JsonObject o = new JsonObject();
+            o.addProperty("id", msg.getId());
+            o.addProperty("senderPlayerId", msg.getSenderPlayerId());
+            o.addProperty("senderName", msg.getSenderName() != null ? msg.getSenderName() : "未知");
+            o.addProperty("content", msg.getContent());
+            o.addProperty("createdAt", msg.getCreatedAt());
+            arr.add(o);
+        }
+        JsonObject data = new JsonObject();
+        data.add("messages", arr);
+        return Response.ok(GameMessage.restOk("获取成功", data).toString()).build();
+    }
+
+    @GET
+    @Path("/chat/private/{targetPlayerId}")
+    @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("game.chat.private")
+    public Response getPrivateChat(@PathParam("targetPlayerId") long targetPlayerId,
+                                    @QueryParam("limit") @DefaultValue("50") int limit) {
+        Long userId = getCurrentUserId();
+        PlayerInfo self = playerService.getPlayerByUserId(userId);
+        if (self == null) {
+            return Response.ok(GameMessage.restError(GameErrorCode.PLAYER_NOT_FOUND).toString()).build();
+        }
+        List<ChatMessage> messages = chatService.getPrivateMessages(self.getId(), targetPlayerId, limit);
+        chatService.setSenderNames(messages, playerService);
+
+        JsonArray arr = new JsonArray();
+        for (ChatMessage msg : messages) {
+            JsonObject o = new JsonObject();
+            o.addProperty("id", msg.getId());
+            o.addProperty("senderPlayerId", msg.getSenderPlayerId());
+            o.addProperty("senderName", msg.getSenderName() != null ? msg.getSenderName() : "未知");
+            o.addProperty("receiverPlayerId", msg.getReceiverPlayerId() != null ? msg.getReceiverPlayerId() : 0);
+            o.addProperty("receiverName", msg.getReceiverName() != null ? msg.getReceiverName() : "");
+            o.addProperty("content", msg.getContent());
+            o.addProperty("createdAt", msg.getCreatedAt());
+            arr.add(o);
+        }
+        JsonObject data = new JsonObject();
+        data.add("messages", arr);
+        return Response.ok(GameMessage.restOk("获取成功", data).toString()).build();
+    }
+
+    @POST
+    @Path("/chat/world")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("game.chat.world")
+    public Response sendWorldChat(String body) {
+        Long userId = getCurrentUserId();
+        PlayerInfo player = playerService.getPlayerByUserId(userId);
+        if (player == null) {
+            return Response.ok(GameMessage.restError(GameErrorCode.PLAYER_NOT_FOUND).toString()).build();
+        }
+        JsonObject json = gson.fromJson(body, JsonObject.class);
+        String content = json.has("content") ? json.get("content").getAsString() : "";
+        if (content.trim().isEmpty()) {
+            return Response.ok(GameMessage.restError(GameErrorCode.PARAM_MISSING).toString()).build();
+        }
+        ChatMessage msg = chatService.sendWorldMessage(player.getId(), player.getName(), content);
+        if (msg == null) {
+            return Response.ok(GameMessage.restError(GameErrorCode.PARAM_INVALID).toString()).build();
+        }
+        JsonObject data = gson.toJsonTree(msg).getAsJsonObject();
+        return Response.ok(GameMessage.restOk("发送成功", data).toString()).build();
+    }
+
+    @POST
+    @Path("/chat/private")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("game.chat.private")
+    public Response sendPrivateChat(String body) {
+        Long userId = getCurrentUserId();
+        PlayerInfo player = playerService.getPlayerByUserId(userId);
+        if (player == null) {
+            return Response.ok(GameMessage.restError(GameErrorCode.PLAYER_NOT_FOUND).toString()).build();
+        }
+        JsonObject json = gson.fromJson(body, JsonObject.class);
+        String content = json.has("content") ? json.get("content").getAsString() : "";
+        long targetId = json.has("targetPlayerId") ? json.get("targetPlayerId").getAsLong() : 0;
+
+        if (targetId == 0 || content.trim().isEmpty()) {
+            return Response.ok(GameMessage.restError(GameErrorCode.PARAM_MISSING).toString()).build();
+        }
+        if (targetId == player.getId()) {
+            return Response.ok(GameMessage.restError(GameErrorCode.CHAT_SELF_MESSAGE).toString()).build();
+        }
+        PlayerInfo target = playerService.getPlayerInfoById(targetId);
+        if (target == null) {
+            return Response.ok(GameMessage.restError(GameErrorCode.CHAT_RECEIVER_NOT_FOUND).toString()).build();
+        }
+
+        ChatMessage msg = chatService.sendPrivateMessage(player.getId(), player.getName(), targetId, content);
+        actionLog.logChat(userId, player.getName(), "[私聊→" + target.getName() + "] " + content);
+
+        JsonObject data = gson.toJsonTree(msg).getAsJsonObject();
+        return Response.ok(GameMessage.restOk("发送成功", data).toString()).build();
+    }
+
+    @GET
+    @Path("/rank")
+    @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("game.rank.view")
+    public Response getRanking(@QueryParam("type") @DefaultValue("realm") String type,
+                                @QueryParam("limit") @DefaultValue("20") int limit) {
+        List<PlayerInfo> players;
+        switch (type) {
+            case "power":
+                players = playerService.getTopByPower(limit);
+                break;
+            case "wealth":
+                players = playerService.getTopByWealth(limit);
+                break;
+            default:
+                players = playerService.getTopByRealm(limit);
+                break;
+        }
+
+        JsonArray arr = new JsonArray();
+        int rank = 1;
+        for (PlayerInfo p : players) {
+            JsonObject o = new JsonObject();
+            o.addProperty("rank", rank++);
+            o.addProperty("playerId", p.getId());
+            o.addProperty("name", p.getName());
+            o.addProperty("realm", p.getRealm());
+            o.addProperty("realmName", p.getRealmName());
+            o.addProperty("level", p.getLevel());
+            o.addProperty("attack", p.getAttack());
+            o.addProperty("defense", p.getDefense());
+            o.addProperty("gold", p.getGold());
+            long spiritStones = itemService.getSpiritStoneCount(p.getId());
+            o.addProperty("spiritStones", spiritStones);
+            o.addProperty("totalWealth", p.getGold() + spiritStones);
+            arr.add(o);
+        }
+
+        JsonObject data = new JsonObject();
+        data.add("ranking", arr);
+        data.addProperty("type", type);
+
+        return Response.ok(GameMessage.restOk("获取成功", data).toString()).build();
+    }
+
+    @GET
+    @Path("/friend/list")
+    @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("game.friend.manage")
+    public Response getFriendList() {
+        Long userId = getCurrentUserId();
+        PlayerInfo player = playerService.getPlayerByUserId(userId);
+        if (player == null) {
+            return Response.ok(GameMessage.restError(GameErrorCode.PLAYER_NOT_FOUND).toString()).build();
+        }
+        List<Friend> friends = friendService.getFriends(player.getId());
+        JsonArray arr = new JsonArray();
+        for (Friend f : friends) {
+            JsonObject o = new JsonObject();
+            o.addProperty("id", f.getId());
+            o.addProperty("friendPlayerId", f.getFriendPlayerId());
+            o.addProperty("friendName", f.getFriendName() != null ? f.getFriendName() : "");
+            o.addProperty("friendRealm", f.getFriendRealm() != null ? f.getFriendRealm() : "");
+            o.addProperty("status", f.getStatus());
+            o.addProperty("createdAt", f.getCreatedAt());
+            arr.add(o);
+        }
+        JsonObject data = new JsonObject();
+        data.add("friends", arr);
+        return Response.ok(GameMessage.restOk("获取成功", data).toString()).build();
+    }
+
+    @GET
+    @Path("/friend/pending")
+    @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("game.friend.manage")
+    public Response getPendingRequests() {
+        Long userId = getCurrentUserId();
+        PlayerInfo player = playerService.getPlayerByUserId(userId);
+        if (player == null) {
+            return Response.ok(GameMessage.restError(GameErrorCode.PLAYER_NOT_FOUND).toString()).build();
+        }
+        List<Friend> requests = friendService.getPendingRequests(player.getId());
+        JsonArray arr = new JsonArray();
+        for (Friend f : requests) {
+            JsonObject o = new JsonObject();
+            o.addProperty("id", f.getId());
+            o.addProperty("requesterPlayerId", f.getPlayerId());
+            o.addProperty("requesterName", f.getFriendName() != null ? f.getFriendName() : "");
+            o.addProperty("requesterRealm", f.getFriendRealm() != null ? f.getFriendRealm() : "");
+            o.addProperty("status", f.getStatus());
+            o.addProperty("createdAt", f.getCreatedAt());
+            arr.add(o);
+        }
+        JsonObject data = new JsonObject();
+        data.add("requests", arr);
+        return Response.ok(GameMessage.restOk("获取成功", data).toString()).build();
+    }
+
+    @POST
+    @Path("/friend/add")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("game.friend.manage")
+    public Response addFriend(String body) {
+        Long userId = getCurrentUserId();
+        PlayerInfo player = playerService.getPlayerByUserId(userId);
+        if (player == null) {
+            return Response.ok(GameMessage.restError(GameErrorCode.PLAYER_NOT_FOUND).toString()).build();
+        }
+        JsonObject json = gson.fromJson(body, JsonObject.class);
+        long targetId = json.has("targetPlayerId") ? json.get("targetPlayerId").getAsLong() : 0;
+
+        if (targetId == 0) {
+            return Response.ok(GameMessage.restError(GameErrorCode.PARAM_MISSING).toString()).build();
+        }
+        if (targetId == player.getId()) {
+            return Response.ok(GameMessage.restError(GameErrorCode.FRIEND_SELF_TARGET).toString()).build();
+        }
+        PlayerInfo target = playerService.getPlayerInfoById(targetId);
+        if (target == null) {
+            return Response.ok(GameMessage.restError(GameErrorCode.PLAYER_NOT_FOUND).toString()).build();
+        }
+
+        Friend result = friendService.sendRequest(player.getId(), targetId);
+        if (result == null) {
+            return Response.ok(GameMessage.restError(GameErrorCode.PLAYER_NOT_FOUND).toString()).build();
+        }
+        if ("exists".equals(result.getStatus())) {
+            return Response.ok(GameMessage.restError(GameErrorCode.FRIEND_ALREADY_EXISTS).toString()).build();
+        }
+
+        JsonObject data = gson.toJsonTree(result).getAsJsonObject();
+        return Response.ok(GameMessage.restOk("好友申请已发送", data).toString()).build();
+    }
+
+    @POST
+    @Path("/friend/accept")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("game.friend.manage")
+    public Response acceptFriend(String body) {
+        Long userId = getCurrentUserId();
+        PlayerInfo player = playerService.getPlayerByUserId(userId);
+        if (player == null) {
+            return Response.ok(GameMessage.restError(GameErrorCode.PLAYER_NOT_FOUND).toString()).build();
+        }
+        JsonObject json = gson.fromJson(body, JsonObject.class);
+        long requesterId = json.has("requesterPlayerId") ? json.get("requesterPlayerId").getAsLong() : 0;
+
+        if (requesterId == 0) {
+            return Response.ok(GameMessage.restError(GameErrorCode.PARAM_MISSING).toString()).build();
+        }
+
+        boolean success = friendService.acceptRequest(player.getId(), requesterId);
+        if (!success) {
+            return Response.ok(GameMessage.restError(GameErrorCode.FRIEND_REQUEST_NOT_FOUND).toString()).build();
+        }
+        return Response.ok(GameMessage.restOk("已添加好友", null).toString()).build();
+    }
+
+    @POST
+    @Path("/friend/remove")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("game.friend.manage")
+    public Response removeFriend(String body) {
+        Long userId = getCurrentUserId();
+        PlayerInfo player = playerService.getPlayerByUserId(userId);
+        if (player == null) {
+            return Response.ok(GameMessage.restError(GameErrorCode.PLAYER_NOT_FOUND).toString()).build();
+        }
+        JsonObject json = gson.fromJson(body, JsonObject.class);
+        long friendId = json.has("friendPlayerId") ? json.get("friendPlayerId").getAsLong() : 0;
+
+        if (friendId == 0) {
+            return Response.ok(GameMessage.restError(GameErrorCode.PARAM_MISSING).toString()).build();
+        }
+
+        boolean success = friendService.removeFriend(player.getId(), friendId);
+        if (!success) {
+            return Response.ok(GameMessage.restError(GameErrorCode.FRIEND_NOT_FOUND).toString()).build();
+        }
+        return Response.ok(GameMessage.restOk("已删除好友", null).toString()).build();
     }
 
     private String formatUptime(long totalSeconds) {

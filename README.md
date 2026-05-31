@@ -26,6 +26,9 @@
 - **物品系统**：7 种类型、6 种稀有度，组件化效果（经验/回血/货币/buff/技能书），支持按中文名称/key 使用物品
 - **技能系统**：攻击技能和辅助技能，熟练度升级（使用获得熟练度，技能书 +1 级），等级越高蓝耗越大，金水木灵根熟练度 +30%
 - **装备系统**：装备穿戴/卸下，属性加成
+- **聊天系统**：世界频道（全服广播）+ 私聊（点对点消息），消息持久化存储，WebSocket 实时推送
+- **排行榜**：境界榜/战力榜/财富榜，支持 REST/WebSocket/QQ 三种方式查看
+- **好友系统**：好友申请/接受/删除/列表，双向确认机制，支持跨端操作
 - **PVP 对战**：回合制玩家对战，支持技能施放、暴击、灵根特效（回血/增伤/减伤/暴击/MP减免等）
 - **PVE 战斗**：游历和秘境中随机遭遇妖兽，完整回合制战斗（技能、暴击、灵根特效全生效）；秘境含 Boss 战，各秘境专属守护者
 - **离线收益**：断线后修炼继续进行（50% 效率，上限 8 小时），上线时自动结算经验、HP/MP 恢复，心魔判定降频
@@ -100,6 +103,8 @@ src/main/java/com/mtxgdn/
 │   │   ├── SecretRealmResult.java
 │   │   ├── Skill.java
 │   │   ├── SpiritualRoot.java
+│   │   ├── Friend.java               # 好友实体
+│   │   ├── ChatMessage.java          # 聊天消息实体
 │   │   └── Technique.java            # 功法实体
 │   ├── explorationevent/           # 游历事件系统
 │   │   ├── ExplorationEvent.java       # 事件抽象基类
@@ -137,6 +142,8 @@ src/main/java/com/mtxgdn/
 │       ├── SecretRealmService.java # 秘境探索
 │       ├── SkillService.java       # 技能管理（含熟练度/灵根加成）
 │       ├── TechniqueService.java   # 功法/心法系统
+│       ├── ChatService.java        # 聊天系统（世界频道+私聊）
+│       ├── FriendService.java      # 好友系统
 │       └── TradeService.java       # 坊市交易
 │
 ├── minecraft/
@@ -351,6 +358,16 @@ java -jar target/main-V0.0.0-alpha.jar
 | POST | `/api/game/equipment/equip` | `game.equipment.equip` | 装备物品 |
 | POST | `/api/game/equipment/unequip` | `game.equipment.equip` | 卸下装备 |
 | POST | `/api/game/equipment/enhance` | `game.equipment.enhance` | 装备强化 |
+| GET | `/api/game/chat/world` | `game.chat.world` | 世界聊天记录 |
+| POST | `/api/game/chat/world` | `game.chat.world` | 发送世界消息 |
+| GET | `/api/game/chat/private/{targetId}` | `game.chat.private` | 私聊记录 |
+| POST | `/api/game/chat/private` | `game.chat.private` | 发送私聊消息 |
+| GET | `/api/game/rank` | `game.rank.view` | 排行榜（?type=realm\|power\|wealth） |
+| POST | `/api/game/friend/add` | `game.friend.manage` | 发送好友申请 |
+| POST | `/api/game/friend/accept` | `game.friend.manage` | 接受好友申请 |
+| POST | `/api/game/friend/remove` | `game.friend.manage` | 删除好友 |
+| GET | `/api/game/friend/list` | `game.friend.manage` | 好友列表 |
+| GET | `/api/game/friend/pending` | `game.friend.manage` | 待处理的好友申请 |
 | GET | `/api/game/techniques` | `game.technique.learn` | 功法列表 |
 | GET | `/api/game/technique/my` | `game.technique.learn` | 我的功法 |
 | POST | `/api/game/technique/learn` | `game.technique.learn` | 学习功法 |
@@ -414,7 +431,7 @@ java -jar target/main-V0.0.0-alpha.jar
 
 | 分类 | 前缀 | 数量 | 示例 |
 |------|------|------|------|
-| 游戏功能 | `game.*` | 25+ | `game.cultivate`, `game.explore`, `game.technique.learn`, `game.crafting.craft`, `game.equipment.enhance` |
+| 游戏功能 | `game.*` | 29+ | `game.cultivate`, `game.explore`, `game.technique.learn`, `game.chat.world`, `game.rank.view`, `game.friend.manage` |
 | QQ 指令 | `qq.*` | 5 | `qq.bind`, `qq.command.admin` |
 | 管理后台 | `admin.*` | 8 | `admin.shutdown`, `admin.database.reset_all` |
 
@@ -453,6 +470,8 @@ java -jar target/main-V0.0.0-alpha.jar
 | type | 说明 |
 |------|------|
 | `chat` | 世界聊天 |
+| `chat_private` | 私聊消息 |
+| `chat_history` | 世界聊天记录 |
 | `player_info` | 获取玩家信息 |
 | `cultivate_start` | 开始修炼 |
 | `cultivate_stop` | 停止修炼（含心魔判定） |
@@ -473,6 +492,12 @@ java -jar target/main-V0.0.0-alpha.jar
 | `crafting_recipes` | 查看配方（可选 category） |
 | `crafting_craft` | 制造物品 |
 | `equipment_enhance` | 装备强化 |
+| `rank` | 排行榜（可选 type=realm\|power\|wealth） |
+| `friend_add` | 发送好友申请 |
+| `friend_accept` | 接受好友申请 |
+| `friend_remove` | 删除好友 |
+| `friend_list` | 好友列表 |
+| `friend_pending` | 待处理的好友申请 |
 
 ---
 
@@ -518,6 +543,9 @@ java -jar target/main-V0.0.0-alpha.jar
 | `/recipes [类型]` / `/配方` | 查看制造配方 |
 | `/craft <配方ID>` / `/制造` | 制造物品 |
 | `/enhance <部位>` / `/强化` | 强化装备（部位：weapon/armor/accessory） |
+| `/msg <玩家名> <内容>` / `/私聊` | 发送私聊消息给指定玩家（仅私聊） |
+| `/rank [类型]` / `/排行` / `/排行榜` | 查看排行榜（realm/power/wealth） |
+| `/好友 <add\|accept\|remove\|list>` | 好友管理（添加/接受/删除/列表，仅私聊） |
 | `/cleardb_players` / `/清除玩家数据` | 清除所有玩家数据（SUPER_ADMIN，仅私聊） |
 | `/cleardb_all` / `/重置全部数据` | 重置全部数据并重新初始化（SUPER_ADMIN，仅私聊） |
 
@@ -793,6 +821,8 @@ Boss 拥有 3 倍以上属性，更高掉落率和更丰富的稀有物品掉落
 | `players_techniques` | 玩家功法（功法 ID、等级、熟练度、是否装备） |
 | `techniques` | 功法定义（名称、类型、属性加成、最大等级等） |
 | `recipes` | 制造配方（名称、分类、材料、产出、成功率等） |
+| `chat_messages` | 聊天消息（世界/私聊，发送者/接收者，内容） |
+| `friends` | 好友关系（申请者/接收者，状态：pending/accepted） |
 | `skills` | 技能定义（名称、伤害、蓝耗、境界要求等） |
 | `trade_listings` | 坊市挂单（卖家、物品、数量、价格、状态） |
 | `player_daily` | 每日数据（晨修时间、机缘进度、活跃天数） |

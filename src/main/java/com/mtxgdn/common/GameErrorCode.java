@@ -41,6 +41,14 @@ public enum GameErrorCode {
     EXPLORATION_COOLDOWN(8201, "游历冷却中"),
     EXPLORATION_NO_EVENT(8202, "暂无可用游历事件"),
 
+    CHAT_RECEIVER_NOT_FOUND(8301, "接收者不存在"),
+    CHAT_SELF_MESSAGE(8302, "不能给自己发消息"),
+
+    FRIEND_NOT_FOUND(8401, "好友不存在"),
+    FRIEND_ALREADY_EXISTS(8402, "已经是好友或已发送过申请"),
+    FRIEND_REQUEST_NOT_FOUND(8403, "好友申请不存在"),
+    FRIEND_SELF_TARGET(8404, "不能添加自己为好友"),
+
     UNKNOWN_TYPE(6001, "未知的消息类型"),
     MESSAGE_PARSE_ERROR(6002, "消息格式错误"),
 

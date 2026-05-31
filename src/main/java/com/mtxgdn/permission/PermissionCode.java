@@ -22,6 +22,10 @@ public enum PermissionCode {
     GAME_CRAFTING_CRAFT("game.crafting.craft", "制造物品", "游戏功能"),
     GAME_EQUIPMENT_ENHANCE("game.equipment.enhance", "装备强化", "游戏功能"),
     GAME_EQUIPMENT_EQUIP("game.equipment.equip", "装备物品", "游戏功能"),
+    GAME_CHAT_WORLD("game.chat.world", "世界聊天", "游戏功能"),
+    GAME_CHAT_PRIVATE("game.chat.private", "私聊", "游戏功能"),
+    GAME_RANK_VIEW("game.rank.view", "查看排行榜", "游戏功能"),
+    GAME_FRIEND_MANAGE("game.friend.manage", "好友管理", "游戏功能"),
 
     QQ_BIND("qq.bind", "绑定QQ", "QQ指令"),
     QQ_UNBIND("qq.unbind", "解绑QQ", "QQ指令"),

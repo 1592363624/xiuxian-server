@@ -24,6 +24,10 @@ import com.mtxgdn.game.service.RealmService;
 import com.mtxgdn.game.service.TechniqueService;
 import com.mtxgdn.game.service.CraftingService;
 import com.mtxgdn.game.service.EnhanceService;
+import com.mtxgdn.game.service.ChatService;
+import com.mtxgdn.game.service.FriendService;
+import com.mtxgdn.game.entity.Friend;
+import com.mtxgdn.game.entity.ChatMessage;
 import com.mtxgdn.permission.PermissionService;
 import com.mtxgdn.util.JwtUtil;
 import com.mtxgdn.util.PlayerActionLogger;
@@ -46,6 +50,8 @@ public class GameWebSocketApp extends WebSocketApplication {
     private static final TechniqueService techniqueService = new TechniqueService();
     private static final CraftingService craftingService = new CraftingService();
     private static final EnhanceService enhanceService = new EnhanceService();
+    private static final ChatService chatService = new ChatService();
+    private static final FriendService friendService = new FriendService();
 
     private final Map<WebSocket, Long> sessionUsers = new ConcurrentHashMap<>();
     private final Map<Long, WebSocket> userSessions = new ConcurrentHashMap<>();
@@ -174,7 +180,39 @@ public class GameWebSocketApp extends WebSocketApplication {
 
         switch (type) {
             case "chat":
-                handleChat(msgId, userId, data);
+                handleChat(socket, msgId, userId, data);
+                break;
+            case "chat_private":
+                if (!checkWsPermission(socket, msgId, userId, "game.chat.private")) break;
+                handlePrivateChat(socket, msgId, userId, data);
+                break;
+            case "chat_history":
+                if (!checkWsPermission(socket, msgId, userId, "game.chat.world")) break;
+                handleChatHistory(socket, msgId, data);
+                break;
+            case "rank":
+                if (!checkWsPermission(socket, msgId, userId, "game.rank.view")) break;
+                handleRanking(socket, msgId, data);
+                break;
+            case "friend_add":
+                if (!checkWsPermission(socket, msgId, userId, "game.friend.manage")) break;
+                handleFriendAdd(socket, msgId, userId, data);
+                break;
+            case "friend_accept":
+                if (!checkWsPermission(socket, msgId, userId, "game.friend.manage")) break;
+                handleFriendAccept(socket, msgId, userId, data);
+                break;
+            case "friend_remove":
+                if (!checkWsPermission(socket, msgId, userId, "game.friend.manage")) break;
+                handleFriendRemove(socket, msgId, userId, data);
+                break;
+            case "friend_list":
+                if (!checkWsPermission(socket, msgId, userId, "game.friend.manage")) break;
+                handleFriendList(socket, msgId, userId);
+                break;
+            case "friend_pending":
+                if (!checkWsPermission(socket, msgId, userId, "game.friend.manage")) break;
+                handleFriendPending(socket, msgId, userId);
                 break;
             case "player_info":
                 if (!checkWsPermission(socket, msgId, userId, "game.player.info")) break;
@@ -265,22 +303,270 @@ public class GameWebSocketApp extends WebSocketApplication {
         }
     }
 
-    private void handleChat(long msgId, Long userId, JsonObject data) {
+    private void handleChat(WebSocket socket, long msgId, Long userId, JsonObject data) {
         if (data == null) return;
         String content = data.has("content") ? data.get("content").getAsString() : "";
-        if (content.isEmpty()) return;
+        if (content.isEmpty()) {
+            socket.send(GameMessage.error(msgId, "chat", GameErrorCode.PARAM_MISSING).toJson());
+            return;
+        }
+
+        PlayerInfo player = playerService.getPlayerByUserId(userId);
+        String name = player != null ? player.getName() : "未知玩家";
+
+        ChatMessage msg = chatService.sendWorldMessage(player.getId(), name, content);
+        if (msg == null) {
+            socket.send(GameMessage.error(msgId, "chat", GameErrorCode.PARAM_INVALID).toJson());
+            return;
+        }
 
         JsonObject chatData = new JsonObject();
-        chatData.addProperty("fromUserId", userId);
+        chatData.addProperty("senderPlayerId", player.getId());
+        chatData.addProperty("senderName", name);
         chatData.addProperty("content", content);
         chatData.addProperty("timestamp", System.currentTimeMillis());
 
         GameMessage chatMessage = GameMessage.ok(0, "chat", chatData);
         broadcast(chatMessage);
 
-        PlayerInfo player = playerService.getPlayerByUserId(userId);
-        String name = player != null ? player.getName() : "未知玩家";
+        socket.send(GameMessage.ok(msgId, "chat", "发送成功", chatData).toJson());
         actionLog.logChat(userId, name, content);
+    }
+
+    private void handlePrivateChat(WebSocket socket, long msgId, Long userId, JsonObject data) {
+        if (data == null) return;
+        String content = data.has("content") ? data.get("content").getAsString() : "";
+        long targetId = data.has("targetPlayerId") ? data.get("targetPlayerId").getAsLong() : 0;
+
+        if (targetId == 0 || content.trim().isEmpty()) {
+            socket.send(GameMessage.error(msgId, "chat_private", GameErrorCode.PARAM_MISSING).toJson());
+            return;
+        }
+
+        PlayerInfo player = playerService.getPlayerByUserId(userId);
+        if (player == null) {
+            socket.send(GameMessage.error(msgId, "chat_private", GameErrorCode.PLAYER_NOT_FOUND).toJson());
+            return;
+        }
+        if (targetId == player.getId()) {
+            socket.send(GameMessage.error(msgId, "chat_private", GameErrorCode.CHAT_SELF_MESSAGE).toJson());
+            return;
+        }
+
+        PlayerInfo target = playerService.getPlayerInfoById(targetId);
+        if (target == null) {
+            socket.send(GameMessage.error(msgId, "chat_private", GameErrorCode.CHAT_RECEIVER_NOT_FOUND).toJson());
+            return;
+        }
+
+        ChatMessage msg = chatService.sendPrivateMessage(player.getId(), player.getName(), targetId, content);
+        actionLog.logChat(userId, player.getName(), "[私聊→" + target.getName() + "] " + content);
+
+        JsonObject chatData = new JsonObject();
+        chatData.addProperty("fromUserId", userId);
+        chatData.addProperty("senderPlayerId", player.getId());
+        chatData.addProperty("senderName", player.getName());
+        chatData.addProperty("receiverPlayerId", targetId);
+        chatData.addProperty("receiverName", target.getName());
+        chatData.addProperty("content", content);
+        chatData.addProperty("timestamp", System.currentTimeMillis());
+
+        GameMessage chatMessage = GameMessage.ok(0, "chat_private", chatData);
+        sendToUser((long) target.getUserId(), chatMessage);
+
+        socket.send(GameMessage.ok(msgId, "chat_private", "发送成功", chatData).toJson());
+    }
+
+    private void handleChatHistory(WebSocket socket, long msgId, JsonObject data) {
+        int limit = data != null && data.has("limit") ? data.get("limit").getAsInt() : 50;
+        List<ChatMessage> messages = chatService.getWorldMessages(limit);
+        chatService.setSenderNames(messages, playerService);
+
+        JsonArray arr = new JsonArray();
+        for (ChatMessage msg : messages) {
+            JsonObject o = new JsonObject();
+            o.addProperty("id", msg.getId());
+            o.addProperty("senderPlayerId", msg.getSenderPlayerId());
+            o.addProperty("senderName", msg.getSenderName() != null ? msg.getSenderName() : "未知");
+            o.addProperty("content", msg.getContent());
+            o.addProperty("createdAt", msg.getCreatedAt());
+            arr.add(o);
+        }
+        JsonObject respData = new JsonObject();
+        respData.add("messages", arr);
+        socket.send(GameMessage.ok(msgId, "chat_history", respData).toJson());
+    }
+
+    private void handleRanking(WebSocket socket, long msgId, JsonObject data) {
+        String type = data != null && data.has("type") ? data.get("type").getAsString() : "realm";
+        int limit = data != null && data.has("limit") ? data.get("limit").getAsInt() : 20;
+
+        List<PlayerInfo> players;
+        switch (type) {
+            case "power":
+                players = playerService.getTopByPower(limit);
+                break;
+            case "wealth":
+                players = playerService.getTopByWealth(limit);
+                break;
+            default:
+                players = playerService.getTopByRealm(limit);
+                break;
+        }
+
+        JsonArray arr = new JsonArray();
+        int rank = 1;
+        for (PlayerInfo p : players) {
+            JsonObject o = new JsonObject();
+            o.addProperty("rank", rank++);
+            o.addProperty("playerId", p.getId());
+            o.addProperty("name", p.getName());
+            o.addProperty("realm", p.getRealm());
+            o.addProperty("realmName", p.getRealmName());
+            o.addProperty("level", p.getLevel());
+            o.addProperty("attack", p.getAttack());
+            o.addProperty("defense", p.getDefense());
+            o.addProperty("gold", p.getGold());
+            arr.add(o);
+        }
+        JsonObject respData = new JsonObject();
+        respData.add("ranking", arr);
+        respData.addProperty("type", type);
+        socket.send(GameMessage.ok(msgId, "rank", respData).toJson());
+    }
+
+    private void handleFriendAdd(WebSocket socket, long msgId, Long userId, JsonObject data) {
+        if (data == null || !data.has("targetPlayerId")) {
+            socket.send(GameMessage.error(msgId, "friend_add", GameErrorCode.PARAM_MISSING).toJson());
+            return;
+        }
+        long targetId = data.get("targetPlayerId").getAsLong();
+
+        PlayerInfo player = playerService.getPlayerByUserId(userId);
+        if (player == null) {
+            socket.send(GameMessage.error(msgId, "friend_add", GameErrorCode.PLAYER_NOT_FOUND).toJson());
+            return;
+        }
+        if (targetId == player.getId()) {
+            socket.send(GameMessage.error(msgId, "friend_add", GameErrorCode.FRIEND_SELF_TARGET).toJson());
+            return;
+        }
+
+        PlayerInfo target = playerService.getPlayerInfoById(targetId);
+        if (target == null) {
+            socket.send(GameMessage.error(msgId, "friend_add", GameErrorCode.PLAYER_NOT_FOUND).toJson());
+            return;
+        }
+
+        Friend result = friendService.sendRequest(player.getId(), targetId);
+        if (result == null) {
+            socket.send(GameMessage.error(msgId, "friend_add", GameErrorCode.PLAYER_NOT_FOUND).toJson());
+            return;
+        }
+        if ("exists".equals(result.getStatus())) {
+            socket.send(GameMessage.error(msgId, "friend_add", GameErrorCode.FRIEND_ALREADY_EXISTS).toJson());
+            return;
+        }
+
+        JsonObject respData = gson.toJsonTree(result).getAsJsonObject();
+        socket.send(GameMessage.ok(msgId, "friend_add", "好友申请已发送", respData).toJson());
+
+        JsonObject notifyData = new JsonObject();
+        notifyData.addProperty("requesterPlayerId", player.getId());
+        notifyData.addProperty("requesterName", player.getName());
+        sendToUser((long) target.getUserId(), GameMessage.ok(0, "friend_pending", notifyData));
+    }
+
+    private void handleFriendAccept(WebSocket socket, long msgId, Long userId, JsonObject data) {
+        if (data == null || !data.has("requesterPlayerId")) {
+            socket.send(GameMessage.error(msgId, "friend_accept", GameErrorCode.PARAM_MISSING).toJson());
+            return;
+        }
+        long requesterId = data.get("requesterPlayerId").getAsLong();
+
+        PlayerInfo player = playerService.getPlayerByUserId(userId);
+        if (player == null) {
+            socket.send(GameMessage.error(msgId, "friend_accept", GameErrorCode.PLAYER_NOT_FOUND).toJson());
+            return;
+        }
+
+        boolean success = friendService.acceptRequest(player.getId(), requesterId);
+        if (!success) {
+            socket.send(GameMessage.error(msgId, "friend_accept", GameErrorCode.FRIEND_REQUEST_NOT_FOUND).toJson());
+            return;
+        }
+
+        socket.send(GameMessage.ok(msgId, "friend_accept", "已添加好友", null).toJson());
+    }
+
+    private void handleFriendRemove(WebSocket socket, long msgId, Long userId, JsonObject data) {
+        if (data == null || !data.has("friendPlayerId")) {
+            socket.send(GameMessage.error(msgId, "friend_remove", GameErrorCode.PARAM_MISSING).toJson());
+            return;
+        }
+        long friendId = data.get("friendPlayerId").getAsLong();
+
+        PlayerInfo player = playerService.getPlayerByUserId(userId);
+        if (player == null) {
+            socket.send(GameMessage.error(msgId, "friend_remove", GameErrorCode.PLAYER_NOT_FOUND).toJson());
+            return;
+        }
+
+        boolean success = friendService.removeFriend(player.getId(), friendId);
+        if (!success) {
+            socket.send(GameMessage.error(msgId, "friend_remove", GameErrorCode.FRIEND_NOT_FOUND).toJson());
+            return;
+        }
+
+        socket.send(GameMessage.ok(msgId, "friend_remove", "已删除好友", null).toJson());
+    }
+
+    private void handleFriendList(WebSocket socket, long msgId, Long userId) {
+        PlayerInfo player = playerService.getPlayerByUserId(userId);
+        if (player == null) {
+            socket.send(GameMessage.error(msgId, "friend_list", GameErrorCode.PLAYER_NOT_FOUND).toJson());
+            return;
+        }
+
+        List<Friend> friends = friendService.getFriends(player.getId());
+        JsonArray arr = new JsonArray();
+        for (Friend f : friends) {
+            JsonObject o = new JsonObject();
+            o.addProperty("id", f.getId());
+            o.addProperty("friendPlayerId", f.getFriendPlayerId());
+            o.addProperty("friendName", f.getFriendName() != null ? f.getFriendName() : "");
+            o.addProperty("friendRealm", f.getFriendRealm() != null ? f.getFriendRealm() : "");
+            o.addProperty("status", f.getStatus());
+            o.addProperty("createdAt", f.getCreatedAt());
+            arr.add(o);
+        }
+        JsonObject respData = new JsonObject();
+        respData.add("friends", arr);
+        socket.send(GameMessage.ok(msgId, "friend_list", respData).toJson());
+    }
+
+    private void handleFriendPending(WebSocket socket, long msgId, Long userId) {
+        PlayerInfo player = playerService.getPlayerByUserId(userId);
+        if (player == null) {
+            socket.send(GameMessage.error(msgId, "friend_pending", GameErrorCode.PLAYER_NOT_FOUND).toJson());
+            return;
+        }
+
+        List<Friend> requests = friendService.getPendingRequests(player.getId());
+        JsonArray arr = new JsonArray();
+        for (Friend f : requests) {
+            JsonObject o = new JsonObject();
+            o.addProperty("id", f.getId());
+            o.addProperty("requesterPlayerId", f.getPlayerId());
+            o.addProperty("requesterName", f.getFriendName() != null ? f.getFriendName() : "");
+            o.addProperty("requesterRealm", f.getFriendRealm() != null ? f.getFriendRealm() : "");
+            o.addProperty("status", f.getStatus());
+            o.addProperty("createdAt", f.getCreatedAt());
+            arr.add(o);
+        }
+        JsonObject respData = new JsonObject();
+        respData.add("requests", arr);
+        socket.send(GameMessage.ok(msgId, "friend_pending", respData).toJson());
     }
 
     private boolean checkWsPermission(WebSocket socket, long msgId, Long userId, String permission) {
