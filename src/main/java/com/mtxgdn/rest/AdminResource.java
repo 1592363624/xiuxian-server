@@ -514,6 +514,57 @@ public class AdminResource {
         return Response.ok(gson.toJson(result)).build();
     }
 
+    @GET
+    @Path("/player-traces")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response getPlayerTraces(
+            @QueryParam("userId") Long userId,
+            @QueryParam("playerName") @DefaultValue("") String playerName,
+            @QueryParam("action") @DefaultValue("") String action,
+            @QueryParam("qqNumber") @DefaultValue("") String qqNumber,
+            @QueryParam("startTime") @DefaultValue("") String startTime,
+            @QueryParam("endTime") @DefaultValue("") String endTime,
+            @QueryParam("limit") @DefaultValue("50") int limit,
+            @QueryParam("offset") @DefaultValue("0") int offset) {
+
+        List<Map<String, Object>> logs = DatabaseManager.queryPlayerActionLogs(
+                userId,
+                playerName.isBlank() ? null : playerName,
+                action.isBlank() ? null : action,
+                qqNumber.isBlank() ? null : qqNumber,
+                startTime.isBlank() ? null : startTime,
+                endTime.isBlank() ? null : endTime,
+                Math.min(limit, 200),
+                offset);
+
+        int total = DatabaseManager.countPlayerActionLogs(
+                userId,
+                playerName.isBlank() ? null : playerName,
+                action.isBlank() ? null : action,
+                qqNumber.isBlank() ? null : qqNumber,
+                startTime.isBlank() ? null : startTime,
+                endTime.isBlank() ? null : endTime);
+
+        JsonArray arr = new JsonArray();
+        for (Map<String, Object> log : logs) {
+            JsonObject obj = new JsonObject();
+            obj.addProperty("id", ((Number) log.get("id")).longValue());
+            obj.addProperty("userId", ((Number) log.get("userId")).longValue());
+            obj.addProperty("playerName", (String) log.get("playerName"));
+            obj.addProperty("action", (String) log.get("action"));
+            obj.addProperty("detail", (String) log.get("detail"));
+            obj.addProperty("qqNumber", (String) log.get("qqNumber"));
+            obj.addProperty("createdAt", (String) log.get("createdAt"));
+            arr.add(obj);
+        }
+
+        JsonObject result = new JsonObject();
+        result.addProperty("code", 200);
+        result.add("traces", arr);
+        result.addProperty("total", total);
+        return Response.ok(gson.toJson(result)).build();
+    }
+
     private static String formatUptime(long millis) {
         long seconds = millis / 1000;
         long days = seconds / 86400;

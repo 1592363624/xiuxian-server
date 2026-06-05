@@ -52,7 +52,7 @@ public class PermissionService {
                 PermissionCode.GAME_SKILL_LEARN, PermissionCode.GAME_ITEM_ADD, PermissionCode.GAME_PVP_CHALLENGE,
                 PermissionCode.QQ_BIND, PermissionCode.QQ_UNBIND,
                 PermissionCode.QQ_COMMAND_BASIC, PermissionCode.QQ_COMMAND_GAME,
-                PermissionCode.QQ_COMMAND_ADMIN,
+                PermissionCode.QQ_COMMAND_ADMIN, PermissionCode.QQ_COMMAND_TRACE,
                 PermissionCode.ADMIN_LOGIN, PermissionCode.ADMIN_STATUS,
                 PermissionCode.ADMIN_LOGS_VIEW
         );
@@ -65,7 +65,8 @@ public class PermissionService {
                 PermissionCode.GAME_ITEM_REGISTRY, PermissionCode.GAME_REALM_CONFIG,
                 PermissionCode.GAME_SKILL_LEARN, PermissionCode.GAME_PVP_CHALLENGE,
                 PermissionCode.QQ_BIND, PermissionCode.QQ_UNBIND,
-                PermissionCode.QQ_COMMAND_BASIC, PermissionCode.QQ_COMMAND_GAME
+                PermissionCode.QQ_COMMAND_BASIC, PermissionCode.QQ_COMMAND_GAME,
+                PermissionCode.QQ_COMMAND_TRACE
         );
 
         Set<PermissionCode> guestPermissions = EnumSet.of(

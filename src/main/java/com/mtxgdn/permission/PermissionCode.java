@@ -32,6 +32,7 @@ public enum PermissionCode {
     QQ_COMMAND_BASIC("qq.command.basic", "基本查询指令", "QQ指令"),
     QQ_COMMAND_GAME("qq.command.game", "游戏操作指令", "QQ指令"),
     QQ_COMMAND_ADMIN("qq.command.admin", "管理指令", "QQ指令"),
+    QQ_COMMAND_TRACE("qq.command.trace", "查看玩家轨迹", "QQ指令"),
 
     ADMIN_LOGIN("admin.login", "登录管理后台", "管理后台"),
     ADMIN_STATUS("admin.status", "查看服务器状态", "管理后台"),
