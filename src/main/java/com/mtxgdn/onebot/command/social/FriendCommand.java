@@ -9,7 +9,7 @@ import java.util.List;
 
 public class FriendCommand extends Command {
     public FriendCommand() {
-        super(new String[]{"friend", "好友"}, "好友管理：add/accept/remove/list", "/好友 <add|accept|remove|list> [玩家名]", "世界", "game.friend.manage");
+        super(new String[]{"friend", "好友"}, "好友管理：add/accept/remove/list", "/好友 <add|accept|remove|list> [玩家名]", "社交", "game.friend.manage");
     }
     @Override
     public void execute(CommandContext ctx) {

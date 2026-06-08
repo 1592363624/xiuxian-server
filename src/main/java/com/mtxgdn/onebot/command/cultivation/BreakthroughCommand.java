@@ -14,7 +14,7 @@ public class BreakthroughCommand extends Command {
         super(new String[]{"breakthrough", "突破"},
                 "突破当前境界",
                 "/突破",
-                "战斗与成长",
+                "修炼",
                 "game.realm.breakthrough");
     }
 

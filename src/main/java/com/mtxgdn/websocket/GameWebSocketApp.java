@@ -26,9 +26,14 @@ import com.mtxgdn.game.service.CraftingService;
 import com.mtxgdn.game.service.EnhanceService;
 import com.mtxgdn.game.service.ChatService;
 import com.mtxgdn.game.service.FriendService;
+import com.mtxgdn.game.service.SectService;
 import com.mtxgdn.game.entity.Friend;
 import com.mtxgdn.game.entity.ChatMessage;
 import com.mtxgdn.game.entity.SpiritualRoot;
+import com.mtxgdn.game.entity.Sect;
+import com.mtxgdn.game.entity.SectMember;
+import com.mtxgdn.game.entity.SectApplication;
+import com.mtxgdn.game.entity.SectWarehouseItem;
 import com.mtxgdn.permission.PermissionService;
 import com.mtxgdn.util.JwtUtil;
 import com.mtxgdn.util.PlayerActionLogger;
@@ -54,6 +59,7 @@ public class GameWebSocketApp extends WebSocketApplication {
     private static final EnhanceService enhanceService = new EnhanceService();
     private static final ChatService chatService = new ChatService();
     private static final FriendService friendService = new FriendService();
+    private static final SectService sectService = new SectService();
 
     private final Map<WebSocket, Long> sessionUsers = new ConcurrentHashMap<>();
     private final Map<Long, WebSocket> userSessions = new ConcurrentHashMap<>();
@@ -307,6 +313,70 @@ public class GameWebSocketApp extends WebSocketApplication {
             case "equipment_enhance":
                 if (!checkWsPermission(socket, msgId, userId, "game.equipment.enhance")) break;
                 handleEquipmentEnhance(socket, msgId, userId, data);
+                break;
+            case "sect_list":
+                if (!checkWsPermission(socket, msgId, userId, "game.sect.manage")) break;
+                handleSectList(socket, msgId);
+                break;
+            case "sect_info":
+                if (!checkWsPermission(socket, msgId, userId, "game.sect.manage")) break;
+                handleSectInfo(socket, msgId, userId, data);
+                break;
+            case "sect_members":
+                if (!checkWsPermission(socket, msgId, userId, "game.sect.manage")) break;
+                handleSectMembers(socket, msgId, userId);
+                break;
+            case "sect_create":
+                if (!checkWsPermission(socket, msgId, userId, "game.sect.manage")) break;
+                handleSectCreate(socket, msgId, userId, data);
+                break;
+            case "sect_join":
+                if (!checkWsPermission(socket, msgId, userId, "game.sect.manage")) break;
+                handleSectJoin(socket, msgId, userId, data);
+                break;
+            case "sect_applications":
+                if (!checkWsPermission(socket, msgId, userId, "game.sect.manage")) break;
+                handleSectApplications(socket, msgId, userId);
+                break;
+            case "sect_approve":
+                if (!checkWsPermission(socket, msgId, userId, "game.sect.manage")) break;
+                handleSectApprove(socket, msgId, userId, data);
+                break;
+            case "sect_reject":
+                if (!checkWsPermission(socket, msgId, userId, "game.sect.manage")) break;
+                handleSectReject(socket, msgId, userId, data);
+                break;
+            case "sect_leave":
+                if (!checkWsPermission(socket, msgId, userId, "game.sect.manage")) break;
+                handleSectLeave(socket, msgId, userId);
+                break;
+            case "sect_kick":
+                if (!checkWsPermission(socket, msgId, userId, "game.sect.manage")) break;
+                handleSectKick(socket, msgId, userId, data);
+                break;
+            case "sect_appoint":
+                if (!checkWsPermission(socket, msgId, userId, "game.sect.manage")) break;
+                handleSectAppoint(socket, msgId, userId, data);
+                break;
+            case "sect_warehouse":
+                if (!checkWsPermission(socket, msgId, userId, "game.sect.manage")) break;
+                handleSectWarehouse(socket, msgId, userId);
+                break;
+            case "sect_donate":
+                if (!checkWsPermission(socket, msgId, userId, "game.sect.donate")) break;
+                handleSectDonate(socket, msgId, userId, data);
+                break;
+            case "sect_take":
+                if (!checkWsPermission(socket, msgId, userId, "game.sect.warehouse")) break;
+                handleSectTake(socket, msgId, userId, data);
+                break;
+            case "sect_disband":
+                if (!checkWsPermission(socket, msgId, userId, "game.sect.manage")) break;
+                handleSectDisband(socket, msgId, userId);
+                break;
+            case "sect_top":
+                if (!checkWsPermission(socket, msgId, userId, "game.sect.manage")) break;
+                handleSectTop(socket, msgId);
                 break;
             default:
                 GameMessage err = GameMessage.error(msgId, type, GameErrorCode.UNKNOWN_TYPE);
@@ -1116,6 +1186,353 @@ public class GameWebSocketApp extends WebSocketApplication {
         } else {
             socket.send(GameMessage.error(msgId, "equipment_enhance", 400, (String) result.get("message")).toJson());
         }
+    }
+
+    private void handleSectList(WebSocket socket, long msgId) {
+        List<Sect> sects = sectService.getAllSects();
+        JsonArray arr = new JsonArray();
+        for (Sect s : sects) {
+            JsonObject o = new JsonObject();
+            o.addProperty("id", s.getId());
+            o.addProperty("name", s.getName());
+            o.addProperty("description", s.getDescription());
+            o.addProperty("leaderPlayerId", s.getLeaderPlayerId());
+            o.addProperty("leaderName", s.getLeaderName());
+            o.addProperty("level", s.getLevel());
+            o.addProperty("prestige", s.getPrestige());
+            o.addProperty("memberCount", s.getMemberCount());
+            o.addProperty("maxMembers", Sect.getMaxMembersForLevel(s.getLevel()));
+            arr.add(o);
+        }
+        JsonObject data = new JsonObject();
+        data.add("sects", arr);
+        socket.send(GameMessage.ok(msgId, "sect_list", data).toJson());
+    }
+
+    private void handleSectInfo(WebSocket socket, long msgId, Long userId, JsonObject data) {
+        PlayerInfo player = playerService.getPlayerByUserId(userId);
+        if (player == null) {
+            socket.send(GameMessage.error(msgId, "sect_info", GameErrorCode.PLAYER_NOT_FOUND).toJson());
+            return;
+        }
+        Sect sect;
+        if (data != null && data.has("sectId")) {
+            sect = sectService.getSectById(data.get("sectId").getAsLong());
+        } else {
+            sect = sectService.getPlayerSect(player.getId());
+        }
+        if (sect == null) {
+            socket.send(GameMessage.ok(msgId, "sect_info", "尚未加入宗门", null).toJson());
+            return;
+        }
+        JsonObject resp = gson.toJsonTree(sect).getAsJsonObject();
+        resp.addProperty("maxMembers", Sect.getMaxMembersForLevel(sect.getLevel()));
+        SectMember me = sectService.getMember(sect.getId(), player.getId());
+        if (me != null) {
+            resp.addProperty("myRole", me.getRole());
+            resp.addProperty("myRoleDisplay", SectMember.getRoleDisplayName(me.getRole()));
+            resp.addProperty("myContribution", me.getContribution());
+        }
+        socket.send(GameMessage.ok(msgId, "sect_info", resp).toJson());
+    }
+
+    private void handleSectMembers(WebSocket socket, long msgId, Long userId) {
+        PlayerInfo player = playerService.getPlayerByUserId(userId);
+        if (player == null) {
+            socket.send(GameMessage.error(msgId, "sect_members", GameErrorCode.PLAYER_NOT_FOUND).toJson());
+            return;
+        }
+        Sect sect = sectService.getPlayerSect(player.getId());
+        if (sect == null) {
+            socket.send(GameMessage.error(msgId, "sect_members", 400, "你还没有加入宗门").toJson());
+            return;
+        }
+        List<SectMember> members = sectService.getSectMembers(sect.getId());
+        JsonArray arr = new JsonArray();
+        for (SectMember m : members) {
+            JsonObject o = new JsonObject();
+            o.addProperty("id", m.getId());
+            o.addProperty("playerId", m.getPlayerId());
+            o.addProperty("playerName", m.getPlayerName());
+            o.addProperty("role", m.getRole());
+            o.addProperty("roleDisplay", SectMember.getRoleDisplayName(m.getRole()));
+            o.addProperty("contribution", m.getContribution());
+            o.addProperty("playerRealm", m.getPlayerRealm());
+            o.addProperty("playerLevel", m.getPlayerLevel());
+            arr.add(o);
+        }
+        JsonObject resp = new JsonObject();
+        resp.add("members", arr);
+        resp.addProperty("sectName", sect.getName());
+        socket.send(GameMessage.ok(msgId, "sect_members", resp).toJson());
+    }
+
+    private void handleSectCreate(WebSocket socket, long msgId, Long userId, JsonObject data) {
+        if (data == null || !data.has("name")) {
+            socket.send(GameMessage.error(msgId, "sect_create", GameErrorCode.PARAM_MISSING).toJson());
+            return;
+        }
+        PlayerInfo player = playerService.getPlayerByUserId(userId);
+        if (player == null) {
+            socket.send(GameMessage.error(msgId, "sect_create", GameErrorCode.PLAYER_NOT_FOUND).toJson());
+            return;
+        }
+        String name = data.get("name").getAsString();
+        String desc = data.has("description") ? data.get("description").getAsString() : "";
+        Map<String, Object> result = sectService.createSect(player.getId(), name, desc);
+        if (Boolean.TRUE.equals(result.get("success"))) {
+            JsonObject resp = gson.toJsonTree(result.get("sect")).getAsJsonObject();
+            socket.send(GameMessage.ok(msgId, "sect_create", (String) result.get("message"), resp).toJson());
+        } else {
+            socket.send(GameMessage.error(msgId, "sect_create", 400, (String) result.get("message")).toJson());
+        }
+    }
+
+    private void handleSectJoin(WebSocket socket, long msgId, Long userId, JsonObject data) {
+        if (data == null || !data.has("sectId")) {
+            socket.send(GameMessage.error(msgId, "sect_join", GameErrorCode.PARAM_MISSING).toJson());
+            return;
+        }
+        PlayerInfo player = playerService.getPlayerByUserId(userId);
+        if (player == null) {
+            socket.send(GameMessage.error(msgId, "sect_join", GameErrorCode.PLAYER_NOT_FOUND).toJson());
+            return;
+        }
+        long sectId = data.get("sectId").getAsLong();
+        Map<String, Object> result = sectService.applyToSect(player.getId(), sectId, "");
+        if (Boolean.TRUE.equals(result.get("success"))) {
+            socket.send(GameMessage.ok(msgId, "sect_join", (String) result.get("message"), null).toJson());
+        } else {
+            socket.send(GameMessage.error(msgId, "sect_join", 400, (String) result.get("message")).toJson());
+        }
+    }
+
+    private void handleSectApplications(WebSocket socket, long msgId, Long userId) {
+        PlayerInfo player = playerService.getPlayerByUserId(userId);
+        if (player == null) {
+            socket.send(GameMessage.error(msgId, "sect_applications", GameErrorCode.PLAYER_NOT_FOUND).toJson());
+            return;
+        }
+        SectMember member = sectService.getPlayerMember(player.getId());
+        if (member == null) {
+            socket.send(GameMessage.error(msgId, "sect_applications", 400, "你还没有加入宗门").toJson());
+            return;
+        }
+        List<SectApplication> apps = sectService.getPendingApplications(member.getSectId());
+        JsonArray arr = new JsonArray();
+        for (SectApplication a : apps) {
+            JsonObject o = new JsonObject();
+            o.addProperty("id", a.getId());
+            o.addProperty("playerId", a.getPlayerId());
+            o.addProperty("playerName", a.getPlayerName());
+            o.addProperty("message", a.getMessage());
+            o.addProperty("createdAt", a.getCreatedAt());
+            arr.add(o);
+        }
+        JsonObject resp = new JsonObject();
+        resp.add("applications", arr);
+        socket.send(GameMessage.ok(msgId, "sect_applications", resp).toJson());
+    }
+
+    private void handleSectApprove(WebSocket socket, long msgId, Long userId, JsonObject data) {
+        if (data == null || !data.has("appId")) {
+            socket.send(GameMessage.error(msgId, "sect_approve", GameErrorCode.PARAM_MISSING).toJson());
+            return;
+        }
+        PlayerInfo player = playerService.getPlayerByUserId(userId);
+        if (player == null) {
+            socket.send(GameMessage.error(msgId, "sect_approve", GameErrorCode.PLAYER_NOT_FOUND).toJson());
+            return;
+        }
+        long appId = data.get("appId").getAsLong();
+        Map<String, Object> result = sectService.approveApplication(player.getId(), appId, true);
+        if (Boolean.TRUE.equals(result.get("success"))) {
+            socket.send(GameMessage.ok(msgId, "sect_approve", (String) result.get("message"), null).toJson());
+        } else {
+            socket.send(GameMessage.error(msgId, "sect_approve", 400, (String) result.get("message")).toJson());
+        }
+    }
+
+    private void handleSectReject(WebSocket socket, long msgId, Long userId, JsonObject data) {
+        if (data == null || !data.has("appId")) {
+            socket.send(GameMessage.error(msgId, "sect_reject", GameErrorCode.PARAM_MISSING).toJson());
+            return;
+        }
+        PlayerInfo player = playerService.getPlayerByUserId(userId);
+        if (player == null) {
+            socket.send(GameMessage.error(msgId, "sect_reject", GameErrorCode.PLAYER_NOT_FOUND).toJson());
+            return;
+        }
+        long appId = data.get("appId").getAsLong();
+        Map<String, Object> result = sectService.approveApplication(player.getId(), appId, false);
+        if (Boolean.TRUE.equals(result.get("success"))) {
+            socket.send(GameMessage.ok(msgId, "sect_reject", (String) result.get("message"), null).toJson());
+        } else {
+            socket.send(GameMessage.error(msgId, "sect_reject", 400, (String) result.get("message")).toJson());
+        }
+    }
+
+    private void handleSectLeave(WebSocket socket, long msgId, Long userId) {
+        PlayerInfo player = playerService.getPlayerByUserId(userId);
+        if (player == null) {
+            socket.send(GameMessage.error(msgId, "sect_leave", GameErrorCode.PLAYER_NOT_FOUND).toJson());
+            return;
+        }
+        Map<String, Object> result = sectService.leaveSect(player.getId());
+        if (Boolean.TRUE.equals(result.get("success"))) {
+            socket.send(GameMessage.ok(msgId, "sect_leave", (String) result.get("message"), null).toJson());
+        } else {
+            socket.send(GameMessage.error(msgId, "sect_leave", 400, (String) result.get("message")).toJson());
+        }
+    }
+
+    private void handleSectKick(WebSocket socket, long msgId, Long userId, JsonObject data) {
+        if (data == null || !data.has("targetPlayerId")) {
+            socket.send(GameMessage.error(msgId, "sect_kick", GameErrorCode.PARAM_MISSING).toJson());
+            return;
+        }
+        PlayerInfo player = playerService.getPlayerByUserId(userId);
+        if (player == null) {
+            socket.send(GameMessage.error(msgId, "sect_kick", GameErrorCode.PLAYER_NOT_FOUND).toJson());
+            return;
+        }
+        long targetId = data.get("targetPlayerId").getAsLong();
+        Map<String, Object> result = sectService.kickMember(player.getId(), targetId);
+        if (Boolean.TRUE.equals(result.get("success"))) {
+            socket.send(GameMessage.ok(msgId, "sect_kick", (String) result.get("message"), null).toJson());
+        } else {
+            socket.send(GameMessage.error(msgId, "sect_kick", 400, (String) result.get("message")).toJson());
+        }
+    }
+
+    private void handleSectAppoint(WebSocket socket, long msgId, Long userId, JsonObject data) {
+        if (data == null || !data.has("targetPlayerId") || !data.has("role")) {
+            socket.send(GameMessage.error(msgId, "sect_appoint", GameErrorCode.PARAM_MISSING).toJson());
+            return;
+        }
+        PlayerInfo player = playerService.getPlayerByUserId(userId);
+        if (player == null) {
+            socket.send(GameMessage.error(msgId, "sect_appoint", GameErrorCode.PLAYER_NOT_FOUND).toJson());
+            return;
+        }
+        long targetId = data.get("targetPlayerId").getAsLong();
+        String role = data.get("role").getAsString();
+        Map<String, Object> result = sectService.appointMember(player.getId(), targetId, role);
+        if (Boolean.TRUE.equals(result.get("success"))) {
+            socket.send(GameMessage.ok(msgId, "sect_appoint", (String) result.get("message"), null).toJson());
+        } else {
+            socket.send(GameMessage.error(msgId, "sect_appoint", 400, (String) result.get("message")).toJson());
+        }
+    }
+
+    private void handleSectWarehouse(WebSocket socket, long msgId, Long userId) {
+        PlayerInfo player = playerService.getPlayerByUserId(userId);
+        if (player == null) {
+            socket.send(GameMessage.error(msgId, "sect_warehouse", GameErrorCode.PLAYER_NOT_FOUND).toJson());
+            return;
+        }
+        SectMember member = sectService.getPlayerMember(player.getId());
+        if (member == null) {
+            socket.send(GameMessage.error(msgId, "sect_warehouse", 400, "你还没有加入宗门").toJson());
+            return;
+        }
+        List<SectWarehouseItem> items = sectService.getWarehouse(member.getSectId());
+        JsonArray arr = new JsonArray();
+        for (SectWarehouseItem item : items) {
+            JsonObject o = new JsonObject();
+            o.addProperty("id", item.getId());
+            o.addProperty("itemKey", item.getItemKey());
+            o.addProperty("quantity", item.getQuantity());
+            o.addProperty("donatedByPlayerId", item.getDonatedByPlayerId());
+            o.addProperty("donatedByName", item.getDonatedByName());
+            arr.add(o);
+        }
+        JsonObject resp = new JsonObject();
+        resp.add("warehouse", arr);
+        socket.send(GameMessage.ok(msgId, "sect_warehouse", resp).toJson());
+    }
+
+    private void handleSectDonate(WebSocket socket, long msgId, Long userId, JsonObject data) {
+        if (data == null || !data.has("itemKey") || !data.has("quantity")) {
+            socket.send(GameMessage.error(msgId, "sect_donate", GameErrorCode.PARAM_MISSING).toJson());
+            return;
+        }
+        PlayerInfo player = playerService.getPlayerByUserId(userId);
+        if (player == null) {
+            socket.send(GameMessage.error(msgId, "sect_donate", GameErrorCode.PLAYER_NOT_FOUND).toJson());
+            return;
+        }
+        SectMember member = sectService.getPlayerMember(player.getId());
+        if (member == null) {
+            socket.send(GameMessage.error(msgId, "sect_donate", 400, "你还没有加入宗门").toJson());
+            return;
+        }
+        String itemKey = data.get("itemKey").getAsString();
+        int quantity = data.get("quantity").getAsInt();
+        Map<String, Object> result = sectService.donateToWarehouse(player.getId(), member.getSectId(), itemKey, quantity);
+        if (Boolean.TRUE.equals(result.get("success"))) {
+            socket.send(GameMessage.ok(msgId, "sect_donate", (String) result.get("message"), null).toJson());
+        } else {
+            socket.send(GameMessage.error(msgId, "sect_donate", 400, (String) result.get("message")).toJson());
+        }
+    }
+
+    private void handleSectTake(WebSocket socket, long msgId, Long userId, JsonObject data) {
+        if (data == null || !data.has("itemKey") || !data.has("quantity")) {
+            socket.send(GameMessage.error(msgId, "sect_take", GameErrorCode.PARAM_MISSING).toJson());
+            return;
+        }
+        PlayerInfo player = playerService.getPlayerByUserId(userId);
+        if (player == null) {
+            socket.send(GameMessage.error(msgId, "sect_take", GameErrorCode.PLAYER_NOT_FOUND).toJson());
+            return;
+        }
+        SectMember member = sectService.getPlayerMember(player.getId());
+        if (member == null) {
+            socket.send(GameMessage.error(msgId, "sect_take", 400, "你还没有加入宗门").toJson());
+            return;
+        }
+        String itemKey = data.get("itemKey").getAsString();
+        int quantity = data.get("quantity").getAsInt();
+        Map<String, Object> result = sectService.withdrawFromWarehouse(player.getId(), member.getSectId(), itemKey, quantity);
+        if (Boolean.TRUE.equals(result.get("success"))) {
+            socket.send(GameMessage.ok(msgId, "sect_take", (String) result.get("message"), null).toJson());
+        } else {
+            socket.send(GameMessage.error(msgId, "sect_take", 400, (String) result.get("message")).toJson());
+        }
+    }
+
+    private void handleSectDisband(WebSocket socket, long msgId, Long userId) {
+        PlayerInfo player = playerService.getPlayerByUserId(userId);
+        if (player == null) {
+            socket.send(GameMessage.error(msgId, "sect_disband", GameErrorCode.PLAYER_NOT_FOUND).toJson());
+            return;
+        }
+        Map<String, Object> result = sectService.disbandSect(player.getId());
+        if (Boolean.TRUE.equals(result.get("success"))) {
+            socket.send(GameMessage.ok(msgId, "sect_disband", (String) result.get("message"), null).toJson());
+        } else {
+            socket.send(GameMessage.error(msgId, "sect_disband", 400, (String) result.get("message")).toJson());
+        }
+    }
+
+    private void handleSectTop(WebSocket socket, long msgId) {
+        List<Sect> sects = sectService.getTopSects(10);
+        JsonArray arr = new JsonArray();
+        int rank = 1;
+        for (Sect s : sects) {
+            JsonObject o = new JsonObject();
+            o.addProperty("rank", rank++);
+            o.addProperty("id", s.getId());
+            o.addProperty("name", s.getName());
+            o.addProperty("leaderName", s.getLeaderName());
+            o.addProperty("prestige", s.getPrestige());
+            o.addProperty("memberCount", s.getMemberCount());
+            arr.add(o);
+        }
+        JsonObject resp = new JsonObject();
+        resp.add("top", arr);
+        socket.send(GameMessage.ok(msgId, "sect_top", resp).toJson());
     }
 
     public void shutdownGracefully() {

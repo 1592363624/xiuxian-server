@@ -64,6 +64,13 @@ public class PermissionService {
                 PermissionCode.GAME_ITEM_USE, PermissionCode.GAME_INVENTORY_VIEW,
                 PermissionCode.GAME_ITEM_REGISTRY, PermissionCode.GAME_REALM_CONFIG,
                 PermissionCode.GAME_SKILL_LEARN, PermissionCode.GAME_PVP_CHALLENGE,
+                PermissionCode.GAME_CHAT_WORLD, PermissionCode.GAME_CHAT_PRIVATE,
+                PermissionCode.GAME_RANK_VIEW, PermissionCode.GAME_FRIEND_MANAGE,
+                PermissionCode.GAME_SECT_MANAGE, PermissionCode.GAME_SECT_DONATE, PermissionCode.GAME_SECT_WAREHOUSE,
+                PermissionCode.GAME_MARKET_TRADE, PermissionCode.GAME_TECHNIQUE_LEARN,
+                PermissionCode.GAME_TECHNIQUE_EQUIP, PermissionCode.GAME_TECHNIQUE_UPGRADE,
+                PermissionCode.GAME_CRAFTING_RECIPES, PermissionCode.GAME_CRAFTING_CRAFT,
+                PermissionCode.GAME_EQUIPMENT_ENHANCE, PermissionCode.GAME_EQUIPMENT_EQUIP,
                 PermissionCode.QQ_BIND, PermissionCode.QQ_UNBIND,
                 PermissionCode.QQ_COMMAND_BASIC, PermissionCode.QQ_COMMAND_GAME,
                 PermissionCode.QQ_COMMAND_TRACE

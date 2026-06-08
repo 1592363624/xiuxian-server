@@ -10,7 +10,7 @@ public class UnbindCommand extends Command {
         super(new String[]{"unbind", "解绑"},
                 "解除QQ号与游戏账号的绑定",
                 "/unbind",
-                "账户",
+                "账号",
                 "game.player.info",
                 true);
     }

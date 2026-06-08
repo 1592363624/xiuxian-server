@@ -10,7 +10,7 @@ public class RegisterCommand extends Command {
         super(new String[]{"register", "注册"},
                 "注册修仙角色",
                 "/register <角色名>",
-                "账户");
+                "账号");
     }
 
     @Override

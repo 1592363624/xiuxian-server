@@ -376,6 +376,67 @@ public class DatabaseManager {
                 "created_at " + tsDefault +
                 ")";
 
+        String sectsTableSql = "CREATE TABLE IF NOT EXISTS sects (" +
+                "id " + pk + ", " +
+                "name VARCHAR(32) NOT NULL UNIQUE, " +
+                "description VARCHAR(256) DEFAULT '', " +
+                "leader_player_id BIGINT NOT NULL, " +
+                "level INT DEFAULT 1, " +
+                "prestige BIGINT DEFAULT 0, " +
+                "max_members INT DEFAULT 20, " +
+                "created_at " + tsDefault + ", " +
+                "updated_at " + tsUpdate;
+
+        if (!IS_SQLITE) {
+            sectsTableSql += ", FOREIGN KEY (leader_player_id) REFERENCES players(id) ON DELETE CASCADE";
+        }
+        sectsTableSql += ")";
+
+        String sectMembersTableSql = "CREATE TABLE IF NOT EXISTS sect_members (" +
+                "id " + pk + ", " +
+                "sect_id BIGINT NOT NULL, " +
+                "player_id BIGINT NOT NULL, " +
+                "role VARCHAR(16) NOT NULL DEFAULT 'MEMBER', " +
+                "contribution BIGINT DEFAULT 0, " +
+                "joined_at " + tsDefault;
+
+        if (!IS_SQLITE) {
+            sectMembersTableSql += ", FOREIGN KEY (sect_id) REFERENCES sects(id) ON DELETE CASCADE, FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE, UNIQUE (player_id)";
+        } else {
+            sectMembersTableSql += ", UNIQUE (player_id)";
+        }
+        sectMembersTableSql += ")";
+
+        String sectApplicationsTableSql = "CREATE TABLE IF NOT EXISTS sect_applications (" +
+                "id " + pk + ", " +
+                "sect_id BIGINT NOT NULL, " +
+                "player_id BIGINT NOT NULL, " +
+                "message VARCHAR(256) DEFAULT '', " +
+                "status VARCHAR(16) NOT NULL DEFAULT 'pending', " +
+                "created_at " + tsDefault + ", " +
+                "updated_at " + tsUpdate;
+
+        if (!IS_SQLITE) {
+            sectApplicationsTableSql += ", FOREIGN KEY (sect_id) REFERENCES sects(id) ON DELETE CASCADE, FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE";
+        }
+        sectApplicationsTableSql += ")";
+
+        String sectWarehouseTableSql = "CREATE TABLE IF NOT EXISTS sect_warehouse (" +
+                "id " + pk + ", " +
+                "sect_id BIGINT NOT NULL, " +
+                "item_key VARCHAR(128) NOT NULL, " +
+                "quantity INT NOT NULL DEFAULT 1, " +
+                "donated_by_player_id BIGINT DEFAULT NULL, " +
+                "created_at " + tsDefault + ", " +
+                "updated_at " + tsUpdate;
+
+        if (!IS_SQLITE) {
+            sectWarehouseTableSql += ", FOREIGN KEY (sect_id) REFERENCES sects(id) ON DELETE CASCADE, UNIQUE (sect_id, item_key)";
+        } else {
+            sectWarehouseTableSql += ", UNIQUE (sect_id, item_key)";
+        }
+        sectWarehouseTableSql += ")";
+
         try (Connection conn = getConnection();
              Statement stmt = conn.createStatement()) {
             stmt.execute(userTableSql);
@@ -398,6 +459,10 @@ public class DatabaseManager {
             stmt.execute(chatMessagesTableSql);
             stmt.execute(friendsTableSql);
             stmt.execute(playerActionLogsTableSql);
+            stmt.execute(sectsTableSql);
+            stmt.execute(sectMembersTableSql);
+            stmt.execute(sectApplicationsTableSql);
+            stmt.execute(sectWarehouseTableSql);
         } catch (SQLException e) {
             throw new RuntimeException("创建数据库表失败", e);
         }
@@ -435,6 +500,10 @@ public class DatabaseManager {
             int cm = stmt.executeUpdate("DELETE FROM chat_messages");
             int fr = stmt.executeUpdate("DELETE FROM friends");
             int pal = stmt.executeUpdate("DELETE FROM player_action_logs");
+            int sm = stmt.executeUpdate("DELETE FROM sect_members");
+            int sa = stmt.executeUpdate("DELETE FROM sect_applications");
+            int sw = stmt.executeUpdate("DELETE FROM sect_warehouse");
+            int sc = stmt.executeUpdate("DELETE FROM sects");
             int pl = stmt.executeUpdate("DELETE FROM players");
             if (!IS_SQLITE) {
                 stmt.execute("SET FOREIGN_KEY_CHECKS = 1");
@@ -449,6 +518,10 @@ public class DatabaseManager {
             result.put("chat_messages", cm);
             result.put("friends", fr);
             result.put("player_action_logs", pal);
+            result.put("sect_members", sm);
+            result.put("sect_applications", sa);
+            result.put("sect_warehouse", sw);
+            result.put("sects", sc);
             result.put("players", pl);
         } catch (SQLException e) {
             throw new RuntimeException("清除玩家数据失败", e);
@@ -474,6 +547,10 @@ public class DatabaseManager {
             int cm = stmt.executeUpdate("DELETE FROM chat_messages");
             int fr = stmt.executeUpdate("DELETE FROM friends");
             int pal = stmt.executeUpdate("DELETE FROM player_action_logs");
+            int sm2 = stmt.executeUpdate("DELETE FROM sect_members");
+            int sa2 = stmt.executeUpdate("DELETE FROM sect_applications");
+            int sw2 = stmt.executeUpdate("DELETE FROM sect_warehouse");
+            int sc2 = stmt.executeUpdate("DELETE FROM sects");
             int pl = stmt.executeUpdate("DELETE FROM players");
             int qb = stmt.executeUpdate("DELETE FROM qq_bindings");
             int ur = stmt.executeUpdate("DELETE FROM user_roles");
@@ -494,6 +571,10 @@ public class DatabaseManager {
             result.put("chat_messages", cm);
             result.put("friends", fr);
             result.put("player_action_logs", pal);
+            result.put("sect_members", sm2);
+            result.put("sect_applications", sa2);
+            result.put("sect_warehouse", sw2);
+            result.put("sects", sc2);
             result.put("players", pl);
             result.put("qq_bindings", qb);
             result.put("user_roles", ur);

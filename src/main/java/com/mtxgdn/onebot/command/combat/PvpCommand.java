@@ -9,7 +9,7 @@ import java.util.List;
 
 public class PvpCommand extends Command {
     public PvpCommand() {
-        super(new String[]{"pvp", "挑战"}, "挑战其他修士", "/挑战 <角色名>", "战斗与成长", "game.pvp.challenge");
+        super(new String[]{"pvp", "挑战"}, "挑战其他修士", "/挑战 <角色名>", "战斗", "game.pvp.challenge");
     }
     @Override
     public void execute(CommandContext ctx) {

@@ -20,6 +20,7 @@ public class ServiceRegistry {
     private static final EnhanceService enhanceService = new EnhanceService();
     private static final CraftingService craftingService = new CraftingService();
     private static final TechniqueService techniqueService = new TechniqueService();
+    private static final SectService sectService = new SectService();
 
     private ServiceRegistry() {
     }
@@ -86,5 +87,9 @@ public class ServiceRegistry {
 
     public static TechniqueService getTechniqueService() {
         return techniqueService;
+    }
+
+    public static SectService getSectService() {
+        return sectService;
     }
 }

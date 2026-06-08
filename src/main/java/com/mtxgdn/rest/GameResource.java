@@ -36,6 +36,11 @@ import com.mtxgdn.game.entity.ChatMessage;
 import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.util.RateLimiter;
 import com.mtxgdn.game.secretrealm.SecretRealm;
+import com.mtxgdn.game.service.SectService;
+import com.mtxgdn.game.entity.Sect;
+import com.mtxgdn.game.entity.SectMember;
+import com.mtxgdn.game.entity.SectApplication;
+import com.mtxgdn.game.entity.SectWarehouseItem;
 import com.mtxgdn.game.entity.SpiritualRoot;
 import com.mtxgdn.permission.RequirePermission;
 import com.mtxgdn.util.PlayerActionLogger;
@@ -70,6 +75,7 @@ public class GameResource {
     private static final EnhanceService enhanceService = ServiceRegistry.getEnhanceService();
     private static final ChatService chatService = ServiceRegistry.getChatService();
     private static final FriendService friendService = ServiceRegistry.getFriendService();
+    private static final SectService sectService = ServiceRegistry.getSectService();
 
     @Context
     private ContainerRequestContext requestContext;
@@ -1490,6 +1496,350 @@ public class GameResource {
             return Response.ok(GameMessage.restError(GameErrorCode.FRIEND_NOT_FOUND).toString()).build();
         }
         return Response.ok(GameMessage.restOk("已删除好友", null).toString()).build();
+    }
+
+    @GET
+    @Path("/sect/list")
+    @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("game.sect.manage")
+    public Response listSects() {
+        List<Sect> sects = sectService.getAllSects();
+        JsonArray arr = new JsonArray();
+        for (Sect s : sects) {
+            JsonObject o = new JsonObject();
+            o.addProperty("id", s.getId());
+            o.addProperty("name", s.getName());
+            o.addProperty("description", s.getDescription());
+            o.addProperty("leaderPlayerId", s.getLeaderPlayerId());
+            o.addProperty("leaderName", s.getLeaderName());
+            o.addProperty("level", s.getLevel());
+            o.addProperty("prestige", s.getPrestige());
+            o.addProperty("memberCount", s.getMemberCount());
+            o.addProperty("maxMembers", Sect.getMaxMembersForLevel(s.getLevel()));
+            arr.add(o);
+        }
+        JsonObject data = new JsonObject();
+        data.add("sects", arr);
+        return Response.ok(GameMessage.restOk("获取成功", data).toString()).build();
+    }
+
+    @GET
+    @Path("/sect/info")
+    @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("game.sect.manage")
+    public Response getMySect() {
+        Long userId = getCurrentUserId();
+        int playerId = getPlayerIdByUserId(userId);
+        Sect sect = sectService.getPlayerSect(playerId);
+        if (sect == null) {
+            return Response.ok(GameMessage.restOk("尚未加入宗门", null).toString()).build();
+        }
+        return buildSectResponse(sect, playerId);
+    }
+
+    @GET
+    @Path("/sect/info/{sectId}")
+    @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("game.sect.manage")
+    public Response getSectInfo(@PathParam("sectId") long sectId) {
+        Sect sect = sectService.getSectById(sectId);
+        if (sect == null) {
+            return Response.ok(GameMessage.restError(400, "宗门不存在").toString()).build();
+        }
+        Long userId = getCurrentUserId();
+        int playerId = getPlayerIdByUserId(userId);
+        return buildSectResponse(sect, playerId);
+    }
+
+    @GET
+    @Path("/sect/members")
+    @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("game.sect.manage")
+    public Response getSectMembers() {
+        Long userId = getCurrentUserId();
+        int playerId = getPlayerIdByUserId(userId);
+        Sect sect = sectService.getPlayerSect(playerId);
+        if (sect == null) {
+            return Response.ok(GameMessage.restOk("尚未加入宗门", null).toString()).build();
+        }
+        List<SectMember> members = sectService.getSectMembers(sect.getId());
+        JsonArray arr = new JsonArray();
+        for (SectMember m : members) {
+            JsonObject o = new JsonObject();
+            o.addProperty("id", m.getId());
+            o.addProperty("playerId", m.getPlayerId());
+            o.addProperty("playerName", m.getPlayerName());
+            o.addProperty("role", m.getRole());
+            o.addProperty("roleDisplay", SectMember.getRoleDisplayName(m.getRole()));
+            o.addProperty("contribution", m.getContribution());
+            o.addProperty("playerRealm", m.getPlayerRealm());
+            o.addProperty("playerLevel", m.getPlayerLevel());
+            arr.add(o);
+        }
+        JsonObject data = new JsonObject();
+        data.add("members", arr);
+        data.addProperty("sectName", sect.getName());
+        return Response.ok(GameMessage.restOk("获取成功", data).toString()).build();
+    }
+
+    @POST
+    @Path("/sect/create")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("game.sect.manage")
+    public Response createSect(String body) {
+        Long userId = getCurrentUserId();
+        int playerId = getPlayerIdByUserId(userId);
+        JsonObject json = com.google.gson.JsonParser.parseString(body).getAsJsonObject();
+
+        String name = json.has("name") ? json.get("name").getAsString() : "";
+        String desc = json.has("description") ? json.get("description").getAsString() : "";
+        Map<String, Object> result = sectService.createSect(playerId, name, desc);
+
+        actionLog.logCreatePlayer(userId, getPlayerName(userId));
+        if ((boolean) result.get("success")) {
+            return Response.ok(GameMessage.restOk((String) result.get("message"),
+                    gson.toJsonTree(result.get("sect")).getAsJsonObject()).toString()).build();
+        }
+        return Response.ok(GameMessage.restError(400, (String) result.get("message")).toString()).build();
+    }
+
+    @POST
+    @Path("/sect/join/{sectId}")
+    @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("game.sect.manage")
+    public Response joinSect(@PathParam("sectId") long sectId) {
+        Long userId = getCurrentUserId();
+        int playerId = getPlayerIdByUserId(userId);
+        Map<String, Object> result = sectService.applyToSect(playerId, sectId, "");
+        if ((boolean) result.get("success")) {
+            return Response.ok(GameMessage.restOk((String) result.get("message"), null).toString()).build();
+        }
+        return Response.ok(GameMessage.restError(400, (String) result.get("message")).toString()).build();
+    }
+
+    @GET
+    @Path("/sect/applications")
+    @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("game.sect.manage")
+    public Response getSectApplications() {
+        Long userId = getCurrentUserId();
+        int playerId = getPlayerIdByUserId(userId);
+        SectMember member = sectService.getPlayerMember(playerId);
+        if (member == null) {
+            return Response.ok(GameMessage.restError(400, "你还没有加入宗门").toString()).build();
+        }
+        List<SectApplication> apps = sectService.getPendingApplications(member.getSectId());
+        JsonArray arr = new JsonArray();
+        for (SectApplication a : apps) {
+            JsonObject o = new JsonObject();
+            o.addProperty("id", a.getId());
+            o.addProperty("playerId", a.getPlayerId());
+            o.addProperty("playerName", a.getPlayerName());
+            o.addProperty("message", a.getMessage());
+            o.addProperty("createdAt", a.getCreatedAt());
+            arr.add(o);
+        }
+        JsonObject data = new JsonObject();
+        data.add("applications", arr);
+        return Response.ok(GameMessage.restOk("获取成功", data).toString()).build();
+    }
+
+    @POST
+    @Path("/sect/approve/{appId}")
+    @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("game.sect.manage")
+    public Response approveApplication(@PathParam("appId") long appId) {
+        Long userId = getCurrentUserId();
+        int playerId = getPlayerIdByUserId(userId);
+        Map<String, Object> result = sectService.approveApplication(playerId, appId, true);
+        if ((boolean) result.get("success")) {
+            return Response.ok(GameMessage.restOk((String) result.get("message"), null).toString()).build();
+        }
+        return Response.ok(GameMessage.restError(400, (String) result.get("message")).toString()).build();
+    }
+
+    @POST
+    @Path("/sect/reject/{appId}")
+    @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("game.sect.manage")
+    public Response rejectApplication(@PathParam("appId") long appId) {
+        Long userId = getCurrentUserId();
+        int playerId = getPlayerIdByUserId(userId);
+        Map<String, Object> result = sectService.approveApplication(playerId, appId, false);
+        if ((boolean) result.get("success")) {
+            return Response.ok(GameMessage.restOk((String) result.get("message"), null).toString()).build();
+        }
+        return Response.ok(GameMessage.restError(400, (String) result.get("message")).toString()).build();
+    }
+
+    @POST
+    @Path("/sect/leave")
+    @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("game.sect.manage")
+    public Response leaveSect() {
+        Long userId = getCurrentUserId();
+        int playerId = getPlayerIdByUserId(userId);
+        Map<String, Object> result = sectService.leaveSect(playerId);
+        if ((boolean) result.get("success")) {
+            return Response.ok(GameMessage.restOk((String) result.get("message"), null).toString()).build();
+        }
+        return Response.ok(GameMessage.restError(400, (String) result.get("message")).toString()).build();
+    }
+
+    @POST
+    @Path("/sect/kick/{targetPlayerId}")
+    @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("game.sect.manage")
+    public Response kickMember(@PathParam("targetPlayerId") long targetPlayerId) {
+        Long userId = getCurrentUserId();
+        int playerId = getPlayerIdByUserId(userId);
+        Map<String, Object> result = sectService.kickMember(playerId, targetPlayerId);
+        if ((boolean) result.get("success")) {
+            return Response.ok(GameMessage.restOk((String) result.get("message"), null).toString()).build();
+        }
+        return Response.ok(GameMessage.restError(400, (String) result.get("message")).toString()).build();
+    }
+
+    @POST
+    @Path("/sect/appoint")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("game.sect.manage")
+    public Response appointMember(String body) {
+        Long userId = getCurrentUserId();
+        int playerId = getPlayerIdByUserId(userId);
+        JsonObject json = com.google.gson.JsonParser.parseString(body).getAsJsonObject();
+        long targetId = json.has("targetPlayerId") ? json.get("targetPlayerId").getAsLong() : 0;
+        String role = json.has("role") ? json.get("role").getAsString() : "";
+        if (targetId == 0 || role.isEmpty()) {
+            return Response.ok(GameMessage.restError(GameErrorCode.PARAM_MISSING).toString()).build();
+        }
+        Map<String, Object> result = sectService.appointMember(playerId, targetId, role);
+        if ((boolean) result.get("success")) {
+            return Response.ok(GameMessage.restOk((String) result.get("message"), null).toString()).build();
+        }
+        return Response.ok(GameMessage.restError(400, (String) result.get("message")).toString()).build();
+    }
+
+    @GET
+    @Path("/sect/warehouse")
+    @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("game.sect.manage")
+    public Response getSectWarehouse() {
+        Long userId = getCurrentUserId();
+        int playerId = getPlayerIdByUserId(userId);
+        SectMember member = sectService.getPlayerMember(playerId);
+        if (member == null) {
+            return Response.ok(GameMessage.restError(400, "你还没有加入宗门").toString()).build();
+        }
+        List<SectWarehouseItem> items = sectService.getWarehouse(member.getSectId());
+        JsonArray arr = new JsonArray();
+        for (SectWarehouseItem item : items) {
+            JsonObject o = new JsonObject();
+            o.addProperty("id", item.getId());
+            o.addProperty("itemKey", item.getItemKey());
+            o.addProperty("quantity", item.getQuantity());
+            o.addProperty("donatedByPlayerId", item.getDonatedByPlayerId());
+            o.addProperty("donatedByName", item.getDonatedByName());
+            arr.add(o);
+        }
+        JsonObject data = new JsonObject();
+        data.add("warehouse", arr);
+        return Response.ok(GameMessage.restOk("获取成功", data).toString()).build();
+    }
+
+    @POST
+    @Path("/sect/donate")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("game.sect.donate")
+    public Response donateToWarehouse(String body) {
+        Long userId = getCurrentUserId();
+        int playerId = getPlayerIdByUserId(userId);
+        SectMember member = sectService.getPlayerMember(playerId);
+        if (member == null) {
+            return Response.ok(GameMessage.restError(400, "你还没有加入宗门").toString()).build();
+        }
+        JsonObject json = com.google.gson.JsonParser.parseString(body).getAsJsonObject();
+        String itemKey = json.has("itemKey") ? json.get("itemKey").getAsString() : "";
+        int quantity = json.has("quantity") ? json.get("quantity").getAsInt() : 0;
+        Map<String, Object> result = sectService.donateToWarehouse(playerId, member.getSectId(), itemKey, quantity);
+        if ((boolean) result.get("success")) {
+            return Response.ok(GameMessage.restOk((String) result.get("message"), null).toString()).build();
+        }
+        return Response.ok(GameMessage.restError(400, (String) result.get("message")).toString()).build();
+    }
+
+    @POST
+    @Path("/sect/take")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("game.sect.warehouse")
+    public Response takeFromWarehouse(String body) {
+        Long userId = getCurrentUserId();
+        int playerId = getPlayerIdByUserId(userId);
+        SectMember member = sectService.getPlayerMember(playerId);
+        if (member == null) {
+            return Response.ok(GameMessage.restError(400, "你还没有加入宗门").toString()).build();
+        }
+        JsonObject json = com.google.gson.JsonParser.parseString(body).getAsJsonObject();
+        String itemKey = json.has("itemKey") ? json.get("itemKey").getAsString() : "";
+        int quantity = json.has("quantity") ? json.get("quantity").getAsInt() : 0;
+        Map<String, Object> result = sectService.withdrawFromWarehouse(playerId, member.getSectId(), itemKey, quantity);
+        if ((boolean) result.get("success")) {
+            return Response.ok(GameMessage.restOk((String) result.get("message"), null).toString()).build();
+        }
+        return Response.ok(GameMessage.restError(400, (String) result.get("message")).toString()).build();
+    }
+
+    @POST
+    @Path("/sect/disband")
+    @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("game.sect.manage")
+    public Response disbandSect() {
+        Long userId = getCurrentUserId();
+        int playerId = getPlayerIdByUserId(userId);
+        Map<String, Object> result = sectService.disbandSect(playerId);
+        if ((boolean) result.get("success")) {
+            return Response.ok(GameMessage.restOk((String) result.get("message"), null).toString()).build();
+        }
+        return Response.ok(GameMessage.restError(400, (String) result.get("message")).toString()).build();
+    }
+
+    @GET
+    @Path("/sect/top")
+    @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("game.sect.manage")
+    public Response getSectTop() {
+        List<Sect> sects = sectService.getTopSects(10);
+        JsonArray arr = new JsonArray();
+        int rank = 1;
+        for (Sect s : sects) {
+            JsonObject o = new JsonObject();
+            o.addProperty("rank", rank++);
+            o.addProperty("id", s.getId());
+            o.addProperty("name", s.getName());
+            o.addProperty("leaderName", s.getLeaderName());
+            o.addProperty("prestige", s.getPrestige());
+            o.addProperty("memberCount", s.getMemberCount());
+            arr.add(o);
+        }
+        JsonObject data = new JsonObject();
+        data.add("top", arr);
+        return Response.ok(GameMessage.restOk("获取成功", data).toString()).build();
+    }
+
+    private Response buildSectResponse(Sect sect, int playerId) {
+        JsonObject data = gson.toJsonTree(sect).getAsJsonObject();
+        data.addProperty("maxMembers", Sect.getMaxMembersForLevel(sect.getLevel()));
+        SectMember me = sectService.getMember(sect.getId(), playerId);
+        if (me != null) {
+            data.addProperty("myRole", me.getRole());
+            data.addProperty("myRoleDisplay", SectMember.getRoleDisplayName(me.getRole()));
+            data.addProperty("myContribution", me.getContribution());
+        }
+        return Response.ok(GameMessage.restOk("获取成功", data).toString()).build();
     }
 
     private String formatUptime(long totalSeconds) {

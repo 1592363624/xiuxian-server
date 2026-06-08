@@ -23,6 +23,7 @@
 - **游历探索**：随机事件系统，权重抽奖机制，巽风灵根可缩减冷却时间
 - **秘境探索**：8 个秘境区域，随机遭遇宝藏/妖兽/Boss/灵草/陷阱/古修/遗迹等事件
 - **坊市交易**：玩家间物品交易，使用灵石结算，5% 手续费（土金灵根减半），挂单/购买/撤单完整流程
+- **宗门系统**：创建宗门/申请加入/审批/任命/捐献/仓库存取/踢出/解散，等级≥3 消耗 100 灵石创建，声望排行，宗门仓库共享物品
 - **物品系统**：7 种类型、6 种稀有度，组件化效果（经验/回血/货币/buff/技能书），支持按中文名称/key 使用物品
 - **技能系统**：攻击技能和辅助技能，熟练度升级（使用获得熟练度，技能书 +1 级），等级越高蓝耗越大，金水木灵根熟练度 +30%
 - **装备系统**：装备穿戴/卸下，属性加成
@@ -113,7 +114,11 @@ src/main/java/com/mtxgdn/
 │   │   ├── SpiritualRoot.java
 │   │   ├── Friend.java               # 好友实体
 │   │   ├── ChatMessage.java          # 聊天消息实体
-│   │   └── Technique.java            # 功法实体
+│   │   ├── Technique.java            # 功法实体
+│   │   ├── Sect.java                 # 宗门实体
+│   │   ├── SectMember.java           # 宗门成员实体
+│   │   ├── SectApplication.java      # 入宗申请实体
+│   │   └── SectWarehouseItem.java    # 宗门仓库物品实体
 │   ├── explorationevent/           # 游历事件系统
 │   │   ├── ExplorationEvent.java       # 事件抽象基类
 │   │   ├── ExplorationEventRegistry.java  # 事件注册中心
@@ -152,7 +157,8 @@ src/main/java/com/mtxgdn/
 │       ├── TechniqueService.java   # 功法/心法系统
 │       ├── ChatService.java        # 聊天系统（世界频道+私聊）
 │       ├── FriendService.java      # 好友系统
-│       └── TradeService.java       # 坊市交易
+│       ├── TradeService.java       # 坊市交易
+│       └── SectService.java        # 宗门系统
 │
 ├── minecraft/
 │   ├── MinecraftMotdServer.java    # Minecraft MOTD 服务器
@@ -164,7 +170,7 @@ src/main/java/com/mtxgdn/
 │   ├── OneBotMessageSender.java    # OneBot 消息发送接口
 │   ├── QqBinding.java              # QQ 绑定实体
 │   ├── QqBindingService.java       # QQ 绑定服务
-│   └── command/                    # QQ 机器人指令（33 个按功能模块化）
+│   └── command/                    # QQ 机器人指令（按功能模块化）
 │       ├── OneBotCommandContext.java  # OneBot 指令上下文
 │       ├── account/                   # 账号指令（Help/Register/Bind/Unbind）
 │       ├── cultivation/               # 修炼指令（Cultivate/CultivateStop/Breakthrough）
@@ -175,7 +181,8 @@ src/main/java/com/mtxgdn/
 │       ├── combat/                    # 战斗指令（Pvp/Skills/LearnSkill）
 │       ├── daily/                     # 每日指令（Daily/Morning）
 │       ├── player/                    # 角色指令（Status/Heal）
-│       └── admin/                     # 管理指令（ClearPlayersDb/ResetAllDb）
+│       ├── sect/                      # 宗门指令（SectCommand）
+│       └── admin/                     # 管理指令（ClearPlayersDb/ResetAllDb/Give/EditPlayer/Trace...）
 │
 ├── permission/                     # 权限系统
 │   ├── PermissionCode.java         # 权限码定义
@@ -407,6 +414,22 @@ java -jar target/main-V0.0.0-alpha.jar
 | POST | `/api/game/market/buy` | `game.market.buy` | 购买物品 |
 | POST | `/api/game/market/cancel` | `game.market.cancel` | 撤单 |
 | GET | `/api/game/market/my_listings` | `game.market.view` | 我的挂单 |
+| GET | `/api/game/sect/list` | `game.sect.manage` | 宗门列表 |
+| GET | `/api/game/sect/info` | `game.sect.manage` | 我的宗门信息 |
+| GET | `/api/game/sect/info/{sectId}` | `game.sect.manage` | 查看指定宗门 |
+| POST | `/api/game/sect/create` | `game.sect.manage` | 创建宗门 |
+| POST | `/api/game/sect/apply` | `game.sect.manage` | 申请加入宗门 |
+| POST | `/api/game/sect/approve` | `game.sect.manage` | 审批入宗申请 |
+| POST | `/api/game/sect/reject` | `game.sect.manage` | 拒绝入宗申请 |
+| POST | `/api/game/sect/leave` | `game.sect.manage` | 退出宗门 |
+| POST | `/api/game/sect/kick` | `game.sect.manage` | 踢出成员 |
+| POST | `/api/game/sect/appoint` | `game.sect.manage` | 任命宗门职位 |
+| POST | `/api/game/sect/donate` | `game.sect.donate` | 宗门捐献 |
+| POST | `/api/game/sect/warehouse/deposit` | `game.sect.warehouse` | 宗门仓库存入 |
+| POST | `/api/game/sect/warehouse/withdraw` | `game.sect.warehouse` | 宗门仓库取出 |
+| POST | `/api/game/sect/disband` | `game.sect.manage` | 解散宗门 |
+| GET | `/api/game/sect/top` | `game.sect.manage` | 宗门排行 |
+| GET | `/api/game/sect/pending` | `game.sect.manage` | 待处理的入宗申请 |
 | GET | `/api/game/status` | - | 服务器状态 |
 | GET | `/api/game/players` | - | 玩家排行榜 |
 | GET | `/api/game/players/search` | - | 搜索玩家 |
@@ -583,6 +606,29 @@ java -jar target/main-V0.0.0-alpha.jar
 | `/buy <挂单ID>` / `/购买` | `game.market.buy` | 购买坊市物品 |
 | `/cancel <挂单ID>` / `/撤单` | `game.market.cancel` | 撤单 |
 | `/mylistings` / `/我的挂单` | `game.player.info` | 查看我的挂单 |
+
+### 宗门
+
+| 指令 | 权限 | 说明 |
+|------|------|------|
+| `/sect` / `/宗门` | `game.sect.manage` | 宗门系统主指令（无参数显示概览） |
+| `/宗门 create <名称> <简介>` | `game.sect.manage` | 创建宗门（≥3级，100灵石） |
+| `/宗门 join <宗门ID>` | `game.sect.manage` | 申请加入宗门 |
+| `/宗门 list` / `列表` | `game.sect.manage` | 查看所有宗门 |
+| `/宗门 info [宗门ID]` / `信息` | `game.sect.manage` | 查看宗门详情 |
+| `/宗门 members` / `成员` | `game.sect.manage` | 查看本宗成员 |
+| `/宗门 apply <宗门ID>` / `申请` | `game.sect.manage` | 提交入宗申请 |
+| `/宗门 approve <成员名>` / `通过` | `game.sect.manage` | 批准入宗申请（宗主/副宗主） |
+| `/宗门 reject <成员名>` / `拒绝` | `game.sect.manage` | 拒绝入宗申请 |
+| `/宗门 leave` / `退出` | `game.sect.manage` | 退出宗门 |
+| `/宗门 kick <成员名>` / `踢出` | `game.sect.manage` | 踢出成员（宗主/副宗主） |
+| `/宗门 appoint <成员名> <职位>` / `任命` | `game.sect.manage` | 任命副宗主/护法（宗主） |
+| `/宗门 donate <物品key> <数量>` / `捐献` | `game.sect.donate` | 向宗门仓库捐献物品 |
+| `/宗门 warehouse` / `仓库` | `game.sect.warehouse` | 查看宗门仓库 |
+| `/宗门 take <物品key> <数量>` / `取出` | `game.sect.warehouse` | 从仓库取出物品 |
+| `/宗门 disband` / `解散` | `game.sect.manage` | 解散宗门（宗主） |
+| `/宗门 top` / `排行` | `game.sect.manage` | 宗门声望排行榜 |
+| `/宗门 pending` / `申请列表` | `game.sect.manage` | 查看待审批的入宗申请 |
 
 ### 社交与排行
 
@@ -883,6 +929,10 @@ Boss 拥有 3 倍以上属性，更高掉落率和更丰富的稀有物品掉落
 | `friends` | 好友关系（申请者/接收者，状态：pending/accepted） |
 | `skills` | 技能定义（名称、伤害、蓝耗、境界要求等） |
 | `trade_listings` | 坊市挂单（卖家、物品、数量、价格、状态） |
+| `sects` | 宗门（名称、简介、宗主、等级、声望、成员上限） |
+| `sect_members` | 宗门成员（宗门ID、玩家ID、职位、贡献度） |
+| `sect_applications` | 入宗申请（宗门ID、玩家ID、状态） |
+| `sect_warehouse_items` | 宗门仓库物品（宗门ID、物品种类、数量） |
 | `player_daily` | 每日数据（晨修时间、机缘进度、活跃天数） |
 | `qq_bindings` | QQ 与游戏账号绑定 |
 | `roles` | 角色定义（名称、显示名、等级） |

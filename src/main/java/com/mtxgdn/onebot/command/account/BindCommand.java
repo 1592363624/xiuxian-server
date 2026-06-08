@@ -10,7 +10,7 @@ public class BindCommand extends Command {
         super(new String[]{"bind", "绑定"},
                 "将QQ号绑定到已有游戏账号",
                 "/bind",
-                "账户",
+                "账号",
                 null,
                 true);
     }
