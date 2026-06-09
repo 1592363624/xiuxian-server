@@ -9,10 +9,6 @@ import java.util.*;
 
 public class HelpCommand extends Command {
 
-    private static final List<String> CATEGORY_ORDER = List.of(
-            "账号", "我的角色", "修炼", "战斗", "背包", "探索", "坊市", "宗门", "社交", "管理"
-    );
-
     public HelpCommand() {
         super(new String[]{"help", "帮助"},
                 "查看所有可用指令",
@@ -25,38 +21,31 @@ public class HelpCommand extends Command {
         QqBinding b = new QqBindingService().findByQq(ctx.getSenderId());
         Long userId = b != null ? b.getUserId() : null;
 
-        // 按固定顺序分组
-        Map<String, List<String>> categories = new LinkedHashMap<>();
-        for (String cat : CATEGORY_ORDER) {
-            categories.put(cat, new ArrayList<>());
-        }
-        // 收集未在顺序中的分类
-        Map<String, List<String>> extra = new LinkedHashMap<>();
-
+        // 按分类动态分组，按 Command.getCategoryOrder() 排序
+        Map<String, List<Command>> categories = new LinkedHashMap<>();
         for (Command cmd : CommandRegistry.getAllUnique()) {
             if (!cmd.shouldShowInHelp(userId)) continue;
-            String cat = cmd.getCategory();
-            String item = formatCommand(cmd);
-            if (categories.containsKey(cat)) {
-                categories.get(cat).add(item);
-            } else {
-                extra.computeIfAbsent(cat, k -> new ArrayList<>()).add(item);
-            }
+            categories.computeIfAbsent(cmd.getCategory(), k -> new ArrayList<>()).add(cmd);
         }
+
+        // 按优先级排序分类
+        List<String> orderedCats = new ArrayList<>(categories.keySet());
+        orderedCats.sort(Comparator.comparingInt(cat -> {
+            // 取该分类下第一个命令的优先级
+            List<Command> cmds = categories.get(cat);
+            return cmds.isEmpty() ? Integer.MAX_VALUE : cmds.get(0).getCategoryOrder();
+        }));
 
         StringBuilder sb = new StringBuilder();
         sb.append("════ 修仙世界 · QQ Bot 指令 ════\n");
 
-        for (Map.Entry<String, List<String>> entry : categories.entrySet()) {
-            List<String> items = entry.getValue();
-            if (items.isEmpty()) continue;
-            sb.append("\n▍").append(entry.getKey()).append("\n");
-            for (String line : items) sb.append(line).append("\n");
-        }
-
-        for (Map.Entry<String, List<String>> entry : extra.entrySet()) {
-            sb.append("\n▍").append(entry.getKey()).append("\n");
-            for (String line : entry.getValue()) sb.append(line).append("\n");
+        for (String cat : orderedCats) {
+            List<Command> cmds = categories.get(cat);
+            if (cmds.isEmpty()) continue;
+            sb.append("\n▍").append(cat).append("\n");
+            for (Command cmd : cmds) {
+                sb.append(formatCommand(cmd)).append("\n");
+            }
         }
 
         sb.append("\n══════════════════════════\n");
@@ -68,7 +57,6 @@ public class HelpCommand extends Command {
         String usage = cmd.getUsage();
         String desc = cmd.getDescription();
         if (desc == null || desc.isEmpty()) desc = usage;
-        // 对齐: usage 20 字符宽
         if (usage.length() < 13) {
             return String.format("  %-13s %s", usage, desc);
         } else {

@@ -37,44 +37,26 @@ public class PermissionService {
     static {
         Set<PermissionCode> allPermissions = EnumSet.allOf(PermissionCode.class);
 
+        // PLAYER: 自动包含所有 game.* 和 qq.* 权限（不含 admin.* 和不含 qq.command.admin）
+        Set<PermissionCode> playerPermissions = filterByPrefixes(allPermissions,
+                "game.", "qq.");
+        playerPermissions.removeIf(pc ->
+                pc.getCode().startsWith("admin.") ||
+                pc.getCode().equals("qq.command.admin"));
+
+        // MODERATOR: 在 PLAYER 基础上增加管理后台查看权限
+        Set<PermissionCode> moderatorPermissions = EnumSet.copyOf(playerPermissions);
+        moderatorPermissions.add(PermissionCode.ADMIN_LOGIN);
+        moderatorPermissions.add(PermissionCode.ADMIN_STATUS);
+        moderatorPermissions.add(PermissionCode.ADMIN_LOGS_VIEW);
+        moderatorPermissions.add(PermissionCode.QQ_COMMAND_ADMIN);
+
+        // ADMIN: 全部权限，但不含最高管理权限
         Set<PermissionCode> adminPermissions = EnumSet.allOf(PermissionCode.class);
         adminPermissions.remove(PermissionCode.ADMIN_ROLES_MANAGE);
         adminPermissions.remove(PermissionCode.ADMIN_USERS_MANAGE);
         adminPermissions.remove(PermissionCode.ADMIN_DATABASE_CLEAR_PLAYERS);
         adminPermissions.remove(PermissionCode.ADMIN_DATABASE_RESET_ALL);
-
-        Set<PermissionCode> moderatorPermissions = EnumSet.of(
-                PermissionCode.GAME_PLAYER_INFO, PermissionCode.GAME_PLAYER_CREATE,
-                PermissionCode.GAME_CULTIVATE, PermissionCode.GAME_EXPLORE,
-                PermissionCode.GAME_SECRET_REALM, PermissionCode.GAME_REALM_BREAKTHROUGH,
-                PermissionCode.GAME_ITEM_USE, PermissionCode.GAME_INVENTORY_VIEW,
-                PermissionCode.GAME_ITEM_REGISTRY, PermissionCode.GAME_REALM_CONFIG,
-                PermissionCode.GAME_SKILL_LEARN, PermissionCode.GAME_ITEM_ADD, PermissionCode.GAME_PVP_CHALLENGE,
-                PermissionCode.QQ_BIND, PermissionCode.QQ_UNBIND,
-                PermissionCode.QQ_COMMAND_BASIC, PermissionCode.QQ_COMMAND_GAME,
-                PermissionCode.QQ_COMMAND_ADMIN, PermissionCode.QQ_COMMAND_TRACE,
-                PermissionCode.ADMIN_LOGIN, PermissionCode.ADMIN_STATUS,
-                PermissionCode.ADMIN_LOGS_VIEW
-        );
-
-        Set<PermissionCode> playerPermissions = EnumSet.of(
-                PermissionCode.GAME_PLAYER_INFO, PermissionCode.GAME_PLAYER_CREATE,
-                PermissionCode.GAME_CULTIVATE, PermissionCode.GAME_EXPLORE,
-                PermissionCode.GAME_SECRET_REALM, PermissionCode.GAME_REALM_BREAKTHROUGH,
-                PermissionCode.GAME_ITEM_USE, PermissionCode.GAME_INVENTORY_VIEW,
-                PermissionCode.GAME_ITEM_REGISTRY, PermissionCode.GAME_REALM_CONFIG,
-                PermissionCode.GAME_SKILL_LEARN, PermissionCode.GAME_PVP_CHALLENGE,
-                PermissionCode.GAME_CHAT_WORLD, PermissionCode.GAME_CHAT_PRIVATE,
-                PermissionCode.GAME_RANK_VIEW, PermissionCode.GAME_FRIEND_MANAGE,
-                PermissionCode.GAME_SECT_MANAGE, PermissionCode.GAME_SECT_DONATE, PermissionCode.GAME_SECT_WAREHOUSE,
-                PermissionCode.GAME_MARKET_TRADE, PermissionCode.GAME_TECHNIQUE_LEARN,
-                PermissionCode.GAME_TECHNIQUE_EQUIP, PermissionCode.GAME_TECHNIQUE_UPGRADE,
-                PermissionCode.GAME_CRAFTING_RECIPES, PermissionCode.GAME_CRAFTING_CRAFT,
-                PermissionCode.GAME_EQUIPMENT_ENHANCE, PermissionCode.GAME_EQUIPMENT_EQUIP,
-                PermissionCode.QQ_BIND, PermissionCode.QQ_UNBIND,
-                PermissionCode.QQ_COMMAND_BASIC, PermissionCode.QQ_COMMAND_GAME,
-                PermissionCode.QQ_COMMAND_TRACE
-        );
 
         Set<PermissionCode> guestPermissions = EnumSet.of(
                 PermissionCode.QQ_COMMAND_BASIC
@@ -85,6 +67,19 @@ public class PermissionService {
         ROLE_PERMISSIONS.put("MODERATOR", moderatorPermissions);
         ROLE_PERMISSIONS.put("PLAYER", playerPermissions);
         ROLE_PERMISSIONS.put("GUEST", guestPermissions);
+    }
+
+    private static Set<PermissionCode> filterByPrefixes(Set<PermissionCode> source, String... prefixes) {
+        Set<PermissionCode> result = EnumSet.noneOf(PermissionCode.class);
+        for (PermissionCode pc : source) {
+            for (String prefix : prefixes) {
+                if (pc.getCode().startsWith(prefix)) {
+                    result.add(pc);
+                    break;
+                }
+            }
+        }
+        return result;
     }
 
     public static Map<String, Integer> getRoleHierarchy() {

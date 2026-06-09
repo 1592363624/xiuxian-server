@@ -1498,58 +1498,6 @@ public class GameResource {
         return Response.ok(GameMessage.restOk("已删除好友", null).toString()).build();
     }
 
-    @GET
-    @Path("/sect/list")
-    @Produces(MediaType.APPLICATION_JSON)
-    @RequirePermission("game.sect.manage")
-    public Response listSects() {
-        List<Sect> sects = sectService.getAllSects();
-        JsonArray arr = new JsonArray();
-        for (Sect s : sects) {
-            JsonObject o = new JsonObject();
-            o.addProperty("id", s.getId());
-            o.addProperty("name", s.getName());
-            o.addProperty("description", s.getDescription());
-            o.addProperty("leaderPlayerId", s.getLeaderPlayerId());
-            o.addProperty("leaderName", s.getLeaderName());
-            o.addProperty("level", s.getLevel());
-            o.addProperty("prestige", s.getPrestige());
-            o.addProperty("memberCount", s.getMemberCount());
-            o.addProperty("maxMembers", Sect.getMaxMembersForLevel(s.getLevel()));
-            arr.add(o);
-        }
-        JsonObject data = new JsonObject();
-        data.add("sects", arr);
-        return Response.ok(GameMessage.restOk("获取成功", data).toString()).build();
-    }
-
-    @GET
-    @Path("/sect/info")
-    @Produces(MediaType.APPLICATION_JSON)
-    @RequirePermission("game.sect.manage")
-    public Response getMySect() {
-        Long userId = getCurrentUserId();
-        int playerId = getPlayerIdByUserId(userId);
-        Sect sect = sectService.getPlayerSect(playerId);
-        if (sect == null) {
-            return Response.ok(GameMessage.restOk("尚未加入宗门", null).toString()).build();
-        }
-        return buildSectResponse(sect, playerId);
-    }
-
-    @GET
-    @Path("/sect/info/{sectId}")
-    @Produces(MediaType.APPLICATION_JSON)
-    @RequirePermission("game.sect.manage")
-    public Response getSectInfo(@PathParam("sectId") long sectId) {
-        Sect sect = sectService.getSectById(sectId);
-        if (sect == null) {
-            return Response.ok(GameMessage.restError(400, "宗门不存在").toString()).build();
-        }
-        Long userId = getCurrentUserId();
-        int playerId = getPlayerIdByUserId(userId);
-        return buildSectResponse(sect, playerId);
-    }
 
     @GET
     @Path("/sect/members")

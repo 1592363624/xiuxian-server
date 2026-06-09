@@ -2,6 +2,8 @@ package com.mtxgdn.onebot.command.sect;
 
 import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandContext;
+import com.mtxgdn.common.command.RouteDefinition;
+import com.mtxgdn.common.GameMessage;
 import com.mtxgdn.game.entity.PlayerInfo;
 import com.mtxgdn.game.entity.Sect;
 import com.mtxgdn.game.entity.SectApplication;
@@ -10,6 +12,10 @@ import com.mtxgdn.game.entity.SectWarehouseItem;
 import com.mtxgdn.game.item.Item;
 import com.mtxgdn.game.item.ItemRegistry;
 import com.mtxgdn.game.service.SectService;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+
 import java.util.List;
 
 public class SectCommand extends Command {
@@ -364,5 +370,69 @@ public class SectCommand extends Command {
                     s.getLeaderName() != null ? s.getLeaderName() : "未知"));
         }
         ctx.reply(sb.toString());
+    }
+
+    // ==================== REST API 端点 ====================
+
+    @Override
+    public List<RouteDefinition> getRestEndpoints() {
+        return List.of(
+            // GET /sect/list - 查看所有宗门
+            RouteDefinition.get("sect/list", "game.sect.manage", ctx -> {
+                List<Sect> sects = sectService.getAllSects();
+                JsonArray arr = new JsonArray();
+                for (Sect s : sects) {
+                    JsonObject o = new JsonObject();
+                    o.addProperty("id", s.getId());
+                    o.addProperty("name", s.getName());
+                    o.addProperty("description", s.getDescription());
+                    o.addProperty("leaderPlayerId", s.getLeaderPlayerId());
+                    o.addProperty("leaderName", s.getLeaderName());
+                    o.addProperty("level", s.getLevel());
+                    o.addProperty("prestige", s.getPrestige());
+                    o.addProperty("memberCount", s.getMemberCount());
+                    o.addProperty("maxMembers", Sect.getMaxMembersForLevel(s.getLevel()));
+                    arr.add(o);
+                }
+                JsonObject data = new JsonObject();
+                data.add("sects", arr);
+                return GameMessage.restOk("获取成功", data);
+            }),
+
+            // GET /sect/info - 查看我的宗门
+            RouteDefinition.get("sect/info", "game.sect.manage", ctx -> {
+                Sect sec = sectService.getPlayerSect(ctx.playerId());
+                if (sec == null) return GameMessage.restOk("尚未加入宗门", null);
+                return buildSectJson(sec, ctx.playerId());
+            }),
+
+            // GET /sect/info/{sectId} - 查看指定宗门
+            RouteDefinition.get("sect/info/{sectId}", "game.sect.manage", ctx -> {
+                long sectId = ctx.pathParamLong("sectId");
+                Sect sec = sectService.getSectById(sectId);
+                if (sec == null) return GameMessage.restError(400, "宗门不存在");
+                return buildSectJson(sec, ctx.playerId());
+            })
+        );
+    }
+
+    private JsonObject buildSectJson(Sect sect, int playerId) {
+        JsonObject data = new JsonObject();
+        data.addProperty("id", sect.getId());
+        data.addProperty("name", sect.getName());
+        data.addProperty("description", sect.getDescription());
+        data.addProperty("leaderPlayerId", sect.getLeaderPlayerId());
+        data.addProperty("leaderName", sect.getLeaderName());
+        data.addProperty("level", sect.getLevel());
+        data.addProperty("prestige", sect.getPrestige());
+        data.addProperty("memberCount", sect.getMemberCount());
+        data.addProperty("maxMembers", Sect.getMaxMembersForLevel(sect.getLevel()));
+        SectMember me = sectService.getMember(sect.getId(), playerId);
+        if (me != null) {
+            data.addProperty("myRole", me.getRole());
+            data.addProperty("myRoleDisplay", SectMember.getRoleDisplayName(me.getRole()));
+            data.addProperty("myContribution", me.getContribution());
+        }
+        return GameMessage.restOk("获取成功", data);
     }
 }
