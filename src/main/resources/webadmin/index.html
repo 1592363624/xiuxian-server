@@ -431,6 +431,77 @@ select option { background: var(--bg-panel); color: var(--text-primary); }
   padding: 4px 0;
 }
 .quick-info .card p b { color: var(--text-primary); font-weight: 500; }
+
+/* Db Browser */
+.db-layout {
+  display: flex; gap: 14px; height: calc(100vh - 120px);
+  min-height: 0;
+}
+.db-sidebar {
+  width: 200px; min-width: 200px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.db-sidebar-header {
+  padding: 12px 14px;
+  font-size: 13px; font-weight: 600;
+  color: var(--gold);
+  border-bottom: 1px solid var(--border);
+  letter-spacing: 1px;
+}
+.db-table-list {
+  flex: 1; overflow-y: auto; padding: 6px;
+}
+.db-table-item {
+  padding: 8px 12px; border-radius: 6px;
+  cursor: pointer; font-size: 12px;
+  color: var(--text-secondary);
+  display: flex; align-items: center; justify-content: space-between;
+  transition: var(--transition);
+  margin: 2px 0;
+}
+.db-table-item:hover { background: rgba(255,255,255,0.04); color: var(--text-primary); }
+.db-table-item.active {
+  background: rgba(212,168,83,0.12);
+  color: var(--gold); font-weight: 500;
+}
+.db-table-item .row-count {
+  font-size: 10px; color: var(--text-muted);
+  background: rgba(0,0,0,0.2);
+  padding: 1px 8px; border-radius: 10px;
+}
+.db-table-item.active .row-count { color: var(--gold); }
+.db-sidebar-footer {
+  padding: 8px;
+  border-top: 1px solid var(--border);
+}
+.db-main {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column;
+}
+
+/* Editable cell */
+.db-cell-editable {
+  cursor: pointer; transition: var(--transition);
+  border-radius: 3px; padding: 2px 4px; margin: -2px -4px;
+}
+.db-cell-editable:hover { background: rgba(212,168,83,0.1); }
+
+/* Inline edit */
+.db-edit-grid {
+  display: grid; grid-template-columns: 180px 1fr;
+  gap: 8px; align-items: center; max-height: 50vh; overflow-y: auto;
+}
+.db-edit-grid label {
+  color: var(--text-muted); font-size: 12px;
+  text-align: right;
+}
+.db-edit-grid input {
+  width: 100%;
+}
 </style>
 </head>
 <body>
@@ -524,14 +595,33 @@ select option { background: var(--bg-panel); color: var(--text-primary); }
       </div>
 
       <div class="tab" id="tab-database">
-        <div class="card">
-          <div class="card-title">⚠️ 数据库操作</div>
-          <p style="font-size:12px;color:var(--text-muted);margin-bottom:14px">危险操作，请谨慎执行</p>
-          <div class="row">
-            <button class="btn btn-danger" onclick="if(confirm('确定清除所有玩家数据？(users表不受影响)')) dbAction('clear_players')">清除玩家数据</button>
-            <button class="btn btn-danger" onclick="if(confirm('⚠️ 确定重置全部数据？包括users、角色、背包等所有表！')) dbAction('reset_all')">重置全部数据</button>
+        <div class="db-layout">
+          <div class="db-sidebar" id="dbSidebar">
+            <div class="db-sidebar-header">📋 数据表</div>
+            <div class="db-table-list" id="dbTableList">
+              <div class="empty">加载中...</div>
+            </div>
+            <div class="db-sidebar-footer">
+              <button class="btn btn-danger btn-sm" style="width:100%" onclick="if(confirm('确定清除所有玩家数据？(users表不受影响)')) dbAction('clear_players')">清除玩家数据</button>
+              <button class="btn btn-danger btn-sm" style="width:100%;margin-top:4px" onclick="if(confirm('⚠️ 确定重置全部数据？包括users、角色、背包等所有表！')) dbAction('reset_all')">重置全部数据</button>
+            </div>
           </div>
-          <div id="dbMsg"></div>
+          <div class="db-main">
+            <div class="card" style="margin-bottom:8px">
+              <div class="row">
+                <div class="grow" style="color:var(--gold);font-weight:600" id="dbTableTitle">请选择左侧数据表</div>
+                <div style="margin-left:auto;display:flex;gap:6px">
+                  <button class="btn btn-action" id="btnDbAdd" style="display:none" onclick="openRowEdit()">+ 新增行</button>
+                  <button class="btn-sm" onclick="refreshDbTable()">🔄 刷新</button>
+                </div>
+              </div>
+            </div>
+            <div id="dbDataTable" class="table-wrap" style="max-height:calc(100vh - 260px);overflow:auto">
+              <div class="empty">← 请从左侧选择表浏览数据</div>
+            </div>
+            <div id="dbPagination" style="margin-top:10px;display:flex;align-items:center;gap:10px"></div>
+            <div id="dbMsg"></div>
+          </div>
         </div>
       </div>
 
@@ -667,7 +757,7 @@ function switchTab(name) {
     document.getElementById('logContainer').innerHTML = '<div class="empty">加载中...</div>';
     fetchLogs();
     logsTimer = setInterval(fetchLogs, 500);
-  } else if (name === 'traces') {
+  } else if (name === 'traces' || name === 'database') {
     if (logsTimer) { clearInterval(logsTimer); logsTimer = null; }
   } else {
     if (logsTimer) { clearInterval(logsTimer); logsTimer = null; }
@@ -678,6 +768,7 @@ function switchTab(name) {
 function loadAllData() {
   if (currentTab === 'overview') loadOverview();
   if (currentTab === 'players') loadPlayers();
+  if (currentTab === 'database') loadDbTables();
   if (currentTab === 'users') loadUsers();
 }
 
@@ -873,9 +964,273 @@ async function setSpiritualRoot(id) {
   } catch (x) { document.getElementById('playerActionMsg').innerHTML = '<div class="msg msg-err">修改灵根失败</div>'; }
 }
 
+// ========== 数据库浏览 ==========
+let dbCurrentTable = null, dbColumns = null;
+let dbPage = 0, dbPageSize = 50;
+
+async function loadDbTables() {
+  try {
+    const d = await api('/db/tables');
+    const list = document.getElementById('dbTableList');
+    if (!d.tables || d.tables.length === 0) {
+      list.innerHTML = '<div class="empty">无数据表</div>';
+      return;
+    }
+    let h = '';
+    for (const t of d.tables) {
+      h += '<div class="db-table-item' + (dbCurrentTable === t.name ? ' active' : '') + '" onclick="selectDbTable(\'' + $h(t.name) + '\')">' +
+        '<span>' + $h(t.name) + '</span>' +
+        '<span class="row-count">' + (t.rowCount >= 0 ? t.rowCount : '?') + '</span>' +
+        '</div>';
+    }
+    list.innerHTML = h;
+    if (dbCurrentTable) {
+      // 重新加载当前表数据
+      loadDbTableData();
+    }
+  } catch (x) {
+    document.getElementById('dbTableList').innerHTML = '<div class="empty">加载失败</div>';
+  }
+}
+
+function selectDbTable(name) {
+  dbCurrentTable = name;
+  dbPage = 0;
+  document.getElementById('dbTableTitle').textContent = '📄 ' + name;
+  document.getElementById('btnDbAdd').style.display = 'inline-block';
+  // Update active state in sidebar
+  document.querySelectorAll('.db-table-item').forEach(el => {
+    el.classList.toggle('active', el.querySelector('span').textContent === name);
+  });
+  loadDbTableData();
+}
+
+async function loadDbTableData() {
+  if (!dbCurrentTable) return;
+  try {
+    const d = await api('/db/tables/' + dbCurrentTable + '?limit=' + dbPageSize + '&offset=' + (dbPage * dbPageSize));
+    dbColumns = d.columns || [];
+    const rows = d.rows || [];
+    const total = d.total || 0;
+
+    // Render table
+    let h = '<table><tr>';
+    for (const col of dbColumns) {
+      h += '<th>' + $h(col.name) + (col.pk ? ' 🔑' : '') + '</th>';
+    }
+    h += '<th>操作</th></tr>';
+
+    for (const r of rows) {
+      h += '<tr>';
+      for (const col of dbColumns) {
+        let val = r[col.name];
+        let display = val === null ? '<span style="color:var(--text-muted)">NULL</span>' : $h(String(val));
+        h += '<td>' + display + '</td>';
+      }
+      h += '<td>' +
+        '<button class="btn btn-action btn-sm" onclick="openEditRow(\'' + dbCurrentTable + '\',' + r.id + ')">编辑</button> ' +
+        '<button class="btn btn-danger btn-sm" onclick="deleteDbRow(\'' + dbCurrentTable + '\',' + r.id + ')">删除</button>' +
+        '</td>';
+      h += '</tr>';
+    }
+    h += '</table>';
+
+    if (rows.length === 0) {
+      h += '<div class="empty">该表暂无数据</div>';
+    }
+
+    document.getElementById('dbDataTable').innerHTML = h;
+
+    // Pagination
+    const totalPages = Math.max(1, Math.ceil(total / dbPageSize));
+    let pag = '<span style="color:var(--text-muted);font-size:12px">共 ' + total + ' 行 · 第 ' + (dbPage + 1) + '/' + totalPages + ' 页</span> ';
+    if (totalPages > 1) {
+      pag += '<button class="btn-sm" onclick="dbPage=0;loadDbTableData()"' + (dbPage === 0 ? ' disabled' : '') + '>首页</button> ';
+      pag += '<button class="btn-sm" onclick="dbPage=Math.max(0,dbPage-1);loadDbTableData()"' + (dbPage === 0 ? ' disabled' : '') + '>上一页</button> ';
+      pag += '<button class="btn-sm" onclick="dbPage=Math.min(' + (totalPages - 1) + ',dbPage+1);loadDbTableData()"' + (dbPage >= totalPages - 1 ? ' disabled' : '') + '>下一页</button> ';
+      pag += '<button class="btn-sm" onclick="dbPage=' + (totalPages - 1) + ';loadDbTableData()"' + (dbPage >= totalPages - 1 ? ' disabled' : '') + '>末页</button>';
+    }
+    pag += ' <span style="font-size:12px;color:var(--text-muted)">每页</span> ' +
+      '<select style="width:60px" onchange="dbPageSize=parseInt(this.value);dbPage=0;loadDbTableData()">' +
+        '<option value="20"' + (dbPageSize === 20 ? ' selected' : '') + '>20</option>' +
+        '<option value="50"' + (dbPageSize === 50 ? ' selected' : '') + '>50</option>' +
+        '<option value="100"' + (dbPageSize === 100 ? ' selected' : '') + '>100</option>' +
+      '</select> 行';
+    document.getElementById('dbPagination').innerHTML = pag;
+  } catch (x) {
+    document.getElementById('dbDataTable').innerHTML = '<div class="empty">加载失败: ' + $h(x.message || '') + '</div>';
+    document.getElementById('dbPagination').innerHTML = '';
+  }
+}
+
+function refreshDbTable() {
+  if (dbCurrentTable) {
+    loadDbTableData();
+  } else {
+    loadDbTables();
+  }
+}
+
+/* 新增行 */
+function openRowEdit() {
+  if (!dbColumns) return;
+  let fieldsHtml = '';
+  for (const col of dbColumns) {
+    if (col.pk) continue; // skip auto-increment PK
+    fieldsHtml += '<label>' + $h(col.name) + (col.notnull ? ' *' : '') + '</label>' +
+      '<input id="dbFld_' + $h(col.name) + '" placeholder="' + $h(col.type || '') + '">';
+  }
+  const html =
+    '<button class="close" onclick="closeModal()">&times;</button>' +
+    '<h3>➕ 新增行 · ' + $h(dbCurrentTable || '') + '</h3>' +
+    '<div class="db-edit-grid">' + fieldsHtml + '</div>' +
+    '<div class="actions">' +
+      '<button class="btn btn-primary" onclick="saveNewRow(\'' + dbCurrentTable + '\')">保存</button>' +
+    '</div>';
+  document.getElementById('modalContent').innerHTML = html;
+  document.getElementById('modalOverlay').classList.add('show');
+}
+
+async function saveNewRow(tableName) {
+  const data = {};
+  for (const col of dbColumns) {
+    if (col.pk) continue;
+    const el = document.getElementById('dbFld_' + $h(col.name));
+    if (!el) continue;
+    const val = el.value.trim();
+    if (val === '' && col.notnull) {
+      alert('字段 ' + col.name + ' 不能为空');
+      return;
+    }
+    if (val !== '') {
+      // Try to parse as number if the type looks numeric
+      const type = (col.type || '').toLowerCase();
+      if (type.includes('int') || type.includes('bigint') || type.includes('tinyint') || type.includes('smallint') || type.includes('decimal') || type.includes('float') || type.includes('double') || type.includes('real') || type.includes('numeric')) {
+        data[col.name] = parseFloat(val);
+      } else if (type.includes('bool')) {
+        data[col.name] = val === 'true' || val === '1';
+      } else {
+        data[col.name] = val;
+      }
+    }
+  }
+  if (Object.keys(data).length === 0) {
+    alert('请至少填写一个字段');
+    return;
+  }
+  try {
+    const d = await api('/db/tables/' + tableName, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (d.code === 200) {
+      document.getElementById('dbMsg').innerHTML = '<div class="msg msg-ok">新增成功 (ID: ' + d.id + ')</div>';
+      closeModal();
+      loadDbTableData();
+      loadDbTables(); // refresh sidebar counts
+    } else {
+      alert('新增失败: ' + (d.message || ''));
+    }
+  } catch (x) {
+    alert('新增失败: ' + (x.message || ''));
+  }
+}
+
+/* 编辑行 */
+async function openEditRow(tableName, id) {
+  try {
+    const d = await api('/db/tables/' + tableName + '/' + id);
+    const row = d.row;
+    if (!row) { alert('记录不存在'); return; }
+
+    let fieldsHtml = '';
+    for (const col of dbColumns) {
+      const val = row[col.name];
+      const strVal = val === null ? '' : String(val);
+      const disabled = col.pk ? ' disabled style="opacity:0.5"' : '';
+      fieldsHtml += '<label>' + $h(col.name) + (col.pk ? ' 🔑' : '') + (col.notnull ? ' *' : '') + '</label>' +
+        '<input id="dbFld_' + $h(col.name) + '" value="' + $h(strVal) + '"' + disabled + '>';
+    }
+    const html =
+      '<button class="close" onclick="closeModal()">&times;</button>' +
+      '<h3>✏️ 编辑行 · ' + $h(tableName) + ' · ID: ' + id + '</h3>' +
+      '<div class="db-edit-grid">' + fieldsHtml + '</div>' +
+      '<div class="actions">' +
+        '<button class="btn btn-primary" onclick="saveEditRow(\'' + tableName + '\',' + id + ')">保存修改</button>' +
+      '</div>';
+    document.getElementById('modalContent').innerHTML = html;
+    document.getElementById('modalOverlay').classList.add('show');
+  } catch (x) {
+    alert('加载失败: ' + (x.message || ''));
+  }
+}
+
+async function saveEditRow(tableName, id) {
+  const data = {};
+  for (const col of dbColumns) {
+    if (col.pk) continue;
+    const el = document.getElementById('dbFld_' + $h(col.name));
+    if (!el) continue;
+    const val = el.value.trim();
+    if (val === '' && col.notnull) {
+      alert('字段 ' + col.name + ' 不能为空');
+      return;
+    }
+    if (val !== '') {
+      const type = (col.type || '').toLowerCase();
+      if (type.includes('int') || type.includes('bigint') || type.includes('tinyint') || type.includes('smallint') || type.includes('decimal') || type.includes('float') || type.includes('double') || type.includes('real') || type.includes('numeric')) {
+        data[col.name] = parseFloat(val);
+      } else if (type.includes('bool')) {
+        data[col.name] = val === 'true' || val === '1';
+      } else {
+        data[col.name] = val;
+      }
+    } else {
+      data[col.name] = null;
+    }
+  }
+  if (Object.keys(data).length === 0) {
+    alert('没有需要修改的字段');
+    return;
+  }
+  try {
+    const d = await api('/db/tables/' + tableName + '/' + id, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (d.code === 200) {
+      document.getElementById('dbMsg').innerHTML = '<div class="msg msg-ok">更新成功</div>';
+      closeModal();
+      loadDbTableData();
+    } else {
+      alert('更新失败: ' + (d.message || ''));
+    }
+  } catch (x) {
+    alert('更新失败: ' + (x.message || ''));
+  }
+}
+
+async function deleteDbRow(tableName, id) {
+  if (!confirm('确定删除 ' + tableName + ' 表中 ID=' + id + ' 的记录吗？此操作不可撤销！')) return;
+  try {
+    const d = await api('/db/tables/' + tableName + '/' + id, { method: 'DELETE' });
+    if (d.code === 200) {
+      document.getElementById('dbMsg').innerHTML = '<div class="msg msg-ok">删除成功</div>';
+      loadDbTableData();
+      loadDbTables();
+    } else {
+      alert('删除失败: ' + (d.message || ''));
+    }
+  } catch (x) {
+    alert('删除失败: ' + (x.message || ''));
+  }
+}
+
 async function dbAction(action) {
   try {
-    const d = await api('/database/' + action, { method:'POST' });
+    const d = await api('/database/' + action, { method: 'POST' });
     let detail = '';
     if (d.detail) {
       for (const [k, v] of Object.entries(d.detail)) {
@@ -883,6 +1238,7 @@ async function dbAction(action) {
       }
     }
     document.getElementById('dbMsg').innerHTML = '<div class="msg msg-ok">' + $h(d.message) + '<br><small style="color:var(--text-muted)">' + $h(detail) + '</small></div>';
+    loadDbTables(); // 刷新表列表
   } catch (x) { document.getElementById('dbMsg').innerHTML = '<div class="msg msg-err">操作失败</div>'; }
 }
 

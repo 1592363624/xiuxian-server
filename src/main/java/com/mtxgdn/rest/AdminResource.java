@@ -30,6 +30,7 @@ import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -631,6 +632,264 @@ public class AdminResource {
         result.add("traces", arr);
         result.addProperty("total", total);
         return Response.ok(gson.toJson(result)).build();
+    }
+
+    // ========== 数据库浏览 API ==========
+
+    @GET
+    @Path("/db/tables")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response getDbTables() {
+        try {
+            List<String> tables = DatabaseManager.getAllTableNames();
+            JsonArray arr = new JsonArray();
+            for (String name : tables) {
+                JsonObject obj = new JsonObject();
+                obj.addProperty("name", name);
+                try {
+                    obj.addProperty("rowCount", DatabaseManager.countTableRows(name));
+                } catch (Exception e) {
+                    obj.addProperty("rowCount", -1);
+                }
+                arr.add(obj);
+            }
+            JsonObject result = new JsonObject();
+            result.addProperty("code", 200);
+            result.add("tables", arr);
+            return Response.ok(gson.toJson(result)).build();
+        } catch (Exception e) {
+            JsonObject err = new JsonObject();
+            err.addProperty("code", 500);
+            err.addProperty("message", "获取表列表失败: " + e.getMessage());
+            return Response.ok(gson.toJson(err)).build();
+        }
+    }
+
+    @GET
+    @Path("/db/tables/{tableName}")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response getTableData(
+            @PathParam("tableName") String tableName,
+            @QueryParam("limit") @DefaultValue("50") int limit,
+            @QueryParam("offset") @DefaultValue("0") int offset) {
+        try {
+            List<Map<String, Object>> columns = DatabaseManager.getTableColumns(tableName);
+            List<Map<String, Object>> rows = DatabaseManager.queryTableData(tableName, limit, offset);
+            int total = DatabaseManager.countTableRows(tableName);
+
+            JsonArray colsArr = new JsonArray();
+            for (Map<String, Object> col : columns) {
+                JsonObject co = new JsonObject();
+                co.addProperty("name", String.valueOf(col.get("name")));
+                co.addProperty("type", String.valueOf(col.get("type")));
+                co.addProperty("notnull", (Boolean) col.get("notnull"));
+                co.addProperty("pk", (Boolean) col.get("pk"));
+                colsArr.add(co);
+            }
+
+            JsonArray rowsArr = new JsonArray();
+            for (Map<String, Object> row : rows) {
+                JsonObject ro = new JsonObject();
+                for (Map.Entry<String, Object> entry : row.entrySet()) {
+                    Object val = entry.getValue();
+                    if (val == null) {
+                        ro.add(entry.getKey(), null);
+                    } else if (val instanceof Number) {
+                        ro.addProperty(entry.getKey(), (Number) val);
+                    } else if (val instanceof Boolean) {
+                        ro.addProperty(entry.getKey(), (Boolean) val);
+                    } else {
+                        ro.addProperty(entry.getKey(), String.valueOf(val));
+                    }
+                }
+                rowsArr.add(ro);
+            }
+
+            JsonObject result = new JsonObject();
+            result.addProperty("code", 200);
+            result.add("columns", colsArr);
+            result.add("rows", rowsArr);
+            result.addProperty("total", total);
+            return Response.ok(gson.toJson(result)).build();
+        } catch (IllegalArgumentException e) {
+            JsonObject err = new JsonObject();
+            err.addProperty("code", 400);
+            err.addProperty("message", e.getMessage());
+            return Response.ok(gson.toJson(err)).build();
+        } catch (Exception e) {
+            JsonObject err = new JsonObject();
+            err.addProperty("code", 500);
+            err.addProperty("message", "查询失败: " + e.getMessage());
+            return Response.ok(gson.toJson(err)).build();
+        }
+    }
+
+    @GET
+    @Path("/db/tables/{tableName}/{id}")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response getTableRow(
+            @PathParam("tableName") String tableName,
+            @PathParam("id") long id) {
+        try {
+            Map<String, Object> row = DatabaseManager.getRowById(tableName, id);
+            if (row == null) {
+                JsonObject err = new JsonObject();
+                err.addProperty("code", 404);
+                err.addProperty("message", "记录不存在");
+                return Response.ok(gson.toJson(err)).build();
+            }
+
+            JsonObject ro = new JsonObject();
+            for (Map.Entry<String, Object> entry : row.entrySet()) {
+                Object val = entry.getValue();
+                if (val == null) {
+                    ro.add(entry.getKey(), null);
+                } else if (val instanceof Number) {
+                    ro.addProperty(entry.getKey(), (Number) val);
+                } else if (val instanceof Boolean) {
+                    ro.addProperty(entry.getKey(), (Boolean) val);
+                } else {
+                    ro.addProperty(entry.getKey(), String.valueOf(val));
+                }
+            }
+
+            JsonObject result = new JsonObject();
+            result.addProperty("code", 200);
+            result.add("row", ro);
+            return Response.ok(gson.toJson(result)).build();
+        } catch (IllegalArgumentException e) {
+            JsonObject err = new JsonObject();
+            err.addProperty("code", 400);
+            err.addProperty("message", e.getMessage());
+            return Response.ok(gson.toJson(err)).build();
+        } catch (Exception e) {
+            JsonObject err = new JsonObject();
+            err.addProperty("code", 500);
+            err.addProperty("message", "查询失败: " + e.getMessage());
+            return Response.ok(gson.toJson(err)).build();
+        }
+    }
+
+    @POST
+    @Path("/db/tables/{tableName}")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response insertTableRow(
+            @PathParam("tableName") String tableName,
+            String body) {
+        try {
+            JsonObject req = com.google.gson.JsonParser.parseString(body).getAsJsonObject();
+            Map<String, Object> data = new LinkedHashMap<>();
+            for (String key : req.keySet()) {
+                var elem = req.get(key);
+                if (elem.isJsonNull()) {
+                    data.put(key, null);
+                } else if (elem.getAsJsonPrimitive().isNumber()) {
+                    data.put(key, elem.getAsNumber());
+                } else if (elem.getAsJsonPrimitive().isBoolean()) {
+                    data.put(key, elem.getAsBoolean());
+                } else {
+                    data.put(key, elem.getAsString());
+                }
+            }
+
+            long newId = DatabaseManager.insertRow(tableName, data);
+
+            JsonObject result = new JsonObject();
+            result.addProperty("code", 200);
+            result.addProperty("message", "新增成功");
+            result.addProperty("id", newId);
+            return Response.ok(gson.toJson(result)).build();
+        } catch (IllegalArgumentException e) {
+            JsonObject err = new JsonObject();
+            err.addProperty("code", 400);
+            err.addProperty("message", e.getMessage());
+            return Response.ok(gson.toJson(err)).build();
+        } catch (Exception e) {
+            JsonObject err = new JsonObject();
+            err.addProperty("code", 500);
+            err.addProperty("message", "新增失败: " + e.getMessage());
+            return Response.ok(gson.toJson(err)).build();
+        }
+    }
+
+    @POST
+    @Path("/db/tables/{tableName}/{id}")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response updateTableRow(
+            @PathParam("tableName") String tableName,
+            @PathParam("id") long id,
+            String body) {
+        try {
+            JsonObject req = com.google.gson.JsonParser.parseString(body).getAsJsonObject();
+            Map<String, Object> data = new LinkedHashMap<>();
+            for (String key : req.keySet()) {
+                var elem = req.get(key);
+                if (elem.isJsonNull()) {
+                    data.put(key, null);
+                } else if (elem.getAsJsonPrimitive().isNumber()) {
+                    data.put(key, elem.getAsNumber());
+                } else if (elem.getAsJsonPrimitive().isBoolean()) {
+                    data.put(key, elem.getAsBoolean());
+                } else {
+                    data.put(key, elem.getAsString());
+                }
+            }
+
+            int updated = DatabaseManager.updateRow(tableName, id, data);
+
+            JsonObject result = new JsonObject();
+            if (updated > 0) {
+                result.addProperty("code", 200);
+                result.addProperty("message", "更新成功");
+            } else {
+                result.addProperty("code", 404);
+                result.addProperty("message", "记录不存在或未变更");
+            }
+            return Response.ok(gson.toJson(result)).build();
+        } catch (IllegalArgumentException e) {
+            JsonObject err = new JsonObject();
+            err.addProperty("code", 400);
+            err.addProperty("message", e.getMessage());
+            return Response.ok(gson.toJson(err)).build();
+        } catch (Exception e) {
+            JsonObject err = new JsonObject();
+            err.addProperty("code", 500);
+            err.addProperty("message", "更新失败: " + e.getMessage());
+            return Response.ok(gson.toJson(err)).build();
+        }
+    }
+
+    @DELETE
+    @Path("/db/tables/{tableName}/{id}")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response deleteTableRow(
+            @PathParam("tableName") String tableName,
+            @PathParam("id") long id) {
+        try {
+            int deleted = DatabaseManager.deleteRow(tableName, id);
+
+            JsonObject result = new JsonObject();
+            if (deleted > 0) {
+                result.addProperty("code", 200);
+                result.addProperty("message", "删除成功");
+            } else {
+                result.addProperty("code", 404);
+                result.addProperty("message", "记录不存在");
+            }
+            return Response.ok(gson.toJson(result)).build();
+        } catch (IllegalArgumentException e) {
+            JsonObject err = new JsonObject();
+            err.addProperty("code", 400);
+            err.addProperty("message", e.getMessage());
+            return Response.ok(gson.toJson(err)).build();
+        } catch (Exception e) {
+            JsonObject err = new JsonObject();
+            err.addProperty("code", 500);
+            err.addProperty("message", "删除失败: " + e.getMessage());
+            return Response.ok(gson.toJson(err)).build();
+        }
     }
 
     private static String formatUptime(long millis) {

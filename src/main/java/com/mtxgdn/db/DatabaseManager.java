@@ -710,4 +710,279 @@ public class DatabaseManager {
         }
         return 0;
     }
+
+    // ========== 通用数据库浏览 ==========
+
+    /**
+     * 获取所有表名
+     */
+    public static List<String> getAllTableNames() {
+        List<String> names = new ArrayList<>();
+        if (IS_SQLITE) {
+            try (Connection conn = getConnection();
+                 Statement stmt = conn.createStatement();
+                 ResultSet rs = stmt.executeQuery(
+                         "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name")) {
+                while (rs.next()) {
+                    names.add(rs.getString("name"));
+                }
+            } catch (SQLException e) {
+                throw new RuntimeException("获取表名失败", e);
+            }
+        } else {
+            try (Connection conn = getConnection();
+                 Statement stmt = conn.createStatement();
+                 ResultSet rs = stmt.executeQuery("SHOW TABLES")) {
+                while (rs.next()) {
+                    names.add(rs.getString(1));
+                }
+            } catch (SQLException e) {
+                throw new RuntimeException("获取表名失败", e);
+            }
+        }
+        return names;
+    }
+
+    /**
+     * 获取表的列信息
+     */
+    public static List<Map<String, Object>> getTableColumns(String tableName) {
+        validateTableName(tableName);
+        List<Map<String, Object>> columns = new ArrayList<>();
+        if (IS_SQLITE) {
+            try (Connection conn = getConnection();
+                 Statement stmt = conn.createStatement();
+                 ResultSet rs = stmt.executeQuery("PRAGMA table_info(\"" + tableName + "\")")) {
+                while (rs.next()) {
+                    Map<String, Object> col = new LinkedHashMap<>();
+                    col.put("name", rs.getString("name"));
+                    col.put("type", rs.getString("type"));
+                    col.put("notnull", rs.getInt("notnull") == 1);
+                    col.put("pk", rs.getInt("pk") == 1);
+                    columns.add(col);
+                }
+            } catch (SQLException e) {
+                throw new RuntimeException("获取表结构失败: " + tableName, e);
+            }
+        } else {
+            try (Connection conn = getConnection();
+                 Statement stmt = conn.createStatement();
+                 ResultSet rs = stmt.executeQuery("DESCRIBE `" + tableName + "`")) {
+                while (rs.next()) {
+                    Map<String, Object> col = new LinkedHashMap<>();
+                    col.put("name", rs.getString("Field"));
+                    col.put("type", rs.getString("Type"));
+                    col.put("notnull", "NO".equalsIgnoreCase(rs.getString("Null")));
+                    col.put("pk", "PRI".equalsIgnoreCase(rs.getString("Key")));
+                    columns.add(col);
+                }
+            } catch (SQLException e) {
+                throw new RuntimeException("获取表结构失败: " + tableName, e);
+            }
+        }
+        return columns;
+    }
+
+    /**
+     * 查询表数据（分页）
+     */
+    public static List<Map<String, Object>> queryTableData(String tableName, int limit, int offset) {
+        validateTableName(tableName);
+        String sql = IS_SQLITE
+                ? "SELECT * FROM \"" + tableName + "\" LIMIT ? OFFSET ?"
+                : "SELECT * FROM `" + tableName + "` LIMIT ? OFFSET ?";
+        List<Map<String, Object>> rows = new ArrayList<>();
+        try (Connection conn = getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, limit);
+            ps.setInt(2, offset);
+            try (ResultSet rs = ps.executeQuery()) {
+                var meta = rs.getMetaData();
+                int colCount = meta.getColumnCount();
+                while (rs.next()) {
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    for (int i = 1; i <= colCount; i++) {
+                        Object val = rs.getObject(i);
+                        row.put(meta.getColumnName(i), val);
+                    }
+                    rows.add(row);
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("查询表数据失败: " + tableName, e);
+        }
+        return rows;
+    }
+
+    /**
+     * 统计表行数
+     */
+    public static int countTableRows(String tableName) {
+        validateTableName(tableName);
+        try (Connection conn = getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(IS_SQLITE
+                     ? "SELECT COUNT(*) FROM \"" + tableName + "\""
+                     : "SELECT COUNT(*) FROM `" + tableName + "`")) {
+            if (rs.next()) {
+                return rs.getInt(1);
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("统计行数失败: " + tableName, e);
+        }
+        return 0;
+    }
+
+    /**
+     * 获取单行数据
+     */
+    public static Map<String, Object> getRowById(String tableName, long id) {
+        validateTableName(tableName);
+        String sql = IS_SQLITE
+                ? "SELECT * FROM \"" + tableName + "\" WHERE id = ?"
+                : "SELECT * FROM `" + tableName + "` WHERE id = ?";
+        try (Connection conn = getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, id);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    var meta = rs.getMetaData();
+                    int colCount = meta.getColumnCount();
+                    for (int i = 1; i <= colCount; i++) {
+                        row.put(meta.getColumnName(i), rs.getObject(i));
+                    }
+                    return row;
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("查询行数据失败: " + tableName + " id=" + id, e);
+        }
+        return null;
+    }
+
+    /**
+     * 插入新行
+     */
+    public static long insertRow(String tableName, Map<String, Object> data) {
+        validateTableName(tableName);
+        if (data.isEmpty()) {
+            throw new IllegalArgumentException("数据不能为空");
+        }
+
+        StringBuilder cols = new StringBuilder();
+        StringBuilder vals = new StringBuilder();
+        List<Object> params = new ArrayList<>();
+
+        for (Map.Entry<String, Object> entry : data.entrySet()) {
+            if (cols.length() > 0) {
+                cols.append(", ");
+                vals.append(", ");
+            }
+            cols.append(IS_SQLITE ? "\"" + entry.getKey() + "\"" : "`" + entry.getKey() + "`");
+            vals.append("?");
+            params.add(entry.getValue());
+        }
+
+        String sql = IS_SQLITE
+                ? "INSERT INTO \"" + tableName + "\" (" + cols + ") VALUES (" + vals + ")"
+                : "INSERT INTO `" + tableName + "` (" + cols + ") VALUES (" + vals + ")";
+
+        try (Connection conn = getConnection()) {
+            if (IS_SQLITE) {
+                try (PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+                    for (int i = 0; i < params.size(); i++) {
+                        ps.setObject(i + 1, params.get(i));
+                    }
+                    ps.executeUpdate();
+                    try (ResultSet rs = ps.getGeneratedKeys()) {
+                        if (rs.next()) {
+                            return rs.getLong(1);
+                        }
+                    }
+                }
+            } else {
+                try (PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+                    for (int i = 0; i < params.size(); i++) {
+                        ps.setObject(i + 1, params.get(i));
+                    }
+                    ps.executeUpdate();
+                    try (ResultSet rs = ps.getGeneratedKeys()) {
+                        if (rs.next()) {
+                            return rs.getLong(1);
+                        }
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("插入数据失败: " + tableName, e);
+        }
+        return -1;
+    }
+
+    /**
+     * 更新行
+     */
+    public static int updateRow(String tableName, long id, Map<String, Object> data) {
+        validateTableName(tableName);
+        if (data.isEmpty()) {
+            throw new IllegalArgumentException("数据不能为空");
+        }
+
+        StringBuilder setClause = new StringBuilder();
+        List<Object> params = new ArrayList<>();
+
+        for (Map.Entry<String, Object> entry : data.entrySet()) {
+            if (setClause.length() > 0) {
+                setClause.append(", ");
+            }
+            setClause.append(IS_SQLITE ? "\"" + entry.getKey() + "\" = ?" : "`" + entry.getKey() + "` = ?");
+            params.add(entry.getValue());
+        }
+        params.add(id);
+
+        String sql = IS_SQLITE
+                ? "UPDATE \"" + tableName + "\" SET " + setClause + " WHERE id = ?"
+                : "UPDATE `" + tableName + "` SET " + setClause + " WHERE id = ?";
+
+        try (Connection conn = getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            for (int i = 0; i < params.size(); i++) {
+                ps.setObject(i + 1, params.get(i));
+            }
+            return ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new RuntimeException("更新数据失败: " + tableName + " id=" + id, e);
+        }
+    }
+
+    /**
+     * 删除行
+     */
+    public static int deleteRow(String tableName, long id) {
+        validateTableName(tableName);
+        String sql = IS_SQLITE
+                ? "DELETE FROM \"" + tableName + "\" WHERE id = ?"
+                : "DELETE FROM `" + tableName + "` WHERE id = ?";
+        try (Connection conn = getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, id);
+            return ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new RuntimeException("删除数据失败: " + tableName + " id=" + id, e);
+        }
+    }
+
+    /**
+     * 验证表名是否存在于数据库中
+     */
+    private static void validateTableName(String tableName) {
+        if (tableName == null || tableName.isBlank()) {
+            throw new IllegalArgumentException("表名不能为空");
+        }
+        // 只允许字母、数字和下划线
+        if (!tableName.matches("^[a-zA-Z_][a-zA-Z0-9_]*$")) {
+            throw new IllegalArgumentException("无效的表名: " + tableName);
+        }
+    }
 }
