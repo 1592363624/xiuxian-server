@@ -49,7 +49,7 @@ public class HelpCommand extends Command {
         }
 
         sb.append("\n══════════════════════════\n");
-        sb.append("提示: 所有指令支持中英文，如 /状态 或 /status");
+        sb.append("提示: 所有指令支持中英文，如 /状态 或 /status\n");
         sb.append("项目地址：https://github.com/oooohhhhhhhhhh/xiuxian-server/");
         ctx.reply(sb.toString());
     }
