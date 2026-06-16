@@ -607,7 +607,10 @@ select option { background: var(--bg-panel); color: var(--text-primary); }
               <div class="empty">加载中...</div>
             </div>
             <div class="db-sidebar-footer">
-              <button class="btn btn-danger btn-sm" style="width:100%" onclick="if(confirm('确定清除所有玩家数据？(users表不受影响)')) dbAction('clear_players')">清除玩家数据</button>
+              <button class="btn btn-action btn-sm" style="width:100%;margin-bottom:4px" onclick="downloadBackup()">💾 备份数据</button>
+              <button class="btn btn-action btn-sm" style="width:100%;margin-bottom:4px" onclick="document.getElementById('importFileInput').click()">📥 导入数据</button>
+              <input type="file" id="importFileInput" accept=".json" style="display:none" onchange="importBackup(this)">
+              <button class="btn btn-danger btn-sm" style="width:100%;margin-top:4px" onclick="if(confirm('确定清除所有玩家数据？(users表不受影响)')) dbAction('clear_players')">清除玩家数据</button>
               <button class="btn btn-danger btn-sm" style="width:100%;margin-top:4px" onclick="if(confirm('⚠️ 确定重置全部数据？包括users、角色、背包等所有表！')) dbAction('reset_all')">重置全部数据</button>
             </div>
           </div>
@@ -1260,6 +1263,72 @@ async function dbAction(action) {
     document.getElementById('dbMsg').innerHTML = '<div class="msg msg-ok">' + $h(d.message) + '<br><small style="color:var(--text-muted)">' + $h(detail) + '</small></div>';
     loadDbTables(); // 刷新表列表
   } catch (x) { document.getElementById('dbMsg').innerHTML = '<div class="msg msg-err">操作失败</div>'; }
+}
+
+// ========== 数据备份与导入 ==========
+
+async function downloadBackup() {
+  try {
+    document.getElementById('dbMsg').innerHTML = '<div class="msg msg-ok">正在导出数据，请稍候...</div>';
+    const resp = await fetch(API + '/backup', {
+      headers: hdrs()
+    });
+    if (resp.status === 401) { logout(); return; }
+    if (!resp.ok) {
+      const d = await resp.json();
+      document.getElementById('dbMsg').innerHTML = '<div class="msg msg-err">备份失败: ' + $h(d.message || '') + '</div>';
+      return;
+    }
+    const blob = await resp.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const disposition = resp.headers.get('Content-Disposition') || '';
+    const filenameMatch = disposition.match(/filename="?(.+?)"?$/);
+    a.download = filenameMatch ? filenameMatch[1] : 'xiuxian_backup.json';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+    document.getElementById('dbMsg').innerHTML = '<div class="msg msg-ok">✅ 备份文件下载成功</div>';
+  } catch (x) {
+    document.getElementById('dbMsg').innerHTML = '<div class="msg msg-err">备份失败: ' + $h(x.message || '') + '</div>';
+  }
+}
+
+async function importBackup(fileInput) {
+  const file = fileInput.files[0];
+  if (!file) return;
+  if (!confirm('⚠️ 导入数据将覆盖当前所有数据，此操作不可撤销！\n\n确定要导入文件「' + file.name + '」吗？')) {
+    fileInput.value = '';
+    return;
+  }
+  try {
+    document.getElementById('dbMsg').innerHTML = '<div class="msg msg-ok">正在导入数据，请稍候...</div>';
+    const text = await file.text();
+    JSON.parse(text); // 验证 JSON 格式
+    const d = await api('/backup/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: text
+    });
+    if (d.code === 200) {
+      let detail = '';
+      if (d.detail) {
+        for (const [k, v] of Object.entries(d.detail)) {
+          if (k.endsWith('_deleted') || k.endsWith('_errors') || k.endsWith('_delete_error')) continue;
+          detail += k + ': ' + v + ' 条; ';
+        }
+      }
+      document.getElementById('dbMsg').innerHTML = '<div class="msg msg-ok">✅ ' + $h(d.message) + '（共 ' + (d.totalImported||0) + ' 条）<br><small style="color:var(--text-muted)">' + $h(detail) + '</small></div>';
+      loadDbTables();
+    } else {
+      document.getElementById('dbMsg').innerHTML = '<div class="msg msg-err">导入失败: ' + $h(d.message || '') + '</div>';
+    }
+  } catch (x) {
+    document.getElementById('dbMsg').innerHTML = '<div class="msg msg-err">导入失败: ' + $h(x.message || '') + '</div>';
+  }
+  fileInput.value = '';
 }
 
 async function loadUsers() {

@@ -892,6 +892,63 @@ public class AdminResource {
         }
     }
 
+    // ========== 数据库备份与导入 ==========
+
+    @GET
+    @Path("/backup")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response downloadBackup() {
+        try {
+            String json = DatabaseManager.exportAllData();
+            return Response.ok(json, MediaType.APPLICATION_JSON)
+                    .header("Content-Disposition", "attachment; filename=\"xiuxian_backup_" +
+                            java.time.LocalDate.now() + ".json\"")
+                    .build();
+        } catch (Exception e) {
+            JsonObject err = new JsonObject();
+            err.addProperty("code", 500);
+            err.addProperty("message", "备份失败: " + e.getMessage());
+            return Response.ok(gson.toJson(err)).build();
+        }
+    }
+
+    @POST
+    @Path("/backup/import")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response importBackup(String body) {
+        try {
+            Map<String, Integer> counts = DatabaseManager.importData(body);
+
+            // 重新初始化默认数据
+            new SkillService().insertDefaultSkills();
+            new TechniqueService().insertDefaultTechniques();
+            new CraftingService().insertDefaultRecipes();
+
+            JsonObject result = new JsonObject();
+            result.addProperty("code", 200);
+            result.addProperty("message", "数据导入成功");
+
+            int total = 0;
+            JsonObject detail = new JsonObject();
+            for (Map.Entry<String, Integer> entry : counts.entrySet()) {
+                detail.addProperty(entry.getKey(), entry.getValue());
+                if (!entry.getKey().endsWith("_deleted") && !entry.getKey().endsWith("_errors") && !entry.getKey().endsWith("_delete_error")) {
+                    total += entry.getValue();
+                }
+            }
+            result.addProperty("totalImported", total);
+            result.add("detail", detail);
+
+            return Response.ok(gson.toJson(result)).build();
+        } catch (Exception e) {
+            JsonObject err = new JsonObject();
+            err.addProperty("code", 500);
+            err.addProperty("message", "导入失败: " + e.getMessage());
+            return Response.ok(gson.toJson(err)).build();
+        }
+    }
+
     // ========== 兑换码管理 API ==========
 
     private static final com.mtxgdn.game.service.RedeemCodeService redeemCodeService =

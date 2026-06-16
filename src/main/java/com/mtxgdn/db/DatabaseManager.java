@@ -1087,4 +1087,175 @@ public class DatabaseManager {
             throw new IllegalArgumentException("无效的表名: " + tableName);
         }
     }
+
+    /**
+     * 查询所有行（不分页），用于备份导出
+     */
+    public static List<Map<String, Object>> queryAllRows(String tableName) {
+        validateTableName(tableName);
+        String sql = IS_SQLITE
+                ? "SELECT * FROM \"" + tableName + "\""
+                : "SELECT * FROM `" + tableName + "`";
+        List<Map<String, Object>> rows = new ArrayList<>();
+        try (Connection conn = getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            var meta = rs.getMetaData();
+            int colCount = meta.getColumnCount();
+            while (rs.next()) {
+                Map<String, Object> row = new LinkedHashMap<>();
+                for (int i = 1; i <= colCount; i++) {
+                    Object val = rs.getObject(i);
+                    row.put(meta.getColumnName(i), val);
+                }
+                rows.add(row);
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("查询全表数据失败: " + tableName, e);
+        }
+        return rows;
+    }
+
+    /**
+     * 导出全部数据为 JSON 字符串（用于备份）
+     */
+    public static String exportAllData() {
+        com.google.gson.Gson gson = new com.google.gson.Gson();
+        com.google.gson.JsonObject root = new com.google.gson.JsonObject();
+        root.addProperty("version", "1.0");
+        root.addProperty("timestamp", java.time.LocalDateTime.now().toString());
+        root.addProperty("dbType", DB_TYPE);
+
+        com.google.gson.JsonObject tablesJson = new com.google.gson.JsonObject();
+        List<String> tableNames = getAllTableNames();
+
+        for (String tableName : tableNames) {
+            com.google.gson.JsonObject tableJson = new com.google.gson.JsonObject();
+
+            // 列信息
+            com.google.gson.JsonArray colsArr = new com.google.gson.JsonArray();
+            List<Map<String, Object>> columns = getTableColumns(tableName);
+            for (Map<String, Object> col : columns) {
+                com.google.gson.JsonObject co = new com.google.gson.JsonObject();
+                co.addProperty("name", String.valueOf(col.get("name")));
+                co.addProperty("type", String.valueOf(col.get("type")));
+                colsArr.add(co);
+            }
+            tableJson.add("columns", colsArr);
+
+            // 行数据
+            com.google.gson.JsonArray rowsArr = new com.google.gson.JsonArray();
+            List<Map<String, Object>> rows = queryAllRows(tableName);
+            for (Map<String, Object> row : rows) {
+                com.google.gson.JsonObject ro = new com.google.gson.JsonObject();
+                for (Map.Entry<String, Object> entry : row.entrySet()) {
+                    Object val = entry.getValue();
+                    if (val == null) {
+                        ro.add(entry.getKey(), null);
+                    } else if (val instanceof Number) {
+                        ro.addProperty(entry.getKey(), (Number) val);
+                    } else if (val instanceof Boolean) {
+                        ro.addProperty(entry.getKey(), (Boolean) val);
+                    } else {
+                        ro.addProperty(entry.getKey(), String.valueOf(val));
+                    }
+                }
+                rowsArr.add(ro);
+            }
+            tableJson.add("rows", rowsArr);
+
+            tablesJson.add(tableName, tableJson);
+        }
+
+        root.add("tables", tablesJson);
+        return gson.toJson(root);
+    }
+
+    /**
+     * 从 JSON 备份导入数据（清空所有表后重新插入）
+     */
+    public static Map<String, Integer> importData(String json) {
+        Map<String, Integer> result = new LinkedHashMap<>();
+        com.google.gson.Gson gson = new com.google.gson.Gson();
+        com.google.gson.JsonObject root = com.google.gson.JsonParser.parseString(json).getAsJsonObject();
+
+        if (!root.has("tables")) {
+            throw new IllegalArgumentException("备份文件格式错误：缺少 tables 字段");
+        }
+
+        com.google.gson.JsonObject tablesJson = root.getAsJsonObject("tables");
+
+        try (Connection conn = getConnection();
+             Statement stmt = conn.createStatement()) {
+
+            if (!IS_SQLITE) {
+                stmt.execute("SET FOREIGN_KEY_CHECKS = 0");
+            }
+
+            // 按表名排序，优先删除有外键依赖的表
+            List<String> tableNames = new ArrayList<>(tablesJson.keySet());
+
+            // 先清除所有备份中包含的表数据
+            for (String tableName : tableNames) {
+                try {
+                    String delSql = IS_SQLITE
+                            ? "DELETE FROM \"" + tableName + "\""
+                            : "DELETE FROM `" + tableName + "`";
+                    int deleted = stmt.executeUpdate(delSql);
+                    result.put(tableName + "_deleted", deleted);
+                } catch (SQLException e) {
+                    result.put(tableName + "_delete_error", -1);
+                }
+            }
+
+            // 再插入数据
+            for (String tableName : tableNames) {
+                com.google.gson.JsonObject tableJson = tablesJson.getAsJsonObject(tableName);
+                if (!tableJson.has("rows")) continue;
+
+                com.google.gson.JsonArray rowsArr = tableJson.getAsJsonArray("rows");
+                int inserted = 0;
+                int errors = 0;
+
+                for (var element : rowsArr) {
+                    com.google.gson.JsonObject rowObj = element.getAsJsonObject();
+                    Map<String, Object> data = new LinkedHashMap<>();
+
+                    for (String key : rowObj.keySet()) {
+                        var val = rowObj.get(key);
+                        if (val.isJsonNull()) {
+                            data.put(key, null);
+                        } else if (val.getAsJsonPrimitive().isNumber()) {
+                            data.put(key, val.getAsNumber());
+                        } else if (val.getAsJsonPrimitive().isBoolean()) {
+                            data.put(key, val.getAsBoolean());
+                        } else {
+                            data.put(key, val.getAsString());
+                        }
+                    }
+
+                    try {
+                        insertRow(tableName, data);
+                        inserted++;
+                    } catch (Exception e) {
+                        errors++;
+                    }
+                }
+
+                result.put(tableName, inserted);
+                if (errors > 0) {
+                    result.put(tableName + "_errors", errors);
+                }
+            }
+
+            if (!IS_SQLITE) {
+                stmt.execute("SET FOREIGN_KEY_CHECKS = 1");
+            }
+
+        } catch (SQLException e) {
+            throw new RuntimeException("导入数据失败", e);
+        }
+
+        return result;
+    }
 }
