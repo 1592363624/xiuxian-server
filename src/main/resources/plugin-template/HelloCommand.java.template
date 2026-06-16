@@ -1,0 +1,41 @@
+package {{PACKAGE}}.command;
+
+import com.mtxgdn.common.command.Command;
+import com.mtxgdn.common.command.CommandContext;
+import com.mtxgdn.common.service.ServiceRegistry;
+import com.mtxgdn.game.entity.PlayerInfo;
+
+/**
+ * 示例命令 —— 由 PluginMaker 模板生成。
+ *
+ * <p>玩家在聊天中输入 /你好 或 /hello 时触发，
+ * 回一句问候并赠送 100 灵石作为见面礼。
+ */
+public class HelloCommand extends Command {
+
+    public HelloCommand() {
+        super(
+            new String[]{"hello", "你好"},   // 命令别名（小写匹配）
+            "向修仙者问好，获得一份灵石礼物",   // 描述（用于帮助信息）
+            "/你好",                          // 用法示例
+            "经济"                            // 分类（账号 / 我的角色 / 修炼 / 战斗 / 背包 / 探索 / 坊市 / 宗门 / 经济 / 社交 / 管理）
+        );
+    }
+
+    @Override
+    public void execute(CommandContext ctx) {
+        // 基础框架：绑定校验 + 玩家校验
+        Long userId = ctx.requireBinding();
+        if (userId == null) return;
+
+        PlayerInfo p = ctx.requirePlayer(userId);
+        if (p == null) return;
+
+        // 给玩家 100 灵石
+        long playerId = p.getId();
+        ServiceRegistry.getItemService().addSpiritStones(playerId, 100);
+
+        ctx.reply("🌸 道友安好！欢迎来到修仙世界。\n"
+                + "（插件 [" + "{{NAME}}" + "] 赠送你 100 灵石作为见面礼 ✨）");
+    }
+}

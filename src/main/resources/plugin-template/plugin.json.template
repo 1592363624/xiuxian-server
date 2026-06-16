@@ -1,0 +1,7 @@
+{
+  "name": "{{NAME}}",
+  "version": "{{VERSION}}",
+  "author": "{{AUTHOR}}",
+  "description": "{{DESCRIPTION}}",
+  "main": "{{PACKAGE}}.{{MAIN_CLASS}}"
+}

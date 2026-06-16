@@ -1,3 +1,48 @@
+# V1.4.1-alpha1 更新日志（插件生成器发布）
+
+---
+
+## 🔧 插件生成器 PluginMaker
+
+### 一键生成插件项目
+- 运行 `java -jar 服务端.jar --plugin-make` 即可启动交互式插件生成工具
+- **不会启动服务端** —— 直接进入交互式向导
+- 8 步参数配置：插件名 / 版本 / 作者 / 描述 / artifactId / groupId / 主类名 / 输出目录
+- 方括号内为默认值，直接回车即可使用
+
+### 内置 5 个模板文件
+- `pom.xml.template` —— Maven 构建配置（含服务端依赖注释说明）
+- `plugin.json.template` —— 插件元数据
+- `Main.java.template` —— 插件主类骨架（自动注入名称/版本/包名）
+- `HelloCommand.java.template` —— 示例命令（/你好，赠送灵石）
+- `DemoItem.java.template` —— 示例物品（演示物品注册 / 使用文本）
+
+### 占位符自动替换
+- `{{NAME}}` / `{{VERSION}}` / `{{AUTHOR}}` / `{{DESCRIPTION}}`
+- `{{PACKAGE}}` / `{{PACKAGE_PATH}}` / `{{MAIN_CLASS}}`
+- `{{ARTIFACT_ID}}` / `{{GROUP_ID}}` / `{{SERVER_VERSION}}`
+- 自动把 Java 包名转换为目录路径，确保 `src/main/java/com/xxx/...` 结构正确
+
+### 生成流程
+- 输出项目摘要供用户确认
+- 目标目录存在时询问是否覆盖
+- 生成完成后给出后续步骤提示（如何打包 / 如何放入 plugins 目录）
+
+---
+
+## 📁 新增文件
+
+| 文件 | 描述 |
+|------|------|
+| `plugin/PluginMaker.java` | 交互式插件生成器（`--plugin-make` 启动） |
+| `plugin-template/pom.xml.template` | Maven 构建配置模板 |
+| `plugin-template/plugin.json.template` | 插件元数据模板 |
+| `plugin-template/Main.java.template` | 插件主类模板 |
+| `plugin-template/HelloCommand.java.template` | 示例命令模板 |
+| `plugin-template/DemoItem.java.template` | 示例物品模板 |
+
+---
+
 # V1.4.0 更新日志（插件系统发布）
 
 ---

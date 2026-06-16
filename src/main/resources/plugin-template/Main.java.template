@@ -1,0 +1,49 @@
+package {{PACKAGE}};
+
+import {{PACKAGE}}.command.HelloCommand;
+import {{PACKAGE}}.item.DemoItem;
+import com.mtxgdn.plugin.Plugin;
+import com.mtxgdn.plugin.PluginContext;
+import com.mtxgdn.plugin.PluginMeta;
+
+/**
+ * 插件主类 —— 由 PluginMaker 模板生成。
+ *
+ * <p>生命周期：
+ * <pre>
+ *   onLoad(PluginContext)    —— 加载阶段（读取配置）
+ *   onEnable(PluginContext)  —— 启用阶段（在此注册命令/物品/事件/秘境）
+ *   onDisable(PluginContext) —— 停用阶段（释放资源）
+ * </pre>
+ */
+@PluginMeta(name = "{{NAME}}", version = "{{VERSION}}", author = "{{AUTHOR}}",
+        description = "{{DESCRIPTION}}")
+public class {{MAIN_CLASS}} implements Plugin {
+
+    @Override
+    public void onLoad(PluginContext context) {
+        context.getLogger().info("[" + context.getInfo().getName() + "] 正在加载...");
+    }
+
+    @Override
+    public void onEnable(PluginContext context) {
+        // ============================================================
+        // 在此处注册你的扩展内容
+        // ============================================================
+
+        // 注册示例命令：玩家发送 /你好 或 /hello 时触发
+        context.registerCommand(new HelloCommand());
+
+        // 注册示例物品：通过 {{NAME}}:demo_talisman 引用
+        context.registerItem(new DemoItem());
+
+        // TODO: 在此添加更多 registerCommand / registerItem / registerExplorationEvent / registerSecretRealm
+
+        context.getLogger().info("[" + context.getInfo().getName() + "] v" + context.getInfo().getVersion() + " 已启用 ✨");
+    }
+
+    @Override
+    public void onDisable(PluginContext context) {
+        context.getLogger().info("[" + context.getInfo().getName() + "] 已停用。");
+    }
+}

@@ -7,6 +7,7 @@ import com.mtxgdn.game.explorationevent.ExplorationEventScanner;
 import com.mtxgdn.game.secretrealm.SecretRealmScanner;
 import com.mtxgdn.common.command.CommandScanner;
 import com.mtxgdn.plugin.PluginManager;
+import com.mtxgdn.plugin.PluginMaker;
 
 import java.io.File;
 
@@ -46,6 +47,12 @@ public class Main {
     public static HttpServer mainServer;
 
     public static void main(String[] args) throws Exception {
+        // 插件生成工具模式：检测到 --plugin-make 时，不启动服务端，直接运行交互式向导
+        if (hasArg(args, "--plugin-make")) {
+            new PluginMaker().run();
+            return;
+        }
+
         Thread.setDefaultUncaughtExceptionHandler((t, e) -> {
             LOG.error("未捕获异常 线程=" + t.getName(), e);
         });
