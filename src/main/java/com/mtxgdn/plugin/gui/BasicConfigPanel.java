@@ -2,92 +2,93 @@ package com.mtxgdn.plugin.gui;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.ActionListener;
 import java.io.File;
 
 /**
- * 基础配置选项卡面板（美化版）。
+ * 基础配置选项卡面板 —— 简洁现代化版。
  * <p>
- * 使用 Theme 主题系统：深紫 + 金色 + 米色，卡片式分组布局。
+ * 分 3 个卡片：插件信息 / 包信息 / 输出目录 & 功能开关。
  */
 final class BasicConfigPanel extends JPanel {
 
     private final PluginConfig config;
 
     // ====== 输入控件 ======
-    private final JTextField pluginNameField = new JTextField(30);
-    private final JTextField versionField = new JTextField(15);
-    private final JTextField authorField = new JTextField(20);
-    private final JTextArea descriptionArea = new JTextArea(4, 30);
+    private final JTextField pluginNameField = new JTextField(28);
+    private final JTextField versionField    = new JTextField(12);
+    private final JTextField authorField     = new JTextField(18);
+    private final JTextArea  descriptionArea = new JTextArea(3, 28);
 
-    private final JTextField groupIdField = new JTextField(30);
-    private final JTextField artifactIdField = new JTextField(30);
-    private final JTextField mainClassField = new JTextField(25);
+    private final JTextField artifactIdField = new JTextField(22);
+    private final JTextField groupIdField    = new JTextField(22);
+    private final JTextField mainClassField  = new JTextField(22);
 
-    private final JTextField outputDirField = new JTextField(40);
+    private final JTextField outputDirField  = new JTextField(28);
 
-    private final JCheckBox includeCommandBox = new JCheckBox("注册示例命令  /你好  （问候 + 赠送灵石）");
-    private final JCheckBox includeItemBox = new JCheckBox("注册示例物品  （演示物品注册与使用）");
-    private final JCheckBox includeEventBox = new JCheckBox("注册事件触发器  （需配置下方触发器）");
-    private final JCheckBox includeSecretRealmBox = new JCheckBox("注册示例秘境  （演示秘境系统）");
+    // 功能开关（对应 PluginConfig 的四个 include 字段）
+    private final JCheckBox includeCommandBox     = new JCheckBox("包含示例命令（/你好）");
+    private final JCheckBox includeItemBox        = new JCheckBox("包含示例物品（可装备的灵器）");
+    private final JCheckBox includeEventBox       = new JCheckBox("包含事件监听器（监听消息、登录）");
+    private final JCheckBox includeSecretRealmBox = new JCheckBox("包含示例秘境（可进入的副本）");
 
     BasicConfigPanel(PluginConfig config) {
         this.config = config;
-        setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
-        setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
-        setBackground(Theme.BG_PRIMARY);
 
-        // 所有子卡片
-        add(buildInfoCard());
-        add(Box.createVerticalStrut(14));
-        add(buildPackageCard());
-        add(Box.createVerticalStrut(14));
+        setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
+        setBackground(Theme.BG_PRIMARY);
+        setBorder(BorderFactory.createEmptyBorder(16, 16, 16, 16));
+
+        // 样式
+        Theme.styleInput(pluginNameField);
+        Theme.styleInput(versionField);
+        Theme.styleInput(authorField);
+        Theme.styleInput(descriptionArea);
+        Theme.styleInput(artifactIdField);
+        Theme.styleInput(groupIdField);
+        Theme.styleInput(mainClassField);
+        Theme.styleInput(outputDirField);
+        Theme.styleCheckBox(includeCommandBox);
+        Theme.styleCheckBox(includeItemBox);
+        Theme.styleCheckBox(includeEventBox);
+        Theme.styleCheckBox(includeSecretRealmBox);
+
+        // 组装
+        add(buildPluginInfoCard());
+        add(Box.createVerticalStrut(12));
+        add(buildPackageInfoCard());
+        add(Box.createVerticalStrut(12));
         add(buildOutputCard());
-        add(Box.createVerticalStrut(14));
-        add(buildFeatureCard());
+        add(Box.createVerticalStrut(12));
+        add(buildFeatureSwitchesCard());
         add(Box.createVerticalGlue());
 
-        loadFromConfig();
+        refreshFromConfig();
     }
 
-    /** 将 UI 输入应用到 config 对象，返回 false 表示验证失败。 */
-    boolean applyToConfig() {
-        String name = pluginNameField.getText().trim();
-        String groupId = groupIdField.getText().trim();
-        String artifactId = artifactIdField.getText().trim();
-        String mainClass = mainClassField.getText().trim();
-        String output = outputDirField.getText().trim();
-
-        if (name.isEmpty()) return error("插件名称不能为空");
-        if (groupId.isEmpty()) return error("GroupId 不能为空");
-        if (artifactId.isEmpty()) return error("ArtifactId 不能为空");
-        if (mainClass.isEmpty()) return error("主类名不能为空");
-        if (output.isEmpty()) return error("输出目录不能为空");
-        if (!isValidJavaIdentifier(mainClass)) return error("主类名 '" + mainClass + "' 不是合法的 Java 标识符");
-
-        config.setPluginName(name);
+    /** 把界面输入同步到 config。 */
+    void applyToConfig() {
+        config.setPluginName(pluginNameField.getText().trim());
         config.setVersion(versionField.getText().trim());
         config.setAuthor(authorField.getText().trim());
         config.setDescription(descriptionArea.getText().trim());
-        config.setGroupId(groupId);
-        config.setArtifactId(artifactId);
-        config.setMainClass(mainClass);
-        config.setOutputDir(output);
+        config.setArtifactId(artifactIdField.getText().trim());
+        config.setGroupId(groupIdField.getText().trim());
+        config.setMainClass(mainClassField.getText().trim());
+        config.setOutputDir(outputDirField.getText().trim());
         config.setIncludeCommand(includeCommandBox.isSelected());
         config.setIncludeItem(includeItemBox.isSelected());
         config.setIncludeEvent(includeEventBox.isSelected());
         config.setIncludeSecretRealm(includeSecretRealmBox.isSelected());
-        return true;
     }
 
-    /** 从 config 对象中加载值到 UI 控件。 */
-    void loadFromConfig() {
+    /** 从 config 重新填充界面。 */
+    void refreshFromConfig() {
         pluginNameField.setText(config.getPluginName());
         versionField.setText(config.getVersion());
         authorField.setText(config.getAuthor());
         descriptionArea.setText(config.getDescription());
-        groupIdField.setText(config.getGroupId());
         artifactIdField.setText(config.getArtifactId());
+        groupIdField.setText(config.getGroupId());
         mainClassField.setText(config.getMainClass());
         outputDirField.setText(config.getOutputDir());
         includeCommandBox.setSelected(config.isIncludeCommand());
@@ -96,157 +97,113 @@ final class BasicConfigPanel extends JPanel {
         includeSecretRealmBox.setSelected(config.isIncludeSecretRealm());
     }
 
-    // ==================== 卡片构建 ====================
+    // ==================== 卡片 ====================
 
-    private JPanel buildInfoCard() {
-        JPanel card = buildCard("📋 插件基本信息");
-
-        // 使用 GridBag 布局，左标签右输入
-        JPanel form = new JPanel(new GridBagLayout());
-        form.setBackground(Theme.BG_SECONDARY);
-        GridBagConstraints c = new GridBagConstraints();
-        c.insets = new Insets(6, 4, 6, 10);
-        c.anchor = GridBagConstraints.WEST;
-
-        // 插件名称
-        c.gridx = 0; c.gridy = 0; c.weightx = 0; c.fill = GridBagConstraints.NONE;
-        form.add(Theme.label("插件名称"), c);
-        c.gridx = 1; c.weightx = 1.0; c.fill = GridBagConstraints.HORIZONTAL;
-        Theme.styleInput(pluginNameField);
-        form.add(pluginNameField, c);
-
-        // 版本 + 作者（一行两列）
-        c.gridx = 0; c.gridy = 1; c.weightx = 0; c.fill = GridBagConstraints.NONE;
-        form.add(Theme.label("版本号"), c);
-        c.gridx = 1; c.weightx = 1.0; c.fill = GridBagConstraints.HORIZONTAL;
-        Theme.styleInput(versionField);
-        form.add(versionField, c);
-
-        c.gridx = 0; c.gridy = 2; c.weightx = 0; c.fill = GridBagConstraints.NONE;
-        form.add(Theme.label("作者"), c);
-        c.gridx = 1; c.weightx = 1.0; c.fill = GridBagConstraints.HORIZONTAL;
-        Theme.styleInput(authorField);
-        form.add(authorField, c);
-
-        // 描述（多行）
-        c.gridx = 0; c.gridy = 3; c.weightx = 0; c.fill = GridBagConstraints.NONE;
-        c.anchor = GridBagConstraints.NORTHEAST;
-        form.add(Theme.label("描述"), c);
-        c.gridx = 1; c.weightx = 1.0; c.fill = GridBagConstraints.BOTH;
-        c.anchor = GridBagConstraints.WEST;
-        Theme.styleInput(descriptionArea);
-        descriptionArea.setLineWrap(true);
-        descriptionArea.setWrapStyleWord(true);
-        JScrollPane sp = new JScrollPane(descriptionArea);
-        sp.setBackground(Theme.BG_SECONDARY);
-        sp.setBorder(BorderFactory.createEmptyBorder());
-        form.add(sp, c);
-
-        card.add(form, BorderLayout.CENTER);
-        return card;
-    }
-
-    private JPanel buildPackageCard() {
-        JPanel card = buildCard("📦 Java 包信息（Maven）");
-
-        JPanel form = new JPanel(new GridBagLayout());
-        form.setBackground(Theme.BG_SECONDARY);
-        GridBagConstraints c = new GridBagConstraints();
-        c.insets = new Insets(6, 4, 6, 10);
-        c.anchor = GridBagConstraints.WEST;
-
-        c.gridx = 0; c.gridy = 0; c.weightx = 0; c.fill = GridBagConstraints.NONE;
-        form.add(Theme.label("GroupId"), c);
-        c.gridx = 1; c.weightx = 1.0; c.fill = GridBagConstraints.HORIZONTAL;
-        Theme.styleInput(groupIdField);
-        form.add(groupIdField, c);
-
-        c.gridx = 0; c.gridy = 1; c.weightx = 0; c.fill = GridBagConstraints.NONE;
-        form.add(Theme.label("ArtifactId"), c);
-        c.gridx = 1; c.weightx = 1.0; c.fill = GridBagConstraints.HORIZONTAL;
-        Theme.styleInput(artifactIdField);
-        form.add(artifactIdField, c);
-
-        c.gridx = 0; c.gridy = 2; c.weightx = 0; c.fill = GridBagConstraints.NONE;
-        form.add(Theme.label("主类名"), c);
-        c.gridx = 1; c.weightx = 1.0; c.fill = GridBagConstraints.HORIZONTAL;
-        Theme.styleInput(mainClassField);
-        form.add(mainClassField, c);
-
-        // 提示
-        c.gridx = 0; c.gridy = 3; c.gridwidth = 2;
-        JLabel hint = Theme.hintLabel("💡 包名 = GroupId.ArtifactId（例如 com.example.my-plugin）");
-        hint.setBorder(BorderFactory.createEmptyBorder(4, 0, 0, 0));
-        form.add(hint, c);
-
-        card.add(form, BorderLayout.CENTER);
-        return card;
-    }
-
-    private JPanel buildOutputCard() {
-        JPanel card = buildCard("📂 输出目录");
-
-        JPanel box = new JPanel(new BorderLayout(10, 5));
-        box.setBackground(Theme.BG_SECONDARY);
-        box.add(Theme.label("目标路径:"), BorderLayout.WEST);
-        Theme.styleInput(outputDirField);
-        box.add(outputDirField, BorderLayout.CENTER);
-
-        JButton browse = new JButton("浏览...");
-        Theme.styleButton(browse);
-        browse.addActionListener(e -> {
-            JFileChooser fc = new JFileChooser();
-            fc.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-            fc.setDialogTitle("选择输出目录");
-            if (fc.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
-                outputDirField.setText(fc.getSelectedFile().getAbsolutePath());
-            }
-        });
-        box.add(browse, BorderLayout.EAST);
-        card.add(box, BorderLayout.CENTER);
-        return card;
-    }
-
-    private JPanel buildFeatureCard() {
-        JPanel card = buildCard("🎛 功能模块开关（勾选后将生成对应代码）");
-
-        JPanel box = new JPanel(new GridLayout(4, 1, 8, 8));
-        box.setBackground(Theme.BG_SECONDARY);
-
-        Theme.styleCheckBox(includeCommandBox);
-        Theme.styleCheckBox(includeItemBox);
-        Theme.styleCheckBox(includeEventBox);
-        Theme.styleCheckBox(includeSecretRealmBox);
-
-        box.add(includeCommandBox);
-        box.add(includeItemBox);
-        box.add(includeEventBox);
-        box.add(includeSecretRealmBox);
-
-        card.add(box, BorderLayout.CENTER);
-        return card;
-    }
-
-    // ==================== 辅助方法 ====================
-
-    private JPanel buildCard(String title) {
-        JPanel card = new JPanel(new BorderLayout());
+    private JPanel makeCard(String title) {
+        JPanel card = new JPanel(new BorderLayout(0, 10));
         card.setBackground(Theme.BG_SECONDARY);
         card.setBorder(Theme.cardBorder(title));
         return card;
     }
 
-    private static boolean isValidJavaIdentifier(String s) {
-        if (s == null || s.isEmpty()) return false;
-        if (!Character.isJavaIdentifierStart(s.charAt(0))) return false;
-        for (int i = 1; i < s.length(); i++) {
-            if (!Character.isJavaIdentifierPart(s.charAt(i))) return false;
-        }
-        return true;
+    private JPanel makeFormPanel() {
+        JPanel form = new JPanel(new GridBagLayout());
+        form.setBackground(Theme.BG_SECONDARY);
+        return form;
     }
 
-    private boolean error(String msg) {
-        JOptionPane.showMessageDialog(this, msg, "⚠ 输入有误", JOptionPane.WARNING_MESSAGE);
-        return false;
+    private void addFieldRow(JPanel form, int row, String labelText, JComponent input, String hint) {
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.anchor = GridBagConstraints.WEST;
+        gbc.insets = new Insets(4, 4, 4, 12);
+        gbc.gridx = 0;
+        gbc.gridy = row;
+        gbc.weightx = 0;
+        gbc.fill = GridBagConstraints.NONE;
+
+        JLabel label = Theme.label(labelText);
+        label.setPreferredSize(new Dimension(100, label.getPreferredSize().height));
+        form.add(label, gbc);
+
+        gbc.gridx = 1;
+        gbc.weightx = 1.0;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.insets = new Insets(4, 0, 4, 12);
+        form.add(input, gbc);
+
+        if (hint != null && !hint.isEmpty()) {
+            gbc.gridx = 1;
+            gbc.gridy = row + 1;
+            gbc.insets = new Insets(0, 0, 8, 12);
+            JLabel hintLabel = Theme.hintLabel(hint);
+            hintLabel.setBorder(BorderFactory.createEmptyBorder(0, 4, 0, 0));
+            form.add(hintLabel, gbc);
+        }
+    }
+
+    private JPanel buildPluginInfoCard() {
+        JPanel card = makeCard("📦 插件基本信息");
+        JPanel form = makeFormPanel();
+        addFieldRow(form, 0, "插件名",  pluginNameField, "中英文皆可");
+        addFieldRow(form, 2, "版本",    versionField,    "例如 1.0.0");
+        addFieldRow(form, 4, "作者",    authorField,     "可选");
+        addFieldRow(form, 6, "描述",    descriptionArea, "简短描述这段插件的用途");
+        card.add(form, BorderLayout.CENTER);
+        return card;
+    }
+
+    private JPanel buildPackageInfoCard() {
+        JPanel card = makeCard("🏷 包名 & 主类信息");
+        JPanel form = makeFormPanel();
+        addFieldRow(form, 0, "GroupId",    groupIdField,    "Maven groupId，例如 com.example");
+        addFieldRow(form, 2, "ArtifactId", artifactIdField, "Maven artifactId，例如 my-plugin（小写字母 + 连字符）");
+        addFieldRow(form, 4, "主类名",     mainClassField,   "插件入口类名（如 MyPlugin）");
+        card.add(form, BorderLayout.CENTER);
+        return card;
+    }
+
+    private JPanel buildOutputCard() {
+        JPanel card = makeCard("📂 输出目录");
+        JPanel form = makeFormPanel();
+
+        JPanel browseRow = new JPanel(new BorderLayout(10, 0));
+        browseRow.setBackground(Theme.BG_SECONDARY);
+        browseRow.add(outputDirField, BorderLayout.CENTER);
+
+        JButton browseBtn = new JButton("浏览...");
+        Theme.styleButton(browseBtn);
+        browseBtn.addActionListener(e -> {
+            JFileChooser chooser = new JFileChooser();
+            chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+            if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+                outputDirField.setText(chooser.getSelectedFile().getAbsolutePath());
+            }
+        });
+        browseRow.add(browseBtn, BorderLayout.EAST);
+
+        addFieldRow(form, 0, "输出目录", browseRow, "插件项目将生成到此目录下");
+        card.add(form, BorderLayout.CENTER);
+        return card;
+    }
+
+    private JPanel buildFeatureSwitchesCard() {
+        JPanel card = makeCard("⚙ 功能开关（勾选后将生成对应示例代码）");
+        JPanel form = new JPanel(new GridBagLayout());
+        form.setBackground(Theme.BG_SECONDARY);
+
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.anchor = GridBagConstraints.WEST;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.gridx = 0;
+        gbc.weightx = 1.0;
+        gbc.insets = new Insets(4, 6, 4, 6);
+
+        gbc.gridy = 0; form.add(includeCommandBox,     gbc);
+        gbc.gridy = 1; form.add(includeItemBox,        gbc);
+        gbc.gridy = 2; form.add(includeEventBox,       gbc);
+        gbc.gridy = 3; form.add(includeSecretRealmBox, gbc);
+
+        card.add(form, BorderLayout.CENTER);
+        return card;
     }
 }

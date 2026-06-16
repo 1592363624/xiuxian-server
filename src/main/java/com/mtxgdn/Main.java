@@ -50,7 +50,7 @@ public class Main {
     public static void main(String[] args) throws Exception {
         // 插件生成工具模式（GUI）：检测到 --plugin-make-gui 时，显示图形界面，不启动服务端
         if (hasArg(args, "--plugin-make-gui")) {
-            new PluginMakerGUI().show();
+            PluginMakerGUI.launch();
             return;
         }
         // 插件生成工具模式：检测到 --plugin-make 时，不启动服务端，直接运行交互式向导

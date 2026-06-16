@@ -4,408 +4,364 @@ import javax.swing.*;
 import java.awt.*;
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 插件制作工具主窗口（美化版）。
+ * 插件制作工具主窗口 —— 现代化简洁版。
  * <p>
- * 采用「修仙主题」：深紫 + 金色 + 米色，搭配 Nimbus Look and Feel。
- * 三大选项卡：基础配置 / 触发器管理 / 预览与生成。
+ * 结构：顶部标题栏 / 中部选项卡（基础配置 / 触发器 / 预览）+ 右侧日志 / 底部操作栏。
+ * 每个选项卡内部都包含可滚动区域，避免内容超出屏幕被裁切。
  */
-public final class PluginMakerGUI {
+public class PluginMakerGUI extends JFrame {
 
     private final PluginConfig config = new PluginConfig();
-    private final BasicConfigPanel basicPanel;
-    private final TriggerPanel triggerPanel;
-
-    private JFrame frame;
+    private BasicConfigPanel basicPanel;
+    private TriggerPanel triggerPanel;
     private JTextArea logArea;
-    private JFileChooser fileChooser;
 
-    public PluginMakerGUI() {
-        this.basicPanel = new BasicConfigPanel(config);
-        this.triggerPanel = new TriggerPanel(config);
-    }
-
-    /** 显示 GUI 窗口（阻塞当前线程直到窗口关闭）。 */
-    public void show() {
+    public static void launch() {
         SwingUtilities.invokeLater(() -> {
             Theme.installLookAndFeel();
-            buildFrame();
+            PluginMakerGUI gui = new PluginMakerGUI();
+            gui.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+            gui.setVisible(true);
         });
     }
 
-    private void buildFrame() {
-        frame = new JFrame("✨ PluginMaker —— 修仙服务端插件制作工具");
-        frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        frame.setMinimumSize(new Dimension(1000, 720));
-        frame.setSize(1100, 780);
-        frame.setLocationRelativeTo(null);
+    private PluginMakerGUI() {
+        setTitle("🛠 插件制作工具 · Plugin Maker");
+        setMinimumSize(new Dimension(880, 600));
+        setPreferredSize(new Dimension(1100, 760));
+        setSize(1100, 760);
+        setLocationRelativeTo(null);
+        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
 
-        // 顶部横幅（渐变背景）
-        JPanel banner = buildBanner();
+        JPanel root = new JPanel(new BorderLayout(0, 10));
+        root.setBackground(Theme.BG_PRIMARY);
+        root.setBorder(BorderFactory.createEmptyBorder(12, 14, 14, 14));
 
-        // 选项卡
-        JTabbedPane tabs = new JTabbedPane(JTabbedPane.TOP, JTabbedPane.SCROLL_TAB_LAYOUT);
-        tabs.setFont(Theme.fontBold(13f));
-        tabs.setBackground(Theme.BG_PRIMARY);
-        tabs.setForeground(Theme.FG_TEXT);
+        root.add(buildHeader(),   BorderLayout.NORTH);
+        root.add(buildBody(),     BorderLayout.CENTER);
+        root.add(buildFooter(),   BorderLayout.SOUTH);
 
-        JPanel tab1 = new JPanel(new BorderLayout());
-        tab1.setBackground(Theme.BG_PRIMARY);
-        tab1.add(basicPanel, BorderLayout.CENTER);
-
-        JPanel tab2 = new JPanel(new BorderLayout());
-        tab2.setBackground(Theme.BG_PRIMARY);
-        tab2.add(triggerPanel, BorderLayout.CENTER);
-
-        JPanel tab3 = buildPreviewPanel();
-
-        tabs.addTab("  📋 ① 基础配置  ", tab1);
-        tabs.addTab("  ⚡ ② 触发器管理  ", tab2);
-        tabs.addTab("  🚀 ③ 预览与生成  ", tab3);
-        // 激活背景色
-        for (int i = 0; i < tabs.getTabCount(); i++) {
-            tabs.setBackgroundAt(i, Theme.BG_SECONDARY);
-            tabs.setForegroundAt(i, Theme.FG_TEXT);
-        }
-
-        // 内容区
-        JPanel content = new JPanel(new BorderLayout());
-        content.add(tabs, BorderLayout.CENTER);
-
-        // 组装
-        frame.getContentPane().setLayout(new BorderLayout());
-        frame.getContentPane().add(banner, BorderLayout.NORTH);
-        frame.getContentPane().add(content, BorderLayout.CENTER);
-        frame.getContentPane().add(buildStatusBar(), BorderLayout.SOUTH);
-
-        // 让选项卡背景色生效
-        JComponent c = (JComponent) tabs.getComponentAt(0);
-        c.setBackground(Theme.BG_PRIMARY);
-        c.setOpaque(true);
-
-        frame.setVisible(true);
-
-        fileChooser = new JFileChooser();
-        fileChooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter(
-                "配置文件 (*.plugin.json)", "plugin.json", "json"));
-
-        log("就绪。请在「基础配置」中填写插件信息，然后在「触发器管理」中配置事件触发器，最后点击「生成插件项目」。");
+        add(root);
+        log("欢迎使用 Plugin Maker");
+        log("请在【基础配置】中填写信息，在【事件触发器】中配置触发器，然后点击【生成插件】。");
     }
 
-    /** 构建顶部横幅（深色渐变背景 + 标题 + 工具栏）。 */
-    private JPanel buildBanner() {
-        JPanel banner = new JPanel(new BorderLayout()) {
-            @Override
-            protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
-                Graphics2D g2d = (Graphics2D) g;
-                GradientPaint gp = new GradientPaint(
-                        0, 0, new Color(60, 40, 90),
-                        getWidth(), getHeight(), new Color(110, 80, 150),
-                        true);
-                g2d.setPaint(gp);
-                g2d.fillRect(0, 0, getWidth(), getHeight());
-            }
-        };
-        banner.setBorder(BorderFactory.createEmptyBorder(12, 20, 12, 20));
+    // ================ 顶部 ================
 
-        // 标题区
-        JPanel titlePanel = new JPanel(new BorderLayout(0, 2));
-        titlePanel.setOpaque(false);
-        JLabel title = Theme.titleLabel("✨ 修仙服务端 · 插件制作工具", 22f);
-        title.setForeground(Theme.ACCENT_GOLD);
-        JLabel subtitle = Theme.hintLabel("V1.4.1-alpha1  ·  让你用 GUI 轻松创建服务端插件项目");
-        subtitle.setForeground(new Color(220, 208, 192));
-        titlePanel.add(title, BorderLayout.CENTER);
-        titlePanel.add(subtitle, BorderLayout.SOUTH);
+    private JComponent buildHeader() {
+        JPanel p = new JPanel(new BorderLayout(16, 4));
+        p.setBackground(Theme.BG_PRIMARY);
+        p.setBorder(BorderFactory.createEmptyBorder(0, 4, 8, 4));
 
-        // 工具栏
-        JPanel toolbar = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 5));
-        toolbar.setOpaque(false);
+        JLabel title = Theme.titleLabel("🛠 插件制作工具", 20f);
+        title.setBorder(BorderFactory.createEmptyBorder(2, 0, 0, 0));
 
-        JButton saveBtn = buildNiceButton("💾 保存配置");
-        saveBtn.addActionListener(e -> saveConfig());
-        toolbar.add(saveBtn);
+        JLabel subtitle = Theme.hintLabel("基于模板快速生成 Server 插件项目");
+        subtitle.setBorder(BorderFactory.createEmptyBorder(4, 2, 0, 0));
 
-        JButton loadBtn = buildNiceButton("📂 加载配置");
-        loadBtn.addActionListener(e -> loadConfig());
-        toolbar.add(loadBtn);
+        JPanel left = new JPanel();
+        left.setLayout(new BoxLayout(left, BoxLayout.Y_AXIS));
+        left.setBackground(Theme.BG_PRIMARY);
+        left.add(title);
+        left.add(subtitle);
 
-        JButton refreshBtn = buildNiceButton("🔄 刷新预览");
-        refreshBtn.addActionListener(e -> updatePreview());
-        toolbar.add(refreshBtn);
+        JLabel right = Theme.hintLabel("Plugin Maker · v1.4.1-alpha1");
+        right.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 4));
 
-        JButton genBtn = buildNicePrimaryButton("🚀 生成插件项目");
-        genBtn.addActionListener(e -> generate());
-        toolbar.add(genBtn);
-
-        banner.add(titlePanel, BorderLayout.WEST);
-        banner.add(toolbar, BorderLayout.EAST);
-        return banner;
+        p.add(left, BorderLayout.WEST);
+        p.add(right, BorderLayout.EAST);
+        return p;
     }
 
-    /** 构建预览与生成面板。 */
-    private JPanel buildPreviewPanel() {
-        JPanel panel = new JPanel(new BorderLayout(15, 15));
-        panel.setBackground(Theme.BG_PRIMARY);
-        panel.setBorder(BorderFactory.createEmptyBorder(16, 20, 16, 20));
+    // ================ 中部：选项卡 + 日志 ================
 
-        // 标题
-        JLabel title = Theme.titleLabel("📝 配置摘要与生成预览", 16f);
-        title.setBorder(BorderFactory.createEmptyBorder(0, 0, 8, 0));
-        panel.add(title, BorderLayout.NORTH);
-
-        // 双列布局：左摘要 + 右日志
+    private JComponent buildBody() {
         JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
+        split.setBorder(BorderFactory.createEmptyBorder());
         split.setBackground(Theme.BG_PRIMARY);
-        split.setResizeWeight(0.5);
-        split.setDividerSize(4);
-        split.setBorder(null);
+        split.setLeftComponent(buildTabbedPane());
+        split.setRightComponent(buildLogPanel());
+        split.setResizeWeight(0.72);
+        split.setDividerSize(3);
+        return split;
+    }
 
-        // 左：摘要卡片
-        JPanel summary = new JPanel(new BorderLayout(10, 10));
-        summary.setBackground(Theme.BG_SECONDARY);
-        summary.setBorder(Theme.cardBorder("📊 配置摘要"));
+    private JComponent buildTabbedPane() {
+        JTabbedPane tabs = new JTabbedPane(JTabbedPane.TOP);
+        Theme.styleTabbedPane(tabs);
+        tabs.setFont(Theme.fontBold(13f));
 
-        logArea = new JTextArea(20, 55);
-        logArea.setEditable(false);
-        logArea.setFont(Theme.fontMono(13f));
-        logArea.setBackground(Theme.BG_PRIMARY);
-        logArea.setForeground(Theme.FG_TEXT);
-        logArea.setBorder(BorderFactory.createEmptyBorder(10, 12, 10, 12));
-        logArea.setOpaque(true);
-        JScrollPane sp = new JScrollPane(logArea);
-        sp.setBackground(Theme.BG_SECONDARY);
-        sp.getViewport().setBackground(Theme.BG_PRIMARY);
+        basicPanel = new BasicConfigPanel(config);
+        triggerPanel = new TriggerPanel(config);
+
+        JScrollPane basicScroll   = wrapInScrollPane(basicPanel);
+        JScrollPane triggerScroll = wrapInScrollPane(triggerPanel);
+
+        tabs.addTab("  📋 基础配置  ", basicScroll);
+        tabs.addTab("  ⚡ 事件触发器  ", triggerScroll);
+        tabs.addTab("  ✅ 生成 & 预览  ", buildPreviewTab());
+
+        return tabs;
+    }
+
+    private JScrollPane wrapInScrollPane(JPanel panel) {
+        JScrollPane sp = new JScrollPane(panel,
+                JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
+                JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
         sp.setBorder(BorderFactory.createEmptyBorder());
-        summary.add(sp, BorderLayout.CENTER);
-        split.add(summary);
+        sp.getVerticalScrollBar().setUnitIncrement(16);
+        sp.getHorizontalScrollBar().setUnitIncrement(16);
+        sp.setBackground(Theme.BG_PRIMARY);
+        sp.getViewport().setBackground(Theme.BG_PRIMARY);
+        return sp;
+    }
 
-        // 右：操作说明卡片
-        JPanel help = new JPanel(new BorderLayout(10, 10));
-        help.setBackground(Theme.BG_SECONDARY);
-        help.setBorder(Theme.cardBorder("📖 使用说明"));
+    private JComponent buildPreviewTab() {
+        JPanel p = new JPanel(new BorderLayout(12, 12));
+        p.setBackground(Theme.BG_PRIMARY);
+        p.setBorder(BorderFactory.createEmptyBorder(14, 14, 14, 14));
 
-        String tips =
-                "【第一步】基础配置\n" +
-                "  · 填写插件名称、版本、作者、描述\n" +
-                "  · 设置 Maven GroupId / ArtifactId / 主类名\n" +
-                "  · 选择输出目录\n" +
-                "  · 勾选需要生成的功能模块\n\n" +
-                "【第二步】触发器管理（可选）\n" +
-                "  · 点「新增」创建触发器\n" +
-                "  · 选择事件类型、条件、动作\n" +
-                "  · 可随时编辑、删除、重排序\n\n" +
-                "【第三步】预览与生成\n" +
-                "  · 检查下方摘要是否正确\n" +
-                "  · 点「生成插件项目」输出到指定目录\n" +
-                "  · 将项目编译后放入 ./plugins/ 目录\n\n" +
-                "【可选】保存 / 加载配置\n" +
-                "  · 将当前配置保存为 .plugin.json\n" +
-                "  · 下次启动可直接加载，无需重填\n";
-        JTextArea tipsArea = new JTextArea(tips, 25, 40);
-        tipsArea.setEditable(false);
-        tipsArea.setFont(Theme.fontMono(12.5f));
-        tipsArea.setBackground(Theme.BG_SECONDARY);
-        tipsArea.setForeground(Theme.FG_LABEL);
-        tipsArea.setBorder(BorderFactory.createEmptyBorder(10, 12, 10, 12));
-        tipsArea.setOpaque(true);
-        help.add(tipsArea, BorderLayout.CENTER);
+        // 使用说明
+        JPanel hintCard = new JPanel(new BorderLayout(8, 8));
+        hintCard.setBackground(Theme.BG_SECONDARY);
+        hintCard.setBorder(Theme.cardBorder("📖 使用说明"));
+        JTextArea hint = new JTextArea(
+                "1. 在【基础配置】中填写插件名、版本、GroupId、ArtifactId、主类名、输出目录，以及是否包含示例命令/物品/事件/秘境。\n" +
+                "2. 在【事件触发器】中添加触发器（事件类型、触发条件、响应动作、Java 代码）。\n" +
+                "3. 完成后点击底部【💾 保存配置】把当前配置存为 JSON，下次可通过【📂 加载配置】恢复。\n" +
+                "4. 点击【🚀 生成插件】即可在输出目录下生成完整的 Maven 项目。\n" +
+                "5. 在生成目录中执行  mvn clean package  即可得到 JAR 包，放入服务端 ./plugins 目录即可加载。"
+        );
+        hint.setLineWrap(true);
+        hint.setWrapStyleWord(true);
+        hint.setEditable(false);
+        hint.setFont(Theme.fontRegular(12.5f));
+        hint.setBackground(Theme.BG_SECONDARY);
+        hint.setForeground(Theme.FG_TEXT);
+        hintCard.add(hint, BorderLayout.CENTER);
+        p.add(hintCard, BorderLayout.NORTH);
 
-        split.add(help);
-        panel.add(split, BorderLayout.CENTER);
+        // 当前配置预览
+        JPanel previewCard = new JPanel(new BorderLayout(8, 8));
+        previewCard.setBackground(Theme.BG_SECONDARY);
+        previewCard.setBorder(Theme.cardBorder("🧾 当前配置预览"));
+        JTextArea preview = new JTextArea(configPreview(), 14, 40);
+        preview.setFont(Theme.fontMono(12f));
+        preview.setEditable(false);
+        preview.setBackground(Theme.BG_SECONDARY);
+        preview.setForeground(Theme.FG_TEXT);
+        JScrollPane previewScroll = new JScrollPane(preview);
+        previewScroll.setBorder(BorderFactory.createEmptyBorder());
+        previewScroll.getViewport().setBackground(Theme.BG_SECONDARY);
+        previewCard.add(previewScroll, BorderLayout.CENTER);
 
-        // 下方大按钮
-        JPanel bottom = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 10));
-        bottom.setBackground(Theme.BG_PRIMARY);
+        JButton refreshBtn = new JButton("🔄 重新读取配置");
+        Theme.styleButton(refreshBtn);
+        refreshBtn.addActionListener(e -> {
+            if (basicPanel != null) basicPanel.applyToConfig();
+            preview.setText(configPreview());
+        });
+        JPanel btnRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        btnRow.setBackground(Theme.BG_SECONDARY);
+        btnRow.add(refreshBtn);
+        previewCard.add(btnRow, BorderLayout.SOUTH);
+
+        p.add(previewCard, BorderLayout.CENTER);
+        return p;
+    }
+
+    private String configPreview() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("插件名:       ").append(config.getPluginName()).append('\n');
+        sb.append("版本:         ").append(config.getVersion()).append('\n');
+        sb.append("作者:         ").append(config.getAuthor()).append('\n');
+        sb.append("描述:         ").append(config.getDescription()).append('\n');
+        sb.append("GroupId:      ").append(config.getGroupId()).append('\n');
+        sb.append("ArtifactId:   ").append(config.getArtifactId()).append('\n');
+        sb.append("包名:         ").append(config.getPackageName()).append('\n');
+        sb.append("主类:         ").append(config.getMainClass()).append('\n');
+        sb.append("输出目录:     ").append(config.getOutputDir()).append('\n');
+        sb.append("包含命令:     ").append(config.isIncludeCommand()).append('\n');
+        sb.append("包含物品:     ").append(config.isIncludeItem()).append('\n');
+        sb.append("包含事件:     ").append(config.isIncludeEvent()).append('\n');
+        sb.append("包含秘境:     ").append(config.isIncludeSecretRealm()).append('\n');
+        sb.append("触发器数量:   ").append(config.getTriggers().size()).append('\n');
+        int i = 0;
+        for (TriggerConfig t : config.getTriggers()) {
+            sb.append("  [").append(++i).append("] ")
+                    .append(t.isEnabled() ? "✔" : "○").append(' ')
+                    .append(t.getEventType()).append(" → ").append(t.getAction().label)
+                    .append(" (").append(t.getDescription()).append(")\n");
+        }
+        return sb.toString();
+    }
+
+    // ================ 日志 ================
+
+    private JComponent buildLogPanel() {
+        JPanel logPanel = new JPanel(new BorderLayout(8, 8));
+        logPanel.setBackground(Theme.BG_PRIMARY);
+
+        JLabel title = Theme.titleLabel("📜 运行日志", 13f);
+        title.setBorder(BorderFactory.createEmptyBorder(0, 2, 4, 0));
+
+        logArea = new JTextArea("", 22, 28);
+        logArea.setFont(Theme.fontMono(11.5f));
+        logArea.setForeground(new Color(200, 210, 220));
+        logArea.setBackground(Theme.BG_CODE);
+        logArea.setEditable(false);
+        logArea.setLineWrap(true);
+        logArea.setWrapStyleWord(true);
+        logArea.setBorder(BorderFactory.createEmptyBorder(8, 10, 8, 10));
+
+        JScrollPane logScroll = new JScrollPane(logArea,
+                JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
+                JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        logScroll.setBorder(BorderFactory.createLineBorder(Theme.BORDER_COLOR, 1, true));
+        logScroll.getViewport().setBackground(Theme.BG_CODE);
+
+        logPanel.add(title, BorderLayout.NORTH);
+        logPanel.add(logScroll, BorderLayout.CENTER);
+        return logPanel;
+    }
+
+    // ================ 底部操作栏 ================
+
+    private JComponent buildFooter() {
+        JPanel bar = new JPanel(new BorderLayout(12, 0));
+        bar.setBackground(Theme.BG_PRIMARY);
+        bar.setBorder(BorderFactory.createEmptyBorder(10, 4, 0, 4));
+
+        JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        left.setBackground(Theme.BG_PRIMARY);
+
+        JButton saveBtn = new JButton("💾 保存配置");
+        Theme.styleButton(saveBtn);
+        saveBtn.addActionListener(e -> saveConfig());
+
+        JButton loadBtn = new JButton("📂 加载配置");
+        Theme.styleButton(loadBtn);
+        loadBtn.addActionListener(e -> loadConfig());
+
+        left.add(saveBtn);
+        left.add(loadBtn);
+
+        JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        right.setBackground(Theme.BG_PRIMARY);
+
         JButton genBtn = new JButton("🚀 生成插件项目");
         Theme.stylePrimaryButton(genBtn);
-        genBtn.setBorder(BorderFactory.createEmptyBorder(14, 40, 14, 40));
-        genBtn.setFont(Theme.fontBold(15f));
-        genBtn.addActionListener(e -> generate());
-        bottom.add(genBtn);
-        panel.add(bottom, BorderLayout.SOUTH);
+        genBtn.addActionListener(e -> generatePlugin());
 
-        updatePreview();
-        return panel;
+        right.add(genBtn);
+
+        bar.add(left, BorderLayout.WEST);
+        bar.add(right, BorderLayout.EAST);
+        return bar;
     }
 
-    private void updatePreview() {
-        basicPanel.applyToConfig();
-        triggerPanel.applyToConfig();
-        StringBuilder sb = new StringBuilder();
-        sb.append("━━━━━━ 插件基本信息 ━━━━━━\n");
-        sb.append("插件名称:   ").append(config.getPluginName()).append("\n");
-        sb.append("版本号:     ").append(config.getVersion()).append("\n");
-        sb.append("作者:       ").append(config.getAuthor()).append("\n");
-        sb.append("描述:       ").append(config.getDescription()).append("\n");
-        sb.append("Java 包名:  ").append(config.getPackageName()).append("\n");
-        sb.append("主类:       ").append(config.getMainClass()).append("\n");
-        sb.append("输出目录:   ").append(config.getOutputDir()).append("\n\n");
-        sb.append("━━━━━━ 功能模块开关 ━━━━━━\n");
-        sb.append("  [").append(flag(config.isIncludeCommand())).append("] 示例命令  /你好\n");
-        sb.append("  [").append(flag(config.isIncludeItem())).append("] 示例物品\n");
-        sb.append("  [").append(flag(config.isIncludeEvent())).append("] 事件系统\n");
-        sb.append("  [").append(flag(config.isIncludeSecretRealm())).append("] 示例秘境\n\n");
-        sb.append("━━━━━━ 事件触发器（").append(config.getTriggers().size()).append("） ━━━━━━\n");
-        if (config.getTriggers().isEmpty()) {
-            sb.append("  （暂无触发器）\n");
-        } else {
-            for (int i = 0; i < config.getTriggers().size(); i++) {
-                TriggerConfig t = config.getTriggers().get(i);
-                String typeName = t.getEventType() == com.mtxgdn.plugin.event.PluginEvent.Type.CUSTOM
-                        ? "自定义[" + t.getCustomKey() + "]"
-                        : t.getEventType().name();
-                sb.append(String.format("  %d. %s  %s → %s (%s)%n",
-                        i + 1,
-                        t.isEnabled() ? "🟢" : "⚪",
-                        typeName,
-                        t.getAction().label,
-                        t.getDescription()));
-                if (!t.getCondition().isEmpty()) {
-                    sb.append("        条件: ").append(t.getCondition()).append("\n");
-                }
-            }
-        }
-        sb.append("\n━━━━━━ 预计将生成以下文件 ━━━━━━\n");
-        sb.append("  pom.xml\n");
-        sb.append("  plugin.json\n");
-        sb.append("  src/main/java/").append(config.getPackagePath()).append("/").append(config.getMainClass()).append(".java\n");
-        if (config.isIncludeCommand()) {
-            sb.append("  src/main/java/").append(config.getPackagePath()).append("/command/HelloCommand.java\n");
-        }
-        if (config.isIncludeItem()) {
-            sb.append("  src/main/java/").append(config.getPackagePath()).append("/item/DemoItem.java\n");
-        }
-        if (config.isIncludeEvent() || !config.getTriggers().isEmpty()) {
-            sb.append("  src/main/java/").append(config.getPackagePath()).append("/").append(config.getMainClass()).append("Triggers.java\n");
-        }
-        if (config.isIncludeSecretRealm()) {
-            sb.append("  src/main/java/").append(config.getPackagePath()).append("/").append(config.getMainClass()).append("Realm.java\n");
-        }
-        sb.append("\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
-        logArea.setText(sb.toString());
-        logArea.setCaretPosition(0);
-    }
-
-    // ==================== 工具栏操作 ====================
+    // ================ 操作 ================
 
     private void saveConfig() {
-        basicPanel.applyToConfig();
-        triggerPanel.applyToConfig();
-        fileChooser.setSelectedFile(new File(config.getPluginName() + ".plugin.json"));
-        if (fileChooser.showSaveDialog(frame) == JFileChooser.APPROVE_OPTION) {
-            try {
-                File f = fileChooser.getSelectedFile();
-                if (!f.getName().endsWith(".json")) f = new File(f.getAbsolutePath() + ".json");
-                config.save(f);
-                log("✅ 配置已保存到 " + f.getAbsolutePath());
-                JOptionPane.showMessageDialog(frame, "配置已保存到 " + f.getName(), "完成", JOptionPane.INFORMATION_MESSAGE);
-            } catch (IOException ex) {
-                log("❌ 保存失败: " + ex.getMessage());
-                JOptionPane.showMessageDialog(frame, "保存失败: " + ex.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
-            }
+        JFileChooser chooser = new JFileChooser();
+        chooser.setSelectedFile(new File("plugin-config.json"));
+        int r = chooser.showSaveDialog(this);
+        if (r != JFileChooser.APPROVE_OPTION) return;
+        try {
+            if (basicPanel != null) basicPanel.applyToConfig();
+            if (triggerPanel != null) triggerPanel.applyToConfig();
+            config.save(chooser.getSelectedFile());
+            log("✔ 配置已保存至 " + chooser.getSelectedFile().getPath());
+        } catch (IOException e) {
+            log("✖ 保存失败：" + e.getMessage());
+            JOptionPane.showMessageDialog(this, "保存失败：" + e.getMessage(),
+                    "错误", JOptionPane.ERROR_MESSAGE);
         }
     }
 
     private void loadConfig() {
-        if (fileChooser.showOpenDialog(frame) == JFileChooser.APPROVE_OPTION) {
-            try {
-                PluginConfig loaded = PluginConfig.load(fileChooser.getSelectedFile());
-                copyConfig(loaded, config);
-                basicPanel.loadFromConfig();
-                triggerPanel.refreshTable();
-                updatePreview();
-                log("✅ 配置已从 " + fileChooser.getSelectedFile().getName() + " 加载");
-                JOptionPane.showMessageDialog(frame, "配置已加载", "完成", JOptionPane.INFORMATION_MESSAGE);
-            } catch (IOException ex) {
-                log("❌ 加载失败: " + ex.getMessage());
-                JOptionPane.showMessageDialog(frame, "加载失败: " + ex.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
-            }
-        }
-    }
-
-    private void generate() {
-        if (!basicPanel.applyToConfig()) return;
-        triggerPanel.applyToConfig();
+        JFileChooser chooser = new JFileChooser();
+        int r = chooser.showOpenDialog(this);
+        if (r != JFileChooser.APPROVE_OPTION) return;
         try {
-            log("🚀 开始生成插件项目...");
-            log("  输出目录: " + new File(config.getOutputDir()).getAbsolutePath());
-            List<String> files = new CodeGenerator(config).generateAll();
-            log("✅ 生成完成！共 " + files.size() + " 个文件：");
-            for (String f : files) log("   - " + f);
-            log("");
-            log("下一步:");
-            log("  1) 进入目录: cd " + config.getOutputDir());
-            log("  2) 将服务端 jar 安装到本地 Maven 仓库（详见 pom.xml）");
-            log("  3) 执行: mvn package");
-            log("  4) 将 target/" + config.getArtifactId() + "-" + config.getVersion() + ".jar 放入服务端 ./plugins/");
-            log("  5) 重启服务端，插件将被自动加载 ✨");
-            JOptionPane.showMessageDialog(frame,
-                    "生成完成！共 " + files.size() + " 个文件。\n输出目录: " + new File(config.getOutputDir()).getAbsolutePath(),
-                    "插件项目生成成功",
-                    JOptionPane.INFORMATION_MESSAGE);
-        } catch (IOException ex) {
-            log("❌ 生成失败: " + ex.getMessage());
-            ex.printStackTrace();
-            JOptionPane.showMessageDialog(frame, "生成失败: " + ex.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
+            PluginConfig loaded = PluginConfig.load(chooser.getSelectedFile());
+            config.setPluginName(loaded.getPluginName());
+            config.setVersion(loaded.getVersion());
+            config.setAuthor(loaded.getAuthor());
+            config.setDescription(loaded.getDescription());
+            config.setArtifactId(loaded.getArtifactId());
+            config.setGroupId(loaded.getGroupId());
+            config.setMainClass(loaded.getMainClass());
+            config.setOutputDir(loaded.getOutputDir());
+            config.setIncludeCommand(loaded.isIncludeCommand());
+            config.setIncludeItem(loaded.isIncludeItem());
+            config.setIncludeEvent(loaded.isIncludeEvent());
+            config.setIncludeSecretRealm(loaded.isIncludeSecretRealm());
+            config.getTriggers().clear();
+            config.getTriggers().addAll(loaded.getTriggers());
+
+            if (basicPanel != null) basicPanel.refreshFromConfig();
+            if (triggerPanel != null) triggerPanel.refreshTable();
+            log("✔ 已加载配置 " + chooser.getSelectedFile().getPath());
+        } catch (IOException e) {
+            log("✖ 加载失败：" + e.getMessage());
+            JOptionPane.showMessageDialog(this, "加载失败：" + e.getMessage(),
+                    "错误", JOptionPane.ERROR_MESSAGE);
         }
     }
 
-    // ==================== 辅助 ====================
+    private void generatePlugin() {
+        if (basicPanel != null) basicPanel.applyToConfig();
+        if (triggerPanel != null) triggerPanel.applyToConfig();
 
-    private JPanel buildStatusBar() {
-        JPanel p = new JPanel(new BorderLayout());
-        p.setBackground(Theme.BG_SECONDARY);
-        p.setForeground(Theme.FG_LABEL);
-        p.setBorder(BorderFactory.createEmptyBorder(6, 16, 6, 16));
-        JLabel status = new JLabel("PluginMaker · 事件系统 V1.4.1-alpha1  ·  设计：修仙主题");
-        status.setFont(Theme.fontPlain(12f));
-        status.setForeground(Theme.FG_HINT);
-        p.add(status, BorderLayout.WEST);
-        return p;
+        List<String> errors = validateConfig(config);
+        if (!errors.isEmpty()) {
+            String msg = "请先修正以下问题：\n\n  · " + String.join("\n  · ", errors);
+            JOptionPane.showMessageDialog(this, msg, "⚠ 配置不完整", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        try {
+            log("▶ 开始生成插件项目（" + config.getPluginName() + " v" + config.getVersion() + "）...");
+            CodeGenerator gen = new CodeGenerator(config);
+            List<String> files = gen.generateAll();
+            log("✔ 生成完成，共 " + files.size() + " 个文件：");
+            for (String f : files) log("   - " + f);
+            log("  提示：在输出目录中执行  mvn clean package  可编译为 JAR 包");
+            log("  将 JAR 放入服务端 ./plugins 目录即可被加载。");
+
+            JOptionPane.showMessageDialog(this,
+                    "✔ 项目已生成（共 " + files.size() + " 个文件）\n输出目录：" + config.getOutputDir(),
+                    "生成完成", JOptionPane.INFORMATION_MESSAGE);
+        } catch (Exception e) {
+            log("✖ 生成失败：" + e.getMessage());
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this,
+                    "生成失败：" + e.getMessage(),
+                    "错误", JOptionPane.ERROR_MESSAGE);
+        }
     }
 
-    /** 创建普通按钮（紫色 + 悬停变金）。 */
-    private JButton buildNiceButton(String text) {
-        JButton b = new JButton(text);
-        Theme.styleButton(b);
-        return b;
-    }
-
-    /** 创建主按钮（金色大按钮，用于主要操作）。 */
-    private JButton buildNicePrimaryButton(String text) {
-        JButton b = new JButton(text);
-        Theme.stylePrimaryButton(b);
-        return b;
+    private static List<String> validateConfig(PluginConfig c) {
+        List<String> errors = new ArrayList<>();
+        if (c.getPluginName() == null || c.getPluginName().trim().isEmpty()) errors.add("插件名不能为空");
+        if (c.getVersion() == null || c.getVersion().trim().isEmpty()) errors.add("版本号不能为空");
+        if (c.getGroupId() == null || c.getGroupId().trim().isEmpty()) errors.add("GroupId 不能为空");
+        if (c.getArtifactId() == null || c.getArtifactId().trim().isEmpty()) errors.add("ArtifactId 不能为空");
+        if (c.getMainClass() == null || c.getMainClass().trim().isEmpty()) errors.add("主类名不能为空");
+        if (c.getOutputDir() == null || c.getOutputDir().trim().isEmpty()) errors.add("输出目录不能为空");
+        return errors;
     }
 
     private void log(String msg) {
-        if (logArea != null) {
+        if (logArea == null) return;
+        SwingUtilities.invokeLater(() -> {
             logArea.append(msg + "\n");
             logArea.setCaretPosition(logArea.getDocument().getLength());
-        }
-        System.out.println("[PluginMaker] " + msg);
-    }
-
-    private static String flag(boolean b) { return b ? "✓" : " "; }
-
-    private static void copyConfig(PluginConfig from, PluginConfig to) {
-        to.setPluginName(from.getPluginName());
-        to.setVersion(from.getVersion());
-        to.setAuthor(from.getAuthor());
-        to.setDescription(from.getDescription());
-        to.setGroupId(from.getGroupId());
-        to.setArtifactId(from.getArtifactId());
-        to.setMainClass(from.getMainClass());
-        to.setOutputDir(from.getOutputDir());
-        to.setIncludeCommand(from.isIncludeCommand());
-        to.setIncludeItem(from.isIncludeItem());
-        to.setIncludeEvent(from.isIncludeEvent());
-        to.setIncludeSecretRealm(from.isIncludeSecretRealm());
-        to.getTriggers().clear();
-        to.getTriggers().addAll(from.getTriggers());
+        });
     }
 }
