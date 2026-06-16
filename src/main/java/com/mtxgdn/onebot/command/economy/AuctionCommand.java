@@ -33,6 +33,13 @@ public class AuctionCommand extends Command {
 
     @Override
     public void execute(CommandContext ctx) {
+        // 有参数时走基类的子命令分发（出售/出价/我的）
+        String arg = ctx.getArg();
+        if (arg != null && !arg.trim().isEmpty()) {
+            super.execute(ctx);
+            return;
+        }
+
         Long userId = ctx.requireBinding();
         if (userId == null) return;
         PlayerInfo p = ctx.requirePlayer(userId);
