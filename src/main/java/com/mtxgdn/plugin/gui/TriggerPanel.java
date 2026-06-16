@@ -5,33 +5,29 @@ import com.mtxgdn.plugin.event.PluginEvent;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
-import java.awt.event.ActionListener;
 
 /**
- * 触发器管理面板 —— 表格展示所有触发器、增删改查操作。
+ * 触发器管理面板（美化版）。
  * <p>
- * 功能：
- * <ul>
- *   <li>表格列出所有触发器（启用状态、事件类型、条件、动作、描述）</li>
- *   <li>新增 / 编辑 / 删除 / 上移 / 下移按钮</li>
- *   <li>双击某行或点"编辑"打开编辑对话框</li>
- * </ul>
+ * 表格列出所有触发器，支持新增 / 编辑 / 删除 / 上移 / 下移。
+ * 表格采用交替行背景色，金色选中高亮。
  */
 final class TriggerPanel extends JPanel {
 
     private final PluginConfig config;
     private final JTable table;
     private final DefaultTableModel tableModel;
-    private final JLabel statusLabel = new JLabel(" 共 0 条触发器 ");
+    private final JLabel statusLabel;
 
-    private static final String[] COLUMNS = {"启用", "事件类型", "条件", "动作", "描述"};
+    private static final String[] COLUMNS = {"启用", "事件类型", "触发条件", "动作", "描述"};
 
     TriggerPanel(PluginConfig config) {
         this.config = config;
-        setLayout(new BorderLayout(10, 5));
-        setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
+        setLayout(new BorderLayout(15, 10));
+        setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+        setBackground(Theme.BG_PRIMARY);
 
-        // 表格
+        // ====== 表格模型 ======
         tableModel = new DefaultTableModel(COLUMNS, 0) {
             @Override
             public Class<?> getColumnClass(int column) {
@@ -40,18 +36,22 @@ final class TriggerPanel extends JPanel {
             }
             @Override
             public boolean isCellEditable(int row, int column) {
-                return column == 0; // 只有"启用"列可直接在表格中切换
+                return column == 0;  // 只有"启用"列可直接切换
             }
         };
+
         table = new JTable(tableModel);
-        table.setRowHeight(24);
-        table.getColumnModel().getColumn(0).setPreferredWidth(50);
-        table.getColumnModel().getColumn(1).setPreferredWidth(120);
-        table.getColumnModel().getColumn(2).setPreferredWidth(180);
-        table.getColumnModel().getColumn(3).setPreferredWidth(100);
-        table.getColumnModel().getColumn(4).setPreferredWidth(250);
+        Theme.styleTable(table);
         table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        table.getSelectionModel().addListSelectionListener(e -> updateStatus());
+
+        // 列宽
+        table.getColumnModel().getColumn(0).setPreferredWidth(55);
+        table.getColumnModel().getColumn(1).setPreferredWidth(130);
+        table.getColumnModel().getColumn(2).setPreferredWidth(180);
+        table.getColumnModel().getColumn(3).setPreferredWidth(110);
+        table.getColumnModel().getColumn(4).setPreferredWidth(280);
+
+        // 双击编辑
         table.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
             public void mouseClicked(java.awt.event.MouseEvent e) {
@@ -59,81 +59,135 @@ final class TriggerPanel extends JPanel {
             }
         });
 
-        // 按钮栏
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 3));
-        buttonPanel.add(buildButton("➕ 新增", e -> addNew()));
-        buttonPanel.add(buildButton("✏️ 编辑", e -> editSelected()));
-        buttonPanel.add(buildButton("🗑️ 删除", e -> deleteSelected()));
-        buttonPanel.add(Box.createHorizontalStrut(15));
-        buttonPanel.add(buildButton("⬆️ 上移", e -> moveUp()));
-        buttonPanel.add(buildButton("⬇️ 下移", e -> moveDown()));
-
-        // 顶部说明
-        JPanel topPanel = new JPanel(new BorderLayout(5, 5));
-        topPanel.add(new JLabel("配置事件触发器：当指定事件触发时执行动作（发消息/给物品/执行代码等）"), BorderLayout.CENTER);
+        // 状态标签
+        statusLabel = new JLabel("  共 0 条触发器");
+        statusLabel.setFont(Theme.fontBold(13f));
+        statusLabel.setForeground(Theme.ACCENT_GOLD);
 
         // 组装
-        add(topPanel, BorderLayout.NORTH);
+        add(buildTopBar(), BorderLayout.NORTH);
         add(new JScrollPane(table), BorderLayout.CENTER);
-        add(buttonPanel, BorderLayout.SOUTH);
-        add(statusLabel, BorderLayout.EAST);
+        add(buildButtonBar(), BorderLayout.SOUTH);
 
         refreshTable();
     }
 
-    /** 将表格中修改（启用状态）同步到 config。 */
+    /** 将表格中的修改（启用状态）同步到 config。 */
     void applyToConfig() {
-        int row = table.getSelectedRow();
-        // 提交单元格编辑（避免最后一次编辑丢失）
-        if (table.isEditing()) {
-            table.getCellEditor().stopCellEditing();
-        }
-        // 同步启用状态
+        if (table.isEditing()) table.getCellEditor().stopCellEditing();
         for (int i = 0; i < tableModel.getRowCount() && i < config.getTriggers().size(); i++) {
             config.getTriggers().get(i).setEnabled((Boolean) tableModel.getValueAt(i, 0));
         }
-        if (row >= 0 && row < table.getRowCount()) table.setRowSelectionInterval(row, row);
     }
 
+    /** 重新加载表格内容（从 config）。 */
     void refreshTable() {
         int select = table.getSelectedRow();
         tableModel.setRowCount(0);
         for (TriggerConfig t : config.getTriggers()) {
+            String typeText = t.getEventType() == PluginEvent.Type.CUSTOM
+                    ? "自定义[" + t.getCustomKey() + "]"
+                    : t.getEventType().name();
             Object[] row = {
                     t.isEnabled(),
-                    t.getEventType() == PluginEvent.Type.CUSTOM
-                            ? "自定义[" + t.getCustomKey() + "]"
-                            : t.getEventType().name(),
+                    typeText,
                     t.getCondition(),
-                    t.getAction().label + (t.getActionParam().isEmpty() ? "" : ": " + truncate(t.getActionParam(), 24)),
+                    t.getAction().label,
                     t.getDescription()
             };
             tableModel.addRow(row);
         }
-        if (select >= 0 && select < tableModel.getRowCount()) table.setRowSelectionInterval(select, select);
+        if (select >= 0 && select < tableModel.getRowCount()) {
+            table.setRowSelectionInterval(select, select);
+        }
         updateStatus();
     }
 
-    // ==================== 操作方法 ====================
+    // ==================== 构建 UI 组件 ====================
+
+    private JPanel buildTopBar() {
+        JPanel bar = new JPanel(new BorderLayout(10, 5));
+        bar.setBackground(Theme.BG_PRIMARY);
+        JLabel title = Theme.titleLabel("⚡ 事件触发器配置", 15f);
+        title.setForeground(Theme.ACCENT_GOLD);
+        title.setBorder(BorderFactory.createEmptyBorder(0, 4, 6, 0));
+        bar.add(title, BorderLayout.WEST);
+
+        // 右侧小提示
+        JLabel hint = Theme.hintLabel("  双击任意行可编辑，勾选左侧复选框快速启用/禁用");
+        hint.setHorizontalAlignment(SwingConstants.RIGHT);
+        bar.add(hint, BorderLayout.CENTER);
+
+        return bar;
+    }
+
+    private JPanel buildButtonBar() {
+        JPanel bar = new JPanel(new BorderLayout(10, 10));
+        bar.setBackground(Theme.BG_PRIMARY);
+
+        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 5));
+        buttons.setBackground(Theme.BG_PRIMARY);
+
+        JButton addBtn = new JButton("➕ 新增触发器");
+        Theme.styleButton(addBtn);
+        addBtn.setFont(Theme.fontBold(12.5f));
+        addBtn.addActionListener(e -> addNew());
+
+        JButton editBtn = new JButton("✏️ 编辑");
+        Theme.styleButton(editBtn);
+        editBtn.addActionListener(e -> editSelected());
+
+        JButton deleteBtn = new JButton("🗑 删除");
+        Theme.styleDangerButton(deleteBtn);
+        deleteBtn.addActionListener(e -> deleteSelected());
+
+        JButton upBtn = new JButton("⬆ 上移");
+        Theme.styleButton(upBtn);
+        upBtn.addActionListener(e -> moveUp());
+
+        JButton downBtn = new JButton("⬇ 下移");
+        Theme.styleButton(downBtn);
+        downBtn.addActionListener(e -> moveDown());
+
+        buttons.add(addBtn);
+        buttons.add(editBtn);
+        buttons.add(deleteBtn);
+        buttons.add(Box.createHorizontalStrut(20));
+        buttons.add(upBtn);
+        buttons.add(downBtn);
+
+        bar.add(buttons, BorderLayout.WEST);
+        bar.add(statusLabel, BorderLayout.EAST);
+        return bar;
+    }
+
+    private void updateStatus() {
+        int active = 0;
+        for (TriggerConfig t : config.getTriggers()) if (t.isEnabled()) active++;
+        statusLabel.setText("  共 " + config.getTriggers().size() + " 条触发器  ·  已启用 " + active + " 条");
+    }
+
+    // ==================== 操作 ====================
 
     private void addNew() {
         TriggerConfig newTrigger = new TriggerConfig();
         newTrigger.setDescription("新建触发器 #" + (config.getTriggers().size() + 1));
-        if (showEditor(newTrigger, "新增触发器")) {
+        if (showEditor(newTrigger, "✨ 新增触发器")) {
             config.getTriggers().add(newTrigger);
             refreshTable();
-            table.setRowSelectionInterval(config.getTriggers().size() - 1, config.getTriggers().size() - 1);
+            int idx = config.getTriggers().size() - 1;
+            table.setRowSelectionInterval(idx, idx);
         }
     }
 
     private void editSelected() {
         int row = table.getSelectedRow();
         if (row < 0) {
-            JOptionPane.showMessageDialog(this, "请先选择一行", "提示", JOptionPane.INFORMATION_MESSAGE);
+            JOptionPane.showMessageDialog(this, "请先选择一行触发器", "提示", JOptionPane.INFORMATION_MESSAGE);
             return;
         }
         TriggerConfig t = config.getTriggers().get(row);
-        if (showEditor(t, "编辑触发器 · " + t.getDescription())) {
+        if (showEditor(t, "✏ 编辑触发器 · " + t.getDescription())) {
             refreshTable();
             table.setRowSelectionInterval(row, row);
         }
@@ -144,8 +198,9 @@ final class TriggerPanel extends JPanel {
         if (row < 0) return;
         TriggerConfig t = config.getTriggers().get(row);
         int choice = JOptionPane.showConfirmDialog(this,
-                "确定要删除触发器\n  " + t.getDescription() + "\n？",
-                "删除确认", JOptionPane.YES_NO_OPTION);
+                "确定要删除触发器：\n  " + t.getDescription(),
+                "⚠ 删除确认",
+                JOptionPane.YES_NO_OPTION);
         if (choice == JOptionPane.YES_OPTION) {
             config.getTriggers().remove(row);
             refreshTable();
@@ -174,106 +229,124 @@ final class TriggerPanel extends JPanel {
         table.setRowSelectionInterval(row + 1, row + 1);
     }
 
-    private void updateStatus() {
-        int active = 0;
-        for (TriggerConfig t : config.getTriggers()) if (t.isEnabled()) active++;
-        statusLabel.setText(" 共 " + config.getTriggers().size() + " 条（启用 " + active + "） ");
-    }
-
     // ==================== 编辑器对话框 ====================
 
     private boolean showEditor(TriggerConfig trigger, String title) {
         JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), title, true);
         dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
+        dialog.getContentPane().setBackground(Theme.BG_PRIMARY);
 
-        JPanel panel = new JPanel(new BorderLayout(10, 10));
-        panel.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
+        // ====== 主容器：卡片式 ======
+        JPanel outer = new JPanel(new BorderLayout(15, 15));
+        outer.setBorder(BorderFactory.createEmptyBorder(18, 20, 18, 20));
+        outer.setBackground(Theme.BG_PRIMARY);
 
-        // 表单内容
+        // ====== 上：表单卡片 ======
+        JPanel formCard = new JPanel(new BorderLayout());
+        formCard.setBackground(Theme.BG_SECONDARY);
+        formCard.setBorder(Theme.cardBorder("📝 触发器配置"));
+
         JPanel form = new JPanel(new GridBagLayout());
+        form.setBackground(Theme.BG_SECONDARY);
         GridBagConstraints c = new GridBagConstraints();
-        c.insets = new Insets(3, 3, 3, 3);
+        c.insets = new Insets(6, 4, 6, 12);
         c.anchor = GridBagConstraints.WEST;
 
         // 描述
-        JTextField descField = new JTextField(trigger.getDescription(), 30);
-        c.gridx = 0; c.gridy = 0; form.add(new JLabel("描述:"), c);
-        c.gridx = 1; c.weightx = 1; c.fill = GridBagConstraints.HORIZONTAL; form.add(descField, c);
-        c.fill = GridBagConstraints.NONE;
+        JTextField descField = new JTextField(trigger.getDescription(), 40);
+        Theme.styleInput(descField);
+        c.gridx = 0; c.gridy = 0; c.weightx = 0; c.fill = GridBagConstraints.NONE;
+        form.add(Theme.label("描述"), c);
+        c.gridx = 1; c.weightx = 1.0; c.fill = GridBagConstraints.HORIZONTAL;
+        form.add(descField, c);
 
         // 事件类型
         JComboBox<PluginEvent.Type> typeCombo = new JComboBox<>(PluginEvent.Type.values());
         typeCombo.setSelectedItem(trigger.getEventType());
-        c.gridx = 0; c.gridy = 1; c.weightx = 0; form.add(new JLabel("事件类型:"), c);
-        c.gridx = 1; c.weightx = 1; c.fill = GridBagConstraints.HORIZONTAL; form.add(typeCombo, c);
-        c.fill = GridBagConstraints.NONE;
+        Theme.styleComboBox(typeCombo);
+        c.gridx = 0; c.gridy = 1; c.weightx = 0; c.fill = GridBagConstraints.NONE;
+        form.add(Theme.label("事件类型"), c);
+        c.gridx = 1; c.weightx = 1.0; c.fill = GridBagConstraints.HORIZONTAL;
+        form.add(typeCombo, c);
 
-        // 自定义 key（当选择 CUSTOM 时启用）
-        JTextField customKeyField = new JTextField(trigger.getCustomKey(), 25);
+        // 自定义 key（根据事件类型激活）
+        JTextField customKeyField = new JTextField(trigger.getCustomKey(), 30);
+        Theme.styleInput(customKeyField);
         customKeyField.setEnabled(trigger.getEventType() == PluginEvent.Type.CUSTOM);
-        c.gridx = 0; c.gridy = 2; form.add(new JLabel("自定义 key:"), c);
-        c.gridx = 1; c.weightx = 1; c.fill = GridBagConstraints.HORIZONTAL; form.add(customKeyField, c);
-        c.fill = GridBagConstraints.NONE;
-        typeCombo.addActionListener(e -> {
-            PluginEvent.Type t = (PluginEvent.Type) typeCombo.getSelectedItem();
-            customKeyField.setEnabled(t == PluginEvent.Type.CUSTOM);
-        });
+        c.gridx = 0; c.gridy = 2; c.weightx = 0; c.fill = GridBagConstraints.NONE;
+        form.add(Theme.label("自定义 key"), c);
+        c.gridx = 1; c.weightx = 1.0; c.fill = GridBagConstraints.HORIZONTAL;
+        form.add(customKeyField, c);
 
         // 条件
         JTextField condField = new JTextField(trigger.getCondition(), 30);
-        condField.setToolTipText("例如: command=/你好 或 playerId=123, 多条件逗号分隔");
-        c.gridx = 0; c.gridy = 3; form.add(new JLabel("触发条件:"), c);
-        c.gridx = 1; c.weightx = 1; c.fill = GridBagConstraints.HORIZONTAL; form.add(condField, c);
-        c.fill = GridBagConstraints.NONE;
+        Theme.styleInput(condField);
+        condField.setToolTipText("例如: command=/你好  或  playerId=123   多条件用逗号分隔");
+        c.gridx = 0; c.gridy = 3; c.weightx = 0; c.fill = GridBagConstraints.NONE;
+        form.add(Theme.label("触发条件"), c);
+        c.gridx = 1; c.weightx = 1.0; c.fill = GridBagConstraints.HORIZONTAL;
+        form.add(condField, c);
 
         // 动作
         JComboBox<TriggerConfig.Action> actionCombo = new JComboBox<>(TriggerConfig.Action.values());
         actionCombo.setSelectedItem(trigger.getAction());
-        c.gridx = 0; c.gridy = 4; form.add(new JLabel("响应动作:"), c);
-        c.gridx = 1; c.weightx = 1; c.fill = GridBagConstraints.HORIZONTAL; form.add(actionCombo, c);
-        c.fill = GridBagConstraints.NONE;
+        Theme.styleComboBox(actionCombo);
+        c.gridx = 0; c.gridy = 4; c.weightx = 0; c.fill = GridBagConstraints.NONE;
+        form.add(Theme.label("响应动作"), c);
+        c.gridx = 1; c.weightx = 1.0; c.fill = GridBagConstraints.HORIZONTAL;
+        form.add(actionCombo, c);
 
         // 动作参数
         JTextField actionParamField = new JTextField(trigger.getActionParam(), 30);
+        Theme.styleInput(actionParamField);
         actionParamField.setToolTipText("消息内容 / 灵石数量 / 物品 key");
-        c.gridx = 0; c.gridy = 5; form.add(new JLabel("动作参数:"), c);
-        c.gridx = 1; c.weightx = 1; c.fill = GridBagConstraints.HORIZONTAL; form.add(actionParamField, c);
-        c.fill = GridBagConstraints.NONE;
+        c.gridx = 0; c.gridy = 5; c.weightx = 0; c.fill = GridBagConstraints.NONE;
+        form.add(Theme.label("动作参数"), c);
+        c.gridx = 1; c.weightx = 1.0; c.fill = GridBagConstraints.HORIZONTAL;
+        form.add(actionParamField, c);
 
-        // Java 代码（多行，当动作 = RUN_JAVA 时启用）
-        JTextArea javaArea = new JTextArea(trigger.getJavaCode(), 6, 40);
+        // Java 代码
+        JTextArea javaArea = new JTextArea(trigger.getJavaCode(), 7, 40);
         javaArea.setEnabled(trigger.getAction() == TriggerConfig.Action.RUN_JAVA);
-        javaArea.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
-        c.gridx = 0; c.gridy = 6; c.anchor = GridBagConstraints.NORTHWEST;
-        form.add(new JLabel("Java 代码:"), c);
-        c.gridx = 1; c.weightx = 1; c.fill = GridBagConstraints.BOTH; c.anchor = GridBagConstraints.WEST;
+        javaArea.setFont(Theme.fontMono(12.5f));
+        javaArea.setBackground(Theme.BG_PRIMARY);
+        javaArea.setForeground(Theme.FG_TEXT);
+        javaArea.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(Theme.BORDER_COLOR, 1, true),
+                BorderFactory.createEmptyBorder(6, 8, 6, 8)));
+
+        c.gridx = 0; c.gridy = 6; c.weightx = 0; c.fill = GridBagConstraints.NONE;
+        c.anchor = GridBagConstraints.NORTHWEST;
+        form.add(Theme.label("Java 代码"), c);
+        c.gridx = 1; c.weightx = 1.0; c.fill = GridBagConstraints.BOTH;
+        c.anchor = GridBagConstraints.WEST;
         JScrollPane codeScroll = new JScrollPane(javaArea);
+        codeScroll.setBorder(BorderFactory.createEmptyBorder());
+        codeScroll.setBackground(Theme.BG_SECONDARY);
         form.add(codeScroll, c);
-        c.fill = GridBagConstraints.NONE;
-        actionCombo.addActionListener(e -> {
-            TriggerConfig.Action a = (TriggerConfig.Action) actionCombo.getSelectedItem();
-            javaArea.setEnabled(a == TriggerConfig.Action.RUN_JAVA);
-            if (a == TriggerConfig.Action.RUN_JAVA && javaArea.getText().trim().isEmpty()) {
-                javaArea.setText("// 在此编写自定义代码\n// event 变量和 context 均可用\ncontext.getLogger().info(\"自定义代码被执行\");");
-            }
-        });
 
         // 启用状态
-        JCheckBox enabledBox = new JCheckBox("触发器启用", trigger.isEnabled());
-        c.gridx = 0; c.gridy = 7; c.gridwidth = 2;
+        JCheckBox enabledBox = new JCheckBox("触发器已启用（在事件发生时执行）", trigger.isEnabled());
+        Theme.styleCheckBox(enabledBox);
+        c.gridx = 0; c.gridy = 7; c.gridwidth = 2; c.weightx = 1.0;
+        c.anchor = GridBagConstraints.WEST;
+        c.insets = new Insets(10, 4, 0, 12);
         form.add(enabledBox, c);
 
-        panel.add(form, BorderLayout.CENTER);
+        formCard.add(form, BorderLayout.CENTER);
 
-        // 按钮行
-        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 5));
+        // ====== 下：按钮 ======
+        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 10));
+        buttons.setBackground(Theme.BG_PRIMARY);
+
         final boolean[] result = {false};
-        JButton ok = new JButton("确定");
-        JButton cancel = new JButton("取消");
+
+        JButton ok = new JButton("💾 保存");
+        Theme.stylePrimaryButton(ok);
         ok.addActionListener(e -> {
             String desc = descField.getText().trim();
             if (desc.isEmpty()) {
-                JOptionPane.showMessageDialog(dialog, "描述不能为空", "提示", JOptionPane.WARNING_MESSAGE);
+                JOptionPane.showMessageDialog(dialog, "描述不能为空", "⚠ 提示", JOptionPane.WARNING_MESSAGE);
                 return;
             }
             trigger.setDescription(desc);
@@ -287,28 +360,40 @@ final class TriggerPanel extends JPanel {
             result[0] = true;
             dialog.dispose();
         });
+
+        JButton cancel = new JButton("取消");
+        Theme.styleButton(cancel);
         cancel.addActionListener(e -> dialog.dispose());
+
         buttons.add(ok);
         buttons.add(cancel);
-        panel.add(buttons, BorderLayout.SOUTH);
 
-        dialog.setContentPane(panel);
-        dialog.pack();
+        // ====== 事件监听：根据类型激活输入 ======
+        typeCombo.addActionListener(e -> {
+            PluginEvent.Type t = (PluginEvent.Type) typeCombo.getSelectedItem();
+            customKeyField.setEnabled(t == PluginEvent.Type.CUSTOM);
+            if (t == PluginEvent.Type.CUSTOM && customKeyField.getText().trim().isEmpty()) {
+                customKeyField.setText("my_trigger");
+            }
+        });
+
+        actionCombo.addActionListener(e -> {
+            TriggerConfig.Action a = (TriggerConfig.Action) actionCombo.getSelectedItem();
+            javaArea.setEnabled(a == TriggerConfig.Action.RUN_JAVA);
+            if (a == TriggerConfig.Action.RUN_JAVA && javaArea.getText().trim().isEmpty()) {
+                javaArea.setText("// 在此编写自定义代码\n// event 与 context 均可用\ncontext.getLogger().info(\"自定义触发器被触发\");\n// 也可以调用 context.getPlayerService()、getItemService() 等");
+            }
+        });
+
+        // ====== 组装 ======
+        outer.add(formCard, BorderLayout.CENTER);
+        outer.add(buttons, BorderLayout.SOUTH);
+
+        dialog.setContentPane(outer);
+        dialog.setSize(new Dimension(720, 560));
+        dialog.setMinimumSize(new Dimension(620, 460));
         dialog.setLocationRelativeTo(this);
         dialog.setVisible(true);
         return result[0];
-    }
-
-    // ==================== 辅助 ====================
-
-    private static JButton buildButton(String text, ActionListener a) {
-        JButton b = new JButton(text);
-        b.addActionListener(a);
-        return b;
-    }
-
-    private static String truncate(String s, int max) {
-        if (s == null || s.length() <= max) return s;
-        return s.substring(0, max) + "...";
     }
 }
