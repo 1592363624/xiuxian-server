@@ -37,28 +37,66 @@ public final class Theme {
     public static final Color BORDER_COLOR = new Color(218, 222, 230);
     public static final Color DIVIDER      = new Color(228, 232, 240);
 
-    // ==================== 字体 ====================
+    // ==================== 字体（中文字体检测，避免出现乱码/方框）====================
+
+    /** 缓存检测到的中文字体名——无需每次都扫描 */
+    private static String cachedCjkFamily;
+
+    /**
+     * 在当前系统中检测一个能显示简体中文的字体家族名。
+     * 使用 GraphicsEnvironment 检测，确保返回的字体名是系统真实存在的。
+     */
+    private static String detectCjkFontFamily() {
+        if (cachedCjkFamily != null) return cachedCjkFamily;
+        try {
+            GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
+            java.util.Set<String> families = new java.util.HashSet<>(
+                    java.util.Arrays.asList(ge.getAvailableFontFamilyNames()));
+            String[] preferred = {
+                    "Microsoft YaHei UI",
+                    "Microsoft YaHei",
+                    "PingFang SC",
+                    "Source Han Sans CN",
+                    "Source Han Sans SC",
+                    "Noto Sans CJK SC",
+                    "Noto Sans SC",
+                    "SimSun",
+                    "SimHei",
+                    "微软雅黑",
+                    "宋体"
+            };
+            for (String name : preferred) {
+                if (families.contains(name)) {
+                    cachedCjkFamily = name;
+                    return name;
+                }
+            }
+        } catch (Throwable ignore) { }
+        cachedCjkFamily = Font.DIALOG;
+        return Font.DIALOG;
+    }
 
     private static Font regularBase() {
-        try {
-            Font f = new Font("Microsoft YaHei UI", Font.PLAIN, 12);
-            if (f.getFamily().toLowerCase().contains("dialog") && !f.getFamily().toLowerCase().contains("yahei")) {
-                Font f2 = new Font("PingFang SC", Font.PLAIN, 12);
-                if (!f2.getFamily().toLowerCase().contains("dialog")) return f2;
-                Font f3 = new Font("Source Han Sans CN", Font.PLAIN, 12);
-                if (!f3.getFamily().toLowerCase().contains("dialog")) return f3;
-            }
-            return f;
-        } catch (Throwable ignore) {
-            return new Font(Font.DIALOG, Font.PLAIN, 12);
-        }
+        String family = detectCjkFontFamily();
+        return new Font(family, Font.PLAIN, 12);
     }
 
     public static Font fontRegular(float pt) { return regularBase().deriveFont(pt); }
     public static Font fontBold(float pt)    { return regularBase().deriveFont(Font.BOLD, pt); }
-    public static Font fontMono(float pt)  {
-        try { return new Font("Consolas", Font.PLAIN, Math.round(pt)); }
-        catch (Throwable ignore) { return new Font(Font.MONOSPACED, Font.PLAIN, Math.round(pt)); }
+
+    public static Font fontMono(float pt) {
+        try {
+            GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
+            java.util.Set<String> families = new java.util.HashSet<>(
+                    java.util.Arrays.asList(ge.getAvailableFontFamilyNames()));
+            String[] preferred = { "Consolas", "JetBrains Mono", "Menlo", "Monaco", "Courier New" };
+            for (String name : preferred) {
+                if (families.contains(name)) {
+                    return new Font(name, Font.PLAIN, Math.round(pt));
+                }
+            }
+        } catch (Throwable ignore) { }
+        return new Font(detectCjkFontFamily(), Font.PLAIN, Math.round(pt));
     }
 
     // ==================== 边框 ====================
