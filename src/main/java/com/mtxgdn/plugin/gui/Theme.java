@@ -40,21 +40,27 @@ public final class Theme {
     // ==================== 字体（中文字体检测，避免出现乱码/方框）====================
 
     /** 缓存检测到的中文字体名——无需每次都扫描 */
+    private static Font cachedCjkFont;
     private static String cachedCjkFamily;
 
     /**
-     * 在当前系统中检测一个能显示简体中文的字体家族名。
-     * 使用 GraphicsEnvironment 检测，确保返回的字体名是系统真实存在的。
+     * 最可靠的中文字体检测：
+     * 1) 先从 GraphicsEnvironment 列出所有可用字体
+     * 2) 对每个候选字体实际测试 canDisplayUpTo("中文测试")
+     * 3) 若返回 -1 表示全部中文字符都能正常显示，才被选中
+     * 4) 最后兜底使用系统 Dialog 字体
      */
-    private static String detectCjkFontFamily() {
-        if (cachedCjkFamily != null) return cachedCjkFamily;
+    private static Font detectCjkFont() {
+        if (cachedCjkFont != null) return cachedCjkFont;
+        String testText = "中文字体测试测试测试测试";
         try {
             GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
-            java.util.Set<String> families = new java.util.HashSet<>(
-                    java.util.Arrays.asList(ge.getAvailableFontFamilyNames()));
-            String[] preferred = {
+            // 第 1 步：优先检测知名字体（按名称，速度最快
+            String[] preferredNames = {
                     "Microsoft YaHei UI",
                     "Microsoft YaHei",
+                    "微软雅黑",
+                    "微软雅黑 UI",
                     "PingFang SC",
                     "Source Han Sans CN",
                     "Source Han Sans SC",
@@ -62,41 +68,55 @@ public final class Theme {
                     "Noto Sans SC",
                     "SimSun",
                     "SimHei",
-                    "微软雅黑",
-                    "宋体"
+                    "宋体",
+                    "黑体"
             };
-            for (String name : preferred) {
-                if (families.contains(name)) {
-                    cachedCjkFamily = name;
-                    return name;
+            for (String name : preferredNames) {
+                Font f = new Font(name, Font.PLAIN, 12);
+                if (f != null && f.canDisplayUpTo(testText) == -1) {
+                    cachedCjkFont = f;
+                    cachedCjkFamily = f.getFamily();
+                    return f;
+                }
+            }
+            // 第 2 步：遍历系统所有字体，找第一个能完整显示中文的字体
+            Font[] allFonts = ge.getAllFonts();
+            for (Font f : allFonts) {
+                if (f.canDisplayUpTo(testText) == -1) {
+                    cachedCjkFont = f;
+                    cachedCjkFamily = f.getFamily();
+                    return f;
                 }
             }
         } catch (Throwable ignore) { }
-        cachedCjkFamily = Font.DIALOG;
-        return Font.DIALOG;
+        // 最后兜底
+        cachedCjkFont = new Font(Font.DIALOG, Font.PLAIN, 12);
+        cachedCjkFamily = cachedCjkFont.getFamily();
+        return cachedCjkFont;
     }
 
     private static Font regularBase() {
-        String family = detectCjkFontFamily();
-        return new Font(family, Font.PLAIN, 12);
+        return detectCjkFont().deriveFont(Font.PLAIN, 12);
     }
 
     public static Font fontRegular(float pt) { return regularBase().deriveFont(pt); }
     public static Font fontBold(float pt)    { return regularBase().deriveFont(Font.BOLD, pt); }
 
     public static Font fontMono(float pt) {
+        String testText = "中文测试";
         try {
             GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
-            java.util.Set<String> families = new java.util.HashSet<>(
-                    java.util.Arrays.asList(ge.getAvailableFontFamilyNames()));
             String[] preferred = { "Consolas", "JetBrains Mono", "Menlo", "Monaco", "Courier New" };
             for (String name : preferred) {
-                if (families.contains(name)) {
-                    return new Font(name, Font.PLAIN, Math.round(pt));
+                Font f = new Font(name, Font.PLAIN, Math.round(pt));
+                if (f.canDisplayUpTo(testText) == -1) {
+                    return f;
                 }
             }
+            // 等宽字体没有能显示中文的，回退到能显示中文的字体
+            return detectCjkFont().deriveFont(Font.PLAIN, pt);
         } catch (Throwable ignore) { }
-        return new Font(detectCjkFontFamily(), Font.PLAIN, Math.round(pt));
+        return detectCjkFont().deriveFont(Font.PLAIN, pt);
     }
 
     // ==================== 边框 ====================

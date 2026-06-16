@@ -48,6 +48,9 @@ public class Main {
     public static HttpServer mainServer;
 
     public static void main(String[] args) throws Exception {
+        // 第一时间强制设置 UTF-8，避免 Windows 上中文字符串/文件路径显示乱码
+        System.setProperty("file.encoding", "UTF-8");
+        System.setProperty("sun.jnu.encoding", "UTF-8");
         // 插件生成工具模式（GUI）：检测到 --plugin-make-gui 时，显示图形界面，不启动服务端
         if (hasArg(args, "--plugin-make-gui")) {
             PluginMakerGUI.launch();

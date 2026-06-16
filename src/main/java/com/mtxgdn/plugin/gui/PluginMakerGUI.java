@@ -21,10 +21,15 @@ public class PluginMakerGUI extends JFrame {
     private JTextArea logArea;
 
     public static void launch() {
+        // 必须在任何 I/O 操作和 Swing 初始化前设置，强制 UTF-8 编码，避免中文乱码
+        System.setProperty("file.encoding", "UTF-8");
+        System.setProperty("sun.jnu.encoding", "UTF-8");
         SwingUtilities.invokeLater(() -> {
             Theme.installLookAndFeel();
             PluginMakerGUI gui = new PluginMakerGUI();
             gui.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+            // 确保顶层容器更新所有子组件字体（有些UI代理
+            SwingUtilities.updateComponentTreeUI(gui);
             gui.setVisible(true);
         });
     }
