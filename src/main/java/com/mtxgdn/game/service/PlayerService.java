@@ -427,6 +427,18 @@ public class PlayerService {
         }
     }
 
+    public void updateBattleStrategy(long playerId, String strategy) {
+        String sql = "UPDATE players SET battle_strategy = ? WHERE id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, strategy);
+            ps.setLong(2, playerId);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new RuntimeException("更新战斗策略失败", e);
+        }
+    }
+
     public void updateLastOfflineTime(long playerId, long lastOfflineTime) {
         String sql = "UPDATE players SET last_offline_time = ? WHERE id = ?";
         try (Connection conn = DatabaseManager.getConnection();
@@ -634,6 +646,7 @@ public class PlayerService {
         p.setTutorialStep(rs.getInt("tutorial_step"));
         p.setTutorialTips(rs.getInt("tutorial_tips"));
         p.setLastOfflineTime(rs.getLong("last_offline_time"));
+        try { p.setBattleStrategy(rs.getString("battle_strategy")); } catch (Exception ignored) {}
         p.setCreatedAt(rs.getString("created_at"));
         p.setUpdatedAt(rs.getString("updated_at"));
         return p;

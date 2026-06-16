@@ -9,6 +9,7 @@ import com.mtxgdn.game.item.ItemRegistry;
 import com.mtxgdn.game.service.ItemService;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class CombatService {
 
@@ -16,30 +17,110 @@ public class CombatService {
     private final SkillService skillService;
     private final Random random = new Random();
 
+    // ==================== 切磋确认机制 ====================
+
+    private static final long CHALLENGE_TIMEOUT_MS = 30_000;
+
+    public static class PendingChallenge {
+        public final long challengerPlayerId;
+        public final String challengerName;
+        public final long targetPlayerId;
+        public final String targetName;
+        public final long createdAt;
+        public PendingChallenge(long challengerPlayerId, String challengerName, long targetPlayerId, String targetName) {
+            this.challengerPlayerId = challengerPlayerId;
+            this.challengerName = challengerName;
+            this.targetPlayerId = targetPlayerId;
+            this.targetName = targetName;
+            this.createdAt = System.currentTimeMillis();
+        }
+        public boolean isExpired() { return System.currentTimeMillis() - createdAt > CHALLENGE_TIMEOUT_MS; }
+    }
+
+    private final Map<Long, PendingChallenge> pendingChallenges = new ConcurrentHashMap<>();
+
     public CombatService() {
         this.playerService = new PlayerService();
         this.skillService = new SkillService();
     }
 
-    public CombatResult pvpChallenge(long challengerPlayerId, long targetPlayerId) {
+    /**
+     * 发起切磋挑战，返回结果中 success=true 表示挑战已创建等待接受。
+     */
+    public CombatResult createChallenge(long challengerPlayerId, long targetPlayerId) {
         Player challenger = playerService.getPlayerById(challengerPlayerId);
         Player target = playerService.getPlayerById(targetPlayerId);
 
-        if (challenger == null) {
-            return CombatResult.failure("挑战者角色不存在");
+        if (challenger == null) return CombatResult.failure("挑战者角色不存在");
+        if (target == null) return CombatResult.failure("对手角色不存在");
+        if (challengerPlayerId == targetPlayerId) return CombatResult.failure("不能挑战自己");
+        if (challenger.getHp() <= 0) return CombatResult.failure("你的生命值不足，无法发起挑战");
+        if (target.getHp() <= 0) return CombatResult.failure("对手已阵亡，无法挑战");
+
+        // 清理过期挑战
+        pendingChallenges.values().removeIf(PendingChallenge::isExpired);
+
+        PendingChallenge existing = pendingChallenges.get(targetPlayerId);
+        if (existing != null && !existing.isExpired()) {
+            return CombatResult.failure("【" + existing.targetName + "】正在被他人挑战中，稍后再试");
         }
-        if (target == null) {
-            return CombatResult.failure("对手角色不存在");
+
+        existing = pendingChallenges.get(challengerPlayerId);
+        if (existing != null && !existing.isExpired()) {
+            return CombatResult.failure("你已向【" + existing.targetName + "】发起了挑战，等待对方回应中");
         }
-        if (challengerPlayerId == targetPlayerId) {
-            return CombatResult.failure("不能挑战自己");
+
+        PendingChallenge challenge = new PendingChallenge(challengerPlayerId, challenger.getName(), targetPlayerId, target.getName());
+        pendingChallenges.put(targetPlayerId, challenge);
+
+        CombatResult result = new CombatResult();
+        result.setSuccess(true);
+        result.setPending(true);
+        result.setChallengerName(challenger.getName());
+        result.setTargetName(target.getName());
+        result.setMessage("挑战已发出，等待【" + target.getName() + "】回应...");
+        return result;
+    }
+
+    /**
+     * 接受切磋挑战，执行战斗。
+     */
+    public CombatResult acceptChallenge(long targetPlayerId) {
+        PendingChallenge challenge = pendingChallenges.remove(targetPlayerId);
+        if (challenge == null || challenge.isExpired()) {
+            return CombatResult.failure("没有待接受的挑战，可能已超时");
         }
-        if (challenger.getHp() <= 0) {
-            return CombatResult.failure("你的生命值不足，无法发起挑战");
+        if (challenge.targetPlayerId != targetPlayerId) {
+            return CombatResult.failure("挑战对象不匹配");
         }
-        if (target.getHp() <= 0) {
-            return CombatResult.failure("对手已阵亡，无法挑战");
+        return executePvp(challenge.challengerPlayerId, challenge.targetPlayerId);
+    }
+
+    /**
+     * 拒绝切磋挑战。
+     */
+    public String rejectChallenge(long targetPlayerId) {
+        PendingChallenge challenge = pendingChallenges.remove(targetPlayerId);
+        if (challenge == null || challenge.isExpired()) {
+            return null;
         }
+        return challenge.challengerName;
+    }
+
+    /** 兼容旧接口：直接执行战斗（不走确认流程） */
+    public CombatResult pvpChallenge(long challengerPlayerId, long targetPlayerId) {
+        return executePvp(challengerPlayerId, targetPlayerId);
+    }
+
+    private CombatResult executePvp(long challengerPlayerId, long targetPlayerId) {
+        Player challenger = playerService.getPlayerById(challengerPlayerId);
+        Player target = playerService.getPlayerById(targetPlayerId);
+
+        if (challenger == null) return CombatResult.failure("挑战者角色不存在");
+        if (target == null) return CombatResult.failure("对手角色不存在");
+        if (challengerPlayerId == targetPlayerId) return CombatResult.failure("不能挑战自己");
+        if (challenger.getHp() <= 0) return CombatResult.failure("你的生命值不足，无法发起挑战");
+        if (target.getHp() <= 0) return CombatResult.failure("对手已阵亡，无法挑战");
 
         List<Skill> challengerSkills = skillService.getPlayerSkills(challenger.getId());
         List<Skill> targetSkills = skillService.getPlayerSkills(target.getId());
@@ -52,9 +133,12 @@ public class CombatService {
         int targetCurrentHp = target.getHp();
         int targetCurrentMp = target.getMp();
 
+        String challengerTactic = challenger.getBattleStrategy() != null ? challenger.getBattleStrategy() : "balanced";
+        String targetTactic = target.getBattleStrategy() != null ? target.getBattleStrategy() : "balanced";
+
         List<String> battleLog = new ArrayList<>();
-        battleLog.add("【" + challenger.getName() + "】向【" + target.getName() + "】发起了挑战！");
-        battleLog.add("---");
+        battleLog.add("⚔【" + challenger.getName() + "】VS【" + target.getName() + "】");
+        battleLog.add("");
 
         boolean challengerFirst = challenger.getSpeed() >= target.getSpeed();
         int maxRounds = 20;
@@ -77,80 +161,54 @@ public class CombatService {
                 targetCurrentHp = Math.min(target.getMaxHp(), targetCurrentHp + regen);
             }
 
+            battleLog.add("-- 第" + round + "回合 --");
+
             if (challengerFirst) {
                 int damage = calculateDamage(challenger, target, challengerSkills, challengerCurrentMp, battleLog,
-                        challenger.getName(), target.getName(), challengerUsedSkillIds, mpOut);
+                        challenger.getName(), target.getName(), challengerUsedSkillIds, mpOut, challengerTactic);
                 challengerCurrentMp = Math.max(0, challengerCurrentMp - mpOut[0]);
                 targetCurrentHp -= damage;
-                battleLog.add("【" + target.getName() + "】受到 " + damage + " 点伤害，剩余生命 " + Math.max(0, targetCurrentHp));
-
-                if (targetCurrentHp <= 0) {
-                    winner = challenger.getName();
-                    break;
-                }
+                battleLog.add("  " + target.getName() + " 遭受 " + damage + " 点伤害 （HP: " + Math.max(0, targetCurrentHp) + "/" + target.getMaxHp() + "）");
+                if (targetCurrentHp <= 0) { winner = challenger.getName(); break; }
 
                 damage = calculateDamage(target, challenger, targetSkills, targetCurrentMp, battleLog,
-                        target.getName(), challenger.getName(), targetUsedSkillIds, mpOut);
+                        target.getName(), challenger.getName(), targetUsedSkillIds, mpOut, targetTactic);
                 targetCurrentMp = Math.max(0, targetCurrentMp - mpOut[0]);
                 challengerCurrentHp -= damage;
-                battleLog.add("【" + challenger.getName() + "】受到 " + damage + " 点伤害，剩余生命 " + Math.max(0, challengerCurrentHp));
-
-                if (challengerCurrentHp <= 0) {
-                    winner = target.getName();
-                    break;
-                }
+                battleLog.add("  " + challenger.getName() + " 遭受 " + damage + " 点伤害 （HP: " + Math.max(0, challengerCurrentHp) + "/" + challenger.getMaxHp() + "）");
+                if (challengerCurrentHp <= 0) { winner = target.getName(); break; }
             } else {
                 int damage = calculateDamage(target, challenger, targetSkills, targetCurrentMp, battleLog,
-                        target.getName(), challenger.getName(), targetUsedSkillIds, mpOut);
+                        target.getName(), challenger.getName(), targetUsedSkillIds, mpOut, targetTactic);
                 targetCurrentMp = Math.max(0, targetCurrentMp - mpOut[0]);
                 challengerCurrentHp -= damage;
-                battleLog.add("【" + challenger.getName() + "】受到 " + damage + " 点伤害，剩余生命 " + Math.max(0, challengerCurrentHp));
-
-                if (challengerCurrentHp <= 0) {
-                    winner = target.getName();
-                    break;
-                }
+                battleLog.add("  " + challenger.getName() + " 遭受 " + damage + " 点伤害 （HP: " + Math.max(0, challengerCurrentHp) + "/" + challenger.getMaxHp() + "）");
+                if (challengerCurrentHp <= 0) { winner = target.getName(); break; }
 
                 damage = calculateDamage(challenger, target, challengerSkills, challengerCurrentMp, battleLog,
-                        challenger.getName(), target.getName(), challengerUsedSkillIds, mpOut);
+                        challenger.getName(), target.getName(), challengerUsedSkillIds, mpOut, challengerTactic);
                 challengerCurrentMp = Math.max(0, challengerCurrentMp - mpOut[0]);
                 targetCurrentHp -= damage;
-                battleLog.add("【" + target.getName() + "】受到 " + damage + " 点伤害，剩余生命 " + Math.max(0, targetCurrentHp));
-
-                if (targetCurrentHp <= 0) {
-                    winner = challenger.getName();
-                    break;
-                }
+                battleLog.add("  " + target.getName() + " 遭受 " + damage + " 点伤害 （HP: " + Math.max(0, targetCurrentHp) + "/" + target.getMaxHp() + "）");
+                if (targetCurrentHp <= 0) { winner = challenger.getName(); break; }
             }
         }
 
         if (winner == null) {
-            if (challengerCurrentHp > targetCurrentHp) {
-                winner = challenger.getName();
-            } else if (targetCurrentHp > challengerCurrentHp) {
-                winner = target.getName();
-            } else {
-                winner = "平局";
-            }
+            if (challengerCurrentHp > targetCurrentHp) winner = challenger.getName();
+            else if (targetCurrentHp > challengerCurrentHp) winner = target.getName();
+            else winner = "平局";
         }
 
         boolean challengerWon = winner.equals(challenger.getName());
         long expReward = challengerWon ? calculateExpReward(challenger, target) : calculateExpReward(target, challenger) / 3;
         long goldReward = challengerWon ? random.nextLong(50, 200) : 0;
 
-        if (challengerWon && expReward > 0) {
-            playerService.addExperience(challenger.getId(), expReward);
-        }
-        if (challengerWon && goldReward > 0) {
-            playerService.addGold(challenger.getId(), goldReward);
-        }
+        if (challengerWon && expReward > 0) playerService.addExperience(challenger.getId(), expReward);
+        if (challengerWon && goldReward > 0) playerService.addGold(challenger.getId(), goldReward);
 
-        for (long skillId : challengerUsedSkillIds) {
-            skillService.addProficiency(challenger.getId(), skillId, 15);
-        }
-        for (long skillId : targetUsedSkillIds) {
-            skillService.addProficiency(target.getId(), skillId, 10);
-        }
+        for (long skillId : challengerUsedSkillIds) skillService.addProficiency(challenger.getId(), skillId, 15);
+        for (long skillId : targetUsedSkillIds) skillService.addProficiency(target.getId(), skillId, 10);
 
         new DailyService().onBattle(challenger.getId());
         new DailyService().onBattle(target.getId());
@@ -160,12 +218,17 @@ public class CombatService {
         playerService.updatePlayer(challenger.getId(), challenger);
         playerService.updatePlayer(target.getId(), target);
 
-        battleLog.add("---");
-        battleLog.add("战斗结束！胜利者: " + winner);
+        battleLog.add("");
+        if (!winner.equals("平局")) {
+            battleLog.add("🏆 " + winner + " 技高一筹，赢得了这场切磋！");
+        } else {
+            battleLog.add("🤝 双方势均力敌，以平局收场！");
+        }
+        battleLog.add("共 " + round + " 回合");
         if (challengerWon) {
-            battleLog.add("你获得了 " + expReward + " 经验和 " + goldReward + " 金币的奖励！");
+            battleLog.add("获得灵力 +" + expReward + "，金币 +" + goldReward);
         } else if (winner.equals(target.getName())) {
-            battleLog.add("挑战失败，你获得了 " + expReward + " 经验作为安慰...");
+            battleLog.add("惜败……你获得了 " + expReward + " 灵力作为安慰");
         }
 
         CombatResult result = new CombatResult();
@@ -185,25 +248,41 @@ public class CombatService {
 
     private int calculateDamage(Player attacker, Player defender, List<Skill> skills, int currentMp,
                                  List<String> battleLog, String attackerName, String defenderName,
-                                 Set<Long> usedSkillIds, int[] mpCostOut) {
+                                 Set<Long> usedSkillIds, int[] mpCostOut, String battleTactic) {
         SpiritualRoot attackerRoot = attacker.getSpiritualRoot();
         SpiritualRoot defenderRoot = defender.getSpiritualRoot();
 
+        boolean isAggressive = "aggressive".equals(battleTactic);
+        boolean isDefensive = "defensive".equals(battleTactic);
+
+        // 防守策略：保留 50% MP 用于后续
+        int mpReserve = isDefensive ? Math.max(0, currentMp / 2) : 0;
+
         Skill attackSkill = null;
-        if (!skills.isEmpty() && currentMp > 0) {
+        if (!skills.isEmpty() && currentMp > mpReserve) {
+            List<Skill> atkSkills = new ArrayList<>();
             for (Skill skill : skills) {
+                if (!skill.isAttackSkill()) continue;
                 int scaledMpCost = skill.getMpCost() + (int)(skill.getMpCost() * (skill.getLevel() - 1) * 0.15);
                 if (attackerRoot != null && attackerRoot.hasEffect(SpiritualRoot.SpecialEffect.MP_COST_REDUCTION)) {
                     scaledMpCost = (int)(scaledMpCost * (1 - attackerRoot.getEffectValue()));
                 }
-                if (skill.isAttackSkill() && scaledMpCost <= currentMp) {
-                    attackSkill = skill;
-                    break;
+                if (scaledMpCost <= currentMp) atkSkills.add(skill);
+            }
+
+            if (!atkSkills.isEmpty()) {
+                if (isAggressive) {
+                    // 猛攻：选伤害最高的技能
+                    atkSkills.sort((a, b) -> Integer.compare(
+                        b.getDamage() + (int)(b.getDamage() * (b.getLevel() - 1) * 0.15),
+                        a.getDamage() + (int)(a.getDamage() * (a.getLevel() - 1) * 0.15)));
                 }
+                attackSkill = atkSkills.get(0);
             }
         }
 
         int baseDamage;
+        String skillDesc = "普攻";
         if (attackSkill != null) {
             int skillLevel = attackSkill.getLevel();
             int scaledMpCost = attackSkill.getMpCost() + (int)(attackSkill.getMpCost() * (skillLevel - 1) * 0.15);
@@ -214,8 +293,7 @@ public class CombatService {
             if (attackerRoot != null && attackerRoot.hasEffect(SpiritualRoot.SpecialEffect.SKILL_DAMAGE)) {
                 baseDamage = (int)(baseDamage * (1 + attackerRoot.getEffectValue()));
             }
-            battleLog.add("【" + attackerName + "】使用了【" + attackSkill.getName() + " Lv." + skillLevel
-                    + "】（消耗 " + scaledMpCost + " MP）！");
+            skillDesc = attackSkill.getName() + " Lv." + skillLevel;
             usedSkillIds.add(attackSkill.getId());
             mpCostOut[0] = scaledMpCost;
         } else {
@@ -233,13 +311,12 @@ public class CombatService {
             critChance += attackerRoot.getEffectValue();
         }
         boolean isCrit = random.nextDouble() < critChance;
+        double critMult = 1.5;
         if (isCrit) {
-            double critMult = 1.5;
             if (attackerRoot != null && attackerRoot.hasEffect(SpiritualRoot.SpecialEffect.CRIT_DAMAGE)) {
                 critMult += attackerRoot.getEffectValue();
             }
             baseDamage = (int)(baseDamage * critMult);
-            battleLog.add("暴击！");
         }
 
         int variance = random.nextInt(-5, 6);
@@ -248,8 +325,18 @@ public class CombatService {
         if (defenderRoot != null && defenderRoot.hasEffect(SpiritualRoot.SpecialEffect.DAMAGE_REDUCTION)) {
             finalDamage = (int)(finalDamage * (1 - defenderRoot.getEffectValue()));
         }
+        finalDamage = Math.max(1, finalDamage);
 
-        return Math.max(1, finalDamage);
+        // 叙事输出
+        String critText = isCrit ? "，暴击！" : "";
+        String tacticText = isAggressive ? "猛攻" : isDefensive ? "沉稳" : "";
+        if (attackSkill != null) {
+            battleLog.add("  " + attackerName + " " + tacticText + "使出「" + skillDesc + "」" + critText + "——" + defenderName + " 受到 " + finalDamage + " 点伤害");
+        } else {
+            battleLog.add("  " + attackerName + " 挥剑斩去" + critText + "——" + defenderName + " 受到 " + finalDamage + " 点伤害");
+        }
+
+        return finalDamage;
     }
 
     private long calculateExpReward(Player winner, Player loser) {
@@ -515,6 +602,7 @@ public class CombatService {
 
     public static class CombatResult {
         private boolean success;
+        private boolean pending;
         private String winner;
         private boolean challengerWon;
         private String challengerName;
@@ -537,17 +625,13 @@ public class CombatService {
             return r;
         }
 
-        public boolean isSuccess() {
-            return success;
-        }
+        public boolean isSuccess() { return success; }
+        public void setSuccess(boolean success) { this.success = success; }
 
-        public void setSuccess(boolean success) {
-            this.success = success;
-        }
+        public boolean isPending() { return pending; }
+        public void setPending(boolean pending) { this.pending = pending; }
 
-        public String getWinner() {
-            return winner;
-        }
+        public String getWinner() { return winner; }
 
         public void setWinner(String winner) {
             this.winner = winner;

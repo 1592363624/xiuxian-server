@@ -495,6 +495,63 @@ public class DatabaseManager {
             stmt.execute(sectWarehouseTableSql);
             stmt.execute(redeemCodesTableSql);
             stmt.execute(redeemedCodesTableSql);
+
+            // 迁移：为旧表添加 battle_strategy 列
+            try { stmt.execute("ALTER TABLE players ADD COLUMN battle_strategy VARCHAR(16) DEFAULT 'balanced'"); } catch (SQLException ignored) {}
+
+            // 经济系统表
+            String playerEconomyTableSql = "CREATE TABLE IF NOT EXISTS player_economy (" +
+                    "player_id BIGINT PRIMARY KEY, " +
+                    "last_sign_in VARCHAR(16), " +
+                    "streak INT DEFAULT 0, " +
+                    "cultivation_boost_count INT DEFAULT 0, " +
+                    "total_stones_spent BIGINT DEFAULT 0, " +
+                    "total_stones_earned BIGINT DEFAULT 0" +
+                    (IS_SQLITE ? "" : ", FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE") +
+                    ")";
+            stmt.execute(playerEconomyTableSql);
+
+            // 灵庄表
+            String playerBankTableSql = "CREATE TABLE IF NOT EXISTS player_bank (" +
+                    "id " + pk + ", " +
+                    "player_id BIGINT NOT NULL, " +
+                    "deposit_type VARCHAR(16) NOT NULL DEFAULT 'current', " +
+                    "principal BIGINT NOT NULL DEFAULT 0, " +
+                    "interest_earned BIGINT NOT NULL DEFAULT 0, " +
+                    "rate DOUBLE NOT NULL, " +
+                    "deposited_at BIGINT NOT NULL, " +
+                    "matures_at BIGINT DEFAULT 0, " +
+                    "status VARCHAR(16) NOT NULL DEFAULT 'active', " +
+                    "created_at " + tsDefault + ", " +
+                    "updated_at " + tsUpdate +
+                    ")";
+            stmt.execute(playerBankTableSql);
+
+            // 竞拍行表
+            String auctionListingsTableSql = "CREATE TABLE IF NOT EXISTS auction_listings (" +
+                    "id " + pk + ", " +
+                    "seller_player_id BIGINT NOT NULL, " +
+                    "item_key VARCHAR(128) NOT NULL, " +
+                    "quantity INT NOT NULL, " +
+                    "start_price BIGINT NOT NULL, " +
+                    "current_bid BIGINT DEFAULT NULL, " +
+                    "current_bidder_id BIGINT DEFAULT NULL, " +
+                    "fee_rate DOUBLE DEFAULT 0.07, " +
+                    "status VARCHAR(16) DEFAULT 'active', " +
+                    "end_time TIMESTAMP NOT NULL, " +
+                    "created_at " + tsDefault + ", " +
+                    "updated_at " + tsUpdate +
+                    ")";
+            stmt.execute(auctionListingsTableSql);
+
+            String auctionBidsTableSql = "CREATE TABLE IF NOT EXISTS auction_bids (" +
+                    "id " + pk + ", " +
+                    "listing_id BIGINT NOT NULL, " +
+                    "bidder_player_id BIGINT NOT NULL, " +
+                    "amount BIGINT NOT NULL, " +
+                    "created_at " + tsDefault +
+                    ")";
+            stmt.execute(auctionBidsTableSql);
         } catch (SQLException e) {
             throw new RuntimeException("创建数据库表失败", e);
         }

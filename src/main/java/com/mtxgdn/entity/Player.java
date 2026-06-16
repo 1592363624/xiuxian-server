@@ -28,6 +28,7 @@ public class Player {
     private int tutorialStep;
     private int tutorialTips;
     private long lastOfflineTime;
+    private String battleStrategy = "balanced";
     private String createdAt;
     private String updatedAt;
 
@@ -210,6 +211,9 @@ public class Player {
 
     public long getLastOfflineTime() { return lastOfflineTime; }
     public void setLastOfflineTime(long lastOfflineTime) { this.lastOfflineTime = lastOfflineTime; }
+
+    public String getBattleStrategy() { return battleStrategy; }
+    public void setBattleStrategy(String battleStrategy) { this.battleStrategy = battleStrategy; }
 
     public String getCreatedAt() {
         return createdAt;

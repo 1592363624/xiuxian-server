@@ -3,14 +3,43 @@ package com.mtxgdn.onebot.command.combat;
 import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandContext;
 import com.mtxgdn.game.entity.PlayerInfo;
+import com.mtxgdn.game.service.CombatService;
 import com.mtxgdn.common.service.ServiceRegistry;
+import com.mtxgdn.onebot.QqBindingService;
+import com.mtxgdn.onebot.QqBinding;
+import com.mtxgdn.onebot.command.OneBotCommandContext;
 import com.mtxgdn.util.PlayerActionLogger;
+
 import java.util.List;
 
 public class PvpCommand extends Command {
+
+    private static final QqBindingService bindingService = new QqBindingService();
+
     public PvpCommand() {
-        super(new String[]{"pvp", "挑战"}, "挑战其他修士", "/挑战 <角色名>", "战斗", "game.pvp.challenge");
+        super(new String[]{"pvp", "挑战"}, "挑战其他修士", "/挑战 <角色名>\n/接受 — 接受正在进行的切磋\n/拒绝 — 拒绝切磋", "战斗", "game.pvp.challenge");
+
+        registerSub("接受", (ctx, p, parts) -> {
+            var combatService = ServiceRegistry.getCombatService();
+            var result = combatService.acceptChallenge(p.getId());
+            if (!result.isSuccess()) {
+                ctx.reply(result.getMessage());
+                return;
+            }
+            sendBattleReport(ctx, p, result, p.getName());
+        });
+
+        registerSub("拒绝", (ctx, p, parts) -> {
+            var combatService = ServiceRegistry.getCombatService();
+            String challengerName = combatService.rejectChallenge(p.getId());
+            if (challengerName == null) {
+                ctx.reply("没有待接受的挑战");
+            } else {
+                ctx.reply("你拒绝了【" + challengerName + "】的切磋挑战");
+            }
+        });
     }
+
     @Override
     public void execute(CommandContext ctx) {
         Long userId = ctx.requireBinding();
@@ -18,28 +47,114 @@ public class PvpCommand extends Command {
         if (!ctx.checkPermission("game.pvp.challenge")) return;
         PlayerInfo p = ctx.requirePlayer(userId);
         if (p == null) return;
+
         String targetName = ctx.getArg().trim();
-        if (targetName.isEmpty()) { ctx.reply("用法: /挑战 <角色名>"); return; }
+        if (targetName.isEmpty()) {
+            String tactic = getTacticDisplay(p);
+            ctx.reply("用法: /挑战 <角色名>\n" + tactic + "\n💡 也可用 /接受 或 /拒绝 回应切磋");
+            return;
+        }
+
         var playerService = ServiceRegistry.getPlayerService();
         List<PlayerInfo> targets = playerService.searchPlayersByName(targetName, 1, 0);
         if (targets.isEmpty()) { ctx.reply("找不到玩家: " + targetName); return; }
         PlayerInfo target = targets.get(0);
         if (target.getId() == p.getId()) { ctx.reply("不能挑战自己。"); return; }
+
         var combatService = ServiceRegistry.getCombatService();
-        var result = combatService.pvpChallenge(p.getId(), target.getId());
-        StringBuilder sb = new StringBuilder();
-        sb.append("===== PVP 挑战 =====\n");
-        sb.append(result.getMessage()).append("\n");
-        if (result.isSuccess()) {
-            sb.append("挑战者: ").append(result.getChallengerName())
-              .append(" (剩余HP: ").append(result.getChallengerRemainingHp()).append(")\n");
-            sb.append("被挑战者: ").append(result.getTargetName())
-              .append(" (剩余HP: ").append(result.getTargetRemainingHp()).append(")\n");
-            sb.append("战斗回合: ").append(result.getTotalRounds()).append("\n");
-            if (result.getExpReward() > 0) sb.append("灵力奖励: ").append(result.getExpReward()).append("\n");
-            if (result.getGoldReward() > 0) sb.append("金币奖励: ").append(result.getGoldReward()).append("\n");
-            if (result.getWinner() != null) sb.append("胜者: ").append(result.getWinner());
+        var challengeResult = combatService.createChallenge(p.getId(), target.getId());
+
+        if (!challengeResult.isSuccess()) {
+            ctx.reply(challengeResult.getMessage());
+            return;
         }
-        ctx.reply(sb.toString());
+
+        // 通知挑战者
+        String challengerTactic = getTacticDisplay(p);
+        ctx.reply("⚔ 你向【" + target.getName() + "】发起了切磋挑战！" + challengerTactic + "\n等待对方回应中（30秒）...");
+
+        // 通知被挑战者
+        notifyTarget(ctx, target, p.getName());
+    }
+
+    private void notifyTarget(CommandContext ctx, PlayerInfo target, String challengerName) {
+        try {
+            QqBinding binding = bindingService.findByUserId(target.getUserId());
+            if (binding == null) return;
+
+            var playerService = ServiceRegistry.getPlayerService();
+            var targetPlayer = playerService.getPlayerRaw(target.getUserId());
+            String targetTactic = "";
+            if (targetPlayer != null && targetPlayer.getBattleStrategy() != null) {
+                targetTactic = getTacticDisplay(targetPlayer);
+            }
+
+            OneBotCommandContext oCtx = (OneBotCommandContext) ctx;
+            oCtx.sendPrivateMsg(binding.getQqNumber(),
+                    "⚔ 【" + challengerName + "】向你发起了切磋挑战！" + targetTactic + "\n"
+                  + "回复 /接受 迎战，/拒绝 回避（30秒超时自动取消）");
+        } catch (Exception ignored) {}
+    }
+
+    private void sendBattleReport(CommandContext ctx, PlayerInfo p, CombatService.CombatResult result, String myName) {
+        List<String> log = result.getBattleLog();
+        if (log == null || log.isEmpty()) return;
+
+        // 分条发送：汇合回合，每组最多 4 行叙事
+        StringBuilder sb = new StringBuilder();
+        int lineCount = 0;
+
+        for (int i = 0; i < log.size(); i++) {
+            String line = log.get(i);
+            // 换段标志：空行或回合分隔
+            boolean isBreak = line.isEmpty() || (line.startsWith("-- 第") && line.contains("回合 --"));
+            boolean isEnd = line.startsWith("🏆") || line.startsWith("🤝");
+            boolean isReward = line.startsWith("获得") || line.startsWith("惜败");
+
+            if ((isBreak || isEnd || isReward) && sb.length() > 0) {
+                ctx.reply(sb.toString().trim());
+                sb = new StringBuilder();
+                lineCount = 0;
+            }
+
+            sb.append(line).append("\n");
+            lineCount++;
+
+            // 每 5 行切一条
+            if (lineCount >= 5 && !isEnd && !isReward) {
+                ctx.reply(sb.toString().trim());
+                sb = new StringBuilder();
+                lineCount = 0;
+            }
+        }
+
+        if (sb.length() > 0) {
+            ctx.reply(sb.toString().trim());
+        }
+    }
+
+    private String getTacticDisplay(PlayerInfo p) {
+        if (p == null) return "";
+        var ps = ServiceRegistry.getPlayerService();
+        var player = ps.getPlayerRaw(p.getUserId());
+        if (player == null) return "";
+        String tactic = player.getBattleStrategy();
+        if (tactic == null) tactic = "balanced";
+        return switch (tactic) {
+            case "aggressive" -> "\n🔥 当前战术：猛攻（优先使用最强技能）";
+            case "defensive" -> "\n🛡 当前战术：防守（保留法力，稳扎稳打）";
+            default -> "\n⚖ 当前战术：均衡";
+        };
+    }
+
+    private String getTacticDisplay(com.mtxgdn.entity.Player player) {
+        if (player == null) return "";
+        String tactic = player.getBattleStrategy();
+        if (tactic == null) tactic = "balanced";
+        return switch (tactic) {
+            case "aggressive" -> "\n  🔥 战术：猛攻";
+            case "defensive" -> "\n  🛡 战术：防守";
+            default -> "\n  ⚖ 战术：均衡";
+        };
     }
 }
