@@ -39,7 +39,6 @@ public class OneBotScreenshotBot implements OneBotMessageSender, Runnable {
     private Rectangle inputBounds;      // 输入框区域坐标
     private Point sendButtonPos;        // 发送按钮坐标
     private BufferedImage lastScreenshot;
-    private BufferedImage scaledScreenshot;  // 降采样用于对比，减少内存
     private volatile boolean running = false;
 
     /** 截图对比降采样比例（如 4 = 1/4 分辨率） */
@@ -167,11 +166,8 @@ public class OneBotScreenshotBot implements OneBotMessageSender, Runnable {
     private void pollOnce() {
         BufferedImage current = robot.createScreenCapture(chatBounds);
         if (lastScreenshot == null) {
-            // 保存降采样版本用于对比（大幅减少内存）
             BufferedImage scaled = scaleDown(current, COMPARE_DOWNSCALE);
-            releaseImage(lastScreenshot);
             lastScreenshot = scaled;
-            scaledScreenshot = scaled;
             current.flush();
             return;
         }
@@ -179,10 +175,8 @@ public class OneBotScreenshotBot implements OneBotMessageSender, Runnable {
         BufferedImage scaled = scaleDown(current, COMPARE_DOWNSCALE);
         double diffPercent = compareImages(lastScreenshot, scaled);
 
-        // 释放旧图，换上新的降采样图
         releaseImage(lastScreenshot);
         lastScreenshot = scaled;
-        scaledScreenshot = scaled;
         current.flush();
 
         if (diffPercent > 0.5) {
@@ -240,23 +234,35 @@ public class OneBotScreenshotBot implements OneBotMessageSender, Runnable {
     private String lastRecognizedText = "";
 
     /**
-     * 使用 Windows 10+ 内置 OCR 引擎识别图片中的文字。
-     * 通过 PowerShell 调用 Windows.Media.Ocr。
+     * 用 Robot 截取聊天区域（屏幕坐标），保存为 PNG 供 OCR。
+     * 相比 PrintWindow，Robot 不会抢窗口焦点，且已限定聊天区域。
+     *
+     * @return 临时 PNG 文件路径，调用方用完需删除
      */
-    private String recognizeText(BufferedImage image) {
-        Path tempFile = null;
+    private Path captureChatPng() {
         try {
-            // 保存截图到临时 PNG 文件
-            tempFile = Files.createTempFile("xiuxian_ocr_", ".png");
-            File file = tempFile.toFile();
-            ImageIO.write(image, "png", file);
+            BufferedImage screenshot = robot.createScreenCapture(chatBounds);
+            Path tempFile = Files.createTempFile("xiuxian_ocr_", ".png");
+            ImageIO.write(screenshot, "png", tempFile.toFile());
+            screenshot.flush();
+            return tempFile;
+        } catch (Exception e) {
+            log.error("截图保存失败: " + e.getMessage());
+            return null;
+        }
+    }
 
-            // PowerShell 调用 Windows.Media.Ocr
+    /**
+     * 使用 Windows 10+ 内置 OCR 引擎识别图片文件中的文字。
+     */
+    private String recognizeText(Path pngFile) {
+        try {
+            String path = pngFile.toAbsolutePath().toString().replace("\\", "\\\\");
             String script =
                 "[Windows.Media.Ocr.OcrEngine, Windows.Foundation, ContentType=WindowsRuntime] > $null; " +
                 "[Windows.Graphics.Imaging.BitmapDecoder, Windows.Foundation, ContentType=WindowsRuntime] > $null; " +
                 "[Windows.Storage.StorageFile, Windows.Foundation, ContentType=WindowsRuntime] > $null; " +
-                "$path = '" + file.getAbsolutePath().replace("\\", "\\\\") + "'; " +
+                "$path = '" + path + "'; " +
                 "$file = [Windows.Storage.StorageFile]::GetFileFromPathAsync($path).GetAwaiter().GetResult(); " +
                 "$stream = $file.OpenReadAsync().GetAwaiter().GetResult(); " +
                 "$decoder = [Windows.Graphics.Imaging.BitmapDecoder]::CreateAsync($stream).GetAwaiter().GetResult(); " +
@@ -286,31 +292,33 @@ public class OneBotScreenshotBot implements OneBotMessageSender, Runnable {
         } catch (Exception e) {
             log.error("OCR 识别失败: " + e.getMessage());
             return "";
-        } finally {
-            if (tempFile != null) {
-                try {
-                    Files.deleteIfExists(tempFile);
-                } catch (Exception ignored) {}
-            }
         }
     }
 
     // ==================== 消息检测 ====================
 
     private void onNewMessageDetected() {
-        log.debug("检测到聊天区变化，开始 OCR 识别...");
-        // 重截聊天区，缩放后 OCR（大幅减少内存和文件大小）
-        BufferedImage screenshot = robot.createScreenCapture(chatBounds);
-        BufferedImage ocrImage = scaleDown(screenshot, COMPARE_DOWNSCALE);
-        screenshot.flush();
-        String text = recognizeText(ocrImage);
-        ocrImage.flush();
-        if (text.isEmpty()) {
-            log.debug("OCR 未识别到文字");
+        log.debug("检测到聊天区变化，截图并 OCR...");
+        Path captureFile = captureChatPng();
+        if (captureFile == null) {
+            log.debug("截图失败");
             return;
         }
+        try {
+            String text = recognizeText(captureFile);
+            if (!text.isEmpty()) {
+                processOcrResult(text);
+            } else {
+                log.debug("OCR 未识别到文字");
+            }
+        } finally {
+            try {
+                Files.deleteIfExists(captureFile);
+            } catch (Exception ignored) {}
+        }
+    }
 
-        // 只输出新增的文字（与上次对比）
+    private void processOcrResult(String text) {
         if (!text.equals(lastRecognizedText)) {
             String newText = extractNewText(lastRecognizedText, text);
             lastRecognizedText = text;
@@ -460,9 +468,7 @@ public class OneBotScreenshotBot implements OneBotMessageSender, Runnable {
     public void stop() {
         running = false;
         releaseImage(lastScreenshot);
-        releaseImage(scaledScreenshot);
         lastScreenshot = null;
-        scaledScreenshot = null;
     }
 
     // ==================== 配置区域 ====================

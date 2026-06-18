@@ -193,7 +193,7 @@ public class DatabaseManager {
                 "id " + pk + ", " +
                 "user_id BIGINT NOT NULL UNIQUE, " +
                 "name VARCHAR(64) NOT NULL, " +
-                "spiritual_root VARCHAR(16) DEFAULT 'FIRE', " +
+                "spiritual_root VARCHAR(64) DEFAULT 'FIRE', " +
                 "level INT DEFAULT 1, " +
                 "experience BIGINT DEFAULT 0, " +
                 "realm INT DEFAULT 0, " +

@@ -315,7 +315,23 @@ public class OneBotWebSocketServer extends WebSocketApplication
 
     @Override
     public void handleRegister(WebSocket socket, String selfId, String senderQq, String arg, Long sourceGroupId) {
-        if (bindingService.findByQq(senderQq) != null) {
+        QqBinding existingBinding = bindingService.findByQq(senderQq);
+        if (existingBinding != null) {
+            // 检查是否"已绑定但无角色"的异常情况（上次注册时 createPlayer 失败）
+            if (ServiceRegistry.getPlayerService().getPlayerByUserId(existingBinding.getUserId()) == null) {
+                // 孤立的账号：跳过用户创建，直接补建角色
+                try {
+                    PlayerInfo player = ServiceRegistry.getPlayerService().createPlayer(
+                            existingBinding.getUserId(), arg.trim());
+                    String guideMsg = NewbieGuideService.getWelcomeMessage(player);
+                    replyToSource(socket, selfId, senderQq, sourceGroupId, guideMsg);
+                    actionLog.logCreatePlayer(existingBinding.getUserId(), player.getName());
+                } catch (RuntimeException e) {
+                    replyToSource(socket, selfId, senderQq, sourceGroupId,
+                            "创建角色失败: " + e.getMessage());
+                }
+                return;
+            }
             replyToSource(socket, selfId, senderQq, sourceGroupId,
                     "你已注册角色，无需重复注册。如需重来请先用 /unbind 解绑。");
             return;
@@ -415,9 +431,10 @@ public class OneBotWebSocketServer extends WebSocketApplication
                     "你已注册角色，无需重复注册。");
             return;
         }
+        Long userId = null;
         try {
             String hashedPassword = BCrypt.hashpw(password, BCrypt.gensalt());
-            Long userId = insertUser(session.username, hashedPassword);
+            userId = insertUser(session.username, hashedPassword);
             if (userId == null) {
                 replyToSource(socket, selfId, senderQq, session.sourceGroupId,
                         "注册失败，请稍后重试。");
@@ -430,6 +447,11 @@ public class OneBotWebSocketServer extends WebSocketApplication
             replyToSource(socket, selfId, senderQq, session.sourceGroupId, guideMsg);
             actionLog.logCreatePlayer(userId, session.username);
         } catch (RuntimeException e) {
+            // 创建角色失败，回滚已创建的 user 和绑定
+            if (userId != null) {
+                try { bindingService.unbindByQq(senderQq); } catch (Exception ignored) {}
+                try { deleteUser(userId); } catch (Exception ignored) {}
+            }
             replyToSource(socket, selfId, senderQq, session.sourceGroupId,
                     "注册失败: " + e.getMessage());
         }
@@ -507,5 +529,14 @@ public class OneBotWebSocketServer extends WebSocketApplication
             }
         } catch (SQLException e) { throw new RuntimeException("用户插入失败", e); }
         return null;
+    }
+
+    private void deleteUser(long userId) {
+        String sql = "DELETE FROM users WHERE id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setLong(1, userId);
+            stmt.executeUpdate();
+        } catch (SQLException e) { throw new RuntimeException("删除用户失败", e); }
     }
 }
