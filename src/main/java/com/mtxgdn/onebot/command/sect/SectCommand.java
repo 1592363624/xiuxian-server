@@ -44,6 +44,9 @@ public class SectCommand extends Command {
         registerSub(new String[]{"disband", "解散"}, this::handleDisband);
         registerSub(new String[]{"top", "排行"}, this::handleTop);
         registerSub(new String[]{"pending", "申请列表"}, this::handlePendingList);
+        registerSub(new String[]{"levelup", "升级"}, this::handleLevelUp);
+        registerSub(new String[]{"transfer", "转让"}, this::handleTransfer);
+        registerSub(new String[]{"war", "宣战"}, this::handleWar);
         registerSub(new String[]{"help", "帮助", "?"}, this::handleHelp);
 
         // ======== HTTP 接口（仅 HTTP，不出现在 OneBot 帮助）========
@@ -315,6 +318,42 @@ public class SectCommand extends Command {
         ctx.reply(sb.toString());
     }
 
+    private void handleLevelUp(CommandContext ctx, PlayerInfo p, String[] parts) {
+        var result = sectService.levelUp(p.getId());
+        ctx.reply((String) result.get("message"));
+    }
+
+    private void handleTransfer(CommandContext ctx, PlayerInfo p, String[] parts) {
+        String targetName = parts.length > 1 ? parts[1].trim() : "";
+        if (targetName.isEmpty()) { ctx.reply("用法: /宗门 transfer <玩家名>"); return; }
+
+        SectMember me = sectService.getPlayerMember(p.getId());
+        if (me == null) { ctx.reply("你还没有加入宗门"); return; }
+
+        List<SectMember> members = sectService.getSectMembers(me.getSectId());
+        SectMember target = null;
+        for (SectMember m : members) {
+            if (m.getPlayerName().equals(targetName)) { target = m; break; }
+        }
+        if (target == null) { ctx.reply("找不到玩家【" + targetName + "】"); return; }
+
+        var result = sectService.transferLeader(p.getId(), target.getPlayerId());
+        ctx.reply((String) result.get("message"));
+    }
+
+    private void handleWar(CommandContext ctx, PlayerInfo p, String[] parts) {
+        String targetName = parts.length > 1 ? parts[1].trim() : "";
+        if (targetName.isEmpty()) { ctx.reply("用法: /宗门 war <宗门名>"); return; }
+        Sect targetSect = sectService.getSectByName(targetName);
+        if (targetSect == null) { ctx.reply("找不到宗门【" + targetName + "】"); return; }
+        var result = sectService.declareWar(p.getId(), targetSect.getId());
+        if ((boolean) result.get("success")) {
+            ctx.reply((String) result.get("message") + "\n\n" + result.get("battleLog"));
+        } else {
+            ctx.reply((String) result.get("message"));
+        }
+    }
+
     // ==================== HTTP 处理器（仅 HTTP）====================
 
     private JsonObject handleListHttp(RouteDefinition.RestContext ctx) {
@@ -371,9 +410,14 @@ public class SectCommand extends Command {
             sb.append("  /宗门 donate      捐献物品\n");
             sb.append("  /宗门 warehouse   宗门仓库\n");
             if (me != null && me.canManage()) {
-                sb.append("  /宗门 pending     审批申请\n");
-                sb.append("  /宗门 kick        管理成员\n");
-                sb.append("  /宗门 take        取出物品\n");
+                sb.append("  /\u5b97\u95e8 pending     \u5ba1\u6279\u7533\u8bf7\n");
+                sb.append("  /\u5b97\u95e8 kick        \u7ba1\u7406\u6210\u5458\n");
+                sb.append("  /\u5b97\u95e8 take        \u53d6\u51fa\u7269\u54c1\n");
+            }
+            if (me != null && me.isLeader()) {
+                sb.append("  /\u5b97\u95e8 levelup     \u5347\u7ea7\u5b97\u95e8\n");
+                sb.append("  /\u5b97\u95e8 transfer    \u8f6c\u8ba9\u5b97\u4e3b\n");
+                sb.append("  /\u5b97\u95e8 war         \u5ba3\u6218\u5b97\u95e8\n");
             }
             sb.append("\n输入 /宗门 help 查看全部命令");
             return sb.toString();
@@ -384,7 +428,7 @@ public class SectCommand extends Command {
 ▍宗门大厅
   /宗门 list           浏览天下宗门
   /宗门 top            宗门声望排行
-  /宗门 create <名称>  开创宗门（需筑基期+100灵石）
+  /宗门 create <名称>  开创宗门（需金丹期+500灵石）
 
 ▍加入宗门
   /宗门 apply  <名称>  申请加入
@@ -398,7 +442,7 @@ public class SectCommand extends Command {
     private String buildHelp() {
         return """
 ===== 宗门系统 =====
-/宗门 create <名称> [描述]  创建宗门（需要筑基期以上，100灵石）
+/宗门 create <名称> [描述]  创建宗门（需要金丹期以上，500灵石）
 /宗门 join <宗门名>          申请加入宗门
 /宗门 list                   宗门列表
 /宗门 info [名称]            查看宗门信息（不填则查看自己的宗门）
@@ -410,6 +454,9 @@ public class SectCommand extends Command {
 /宗门 leave                  退出宗门
 /宗门 kick <玩家名>          踢出成员（宗主/长老）
 /宗门 appoint <玩家名> <长老|弟子>  任命职位（宗主）
+/宗门 transfer <玩家名>      转让宗主之位（宗主，需200灵石）
+/宗门 levelup                升级宗门（宗主，消耗声望）
+/宗门 war <宗门名>           向其他宗门宣战（宗主，消耗1000声望+300灵石）
 /宗门 donate <物品key> <数量>  向宗门仓库捐献
 /宗门 warehouse              查看宗门仓库
 /宗门 take <物品key> <数量>  从仓库取出（宗主/长老）

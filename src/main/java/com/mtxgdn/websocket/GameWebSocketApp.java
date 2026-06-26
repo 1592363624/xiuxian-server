@@ -374,6 +374,18 @@ public class GameWebSocketApp extends WebSocketApplication {
                 if (!checkWsPermission(socket, msgId, userId, "game.sect.manage")) break;
                 handleSectDisband(socket, msgId, userId);
                 break;
+            case "sect_levelup":
+                if (!checkWsPermission(socket, msgId, userId, "game.sect.manage")) break;
+                handleSectLevelUp(socket, msgId, userId);
+                break;
+            case "sect_transfer":
+                if (!checkWsPermission(socket, msgId, userId, "game.sect.manage")) break;
+                handleSectTransfer(socket, msgId, userId, data);
+                break;
+            case "sect_war":
+                if (!checkWsPermission(socket, msgId, userId, "game.sect.manage")) break;
+                handleSectWar(socket, msgId, userId, data);
+                break;
             case "sect_top":
                 if (!checkWsPermission(socket, msgId, userId, "game.sect.manage")) break;
                 handleSectTop(socket, msgId);
@@ -1513,6 +1525,63 @@ public class GameWebSocketApp extends WebSocketApplication {
             socket.send(GameMessage.ok(msgId, "sect_disband", (String) result.get("message"), null).toJson());
         } else {
             socket.send(GameMessage.error(msgId, "sect_disband", 400, (String) result.get("message")).toJson());
+        }
+    }
+
+    private void handleSectLevelUp(WebSocket socket, long msgId, Long userId) {
+        PlayerInfo player = playerService.getPlayerByUserId(userId);
+        if (player == null) {
+            socket.send(GameMessage.error(msgId, "sect_levelup", GameErrorCode.PLAYER_NOT_FOUND).toJson());
+            return;
+        }
+        Map<String, Object> result = sectService.levelUp(player.getId());
+        if (Boolean.TRUE.equals(result.get("success"))) {
+            socket.send(GameMessage.ok(msgId, "sect_levelup", (String) result.get("message"), null).toJson());
+        } else {
+            socket.send(GameMessage.error(msgId, "sect_levelup", 400, (String) result.get("message")).toJson());
+        }
+    }
+
+    private void handleSectTransfer(WebSocket socket, long msgId, Long userId, JsonObject data) {
+        PlayerInfo player = playerService.getPlayerByUserId(userId);
+        if (player == null) {
+            socket.send(GameMessage.error(msgId, "sect_transfer", GameErrorCode.PLAYER_NOT_FOUND).toJson());
+            return;
+        }
+        if (!data.has("targetPlayerId") || data.get("targetPlayerId").getAsLong() == 0) {
+            socket.send(GameMessage.error(msgId, "sect_transfer", GameErrorCode.PARAM_MISSING).toJson());
+            return;
+        }
+        long targetPlayerId = data.get("targetPlayerId").getAsLong();
+        Map<String, Object> result = sectService.transferLeader(player.getId(), targetPlayerId);
+        if (Boolean.TRUE.equals(result.get("success"))) {
+            socket.send(GameMessage.ok(msgId, "sect_transfer", (String) result.get("message"), null).toJson());
+        } else {
+            socket.send(GameMessage.error(msgId, "sect_transfer", 400, (String) result.get("message")).toJson());
+        }
+    }
+
+    private void handleSectWar(WebSocket socket, long msgId, Long userId, JsonObject data) {
+        PlayerInfo player = playerService.getPlayerByUserId(userId);
+        if (player == null) {
+            socket.send(GameMessage.error(msgId, "sect_war", GameErrorCode.PLAYER_NOT_FOUND).toJson());
+            return;
+        }
+        if (!data.has("targetSectId") || data.get("targetSectId").getAsLong() == 0) {
+            socket.send(GameMessage.error(msgId, "sect_war", GameErrorCode.PARAM_MISSING).toJson());
+            return;
+        }
+        long targetSectId = data.get("targetSectId").getAsLong();
+        Map<String, Object> result = sectService.declareWar(player.getId(), targetSectId);
+        if (Boolean.TRUE.equals(result.get("success"))) {
+            JsonObject resp = new JsonObject();
+            resp.addProperty("winner", (String) result.get("winner"));
+            resp.addProperty("attackerWins", (int) result.get("attackerWins"));
+            resp.addProperty("defenderWins", (int) result.get("defenderWins"));
+            resp.addProperty("battleLog", (String) result.get("battleLog"));
+            socket.send(GameMessage.ok(msgId, "sect_war", (String) result.get("message"), resp).toJson());
+        } else {
+            socket.send(GameMessage.error(msgId, "sect_war", 400, (String) result.get("message")).toJson());
         }
     }
 

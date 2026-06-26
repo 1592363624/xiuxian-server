@@ -1753,6 +1753,53 @@ public class GameResource {
         return Response.ok(GameMessage.restError(400, (String) result.get("message")).toString()).build();
     }
 
+    @POST
+    @Path("/sect/levelup")
+    @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("game.sect.manage")
+    public Response levelUpSect() {
+        Long userId = getCurrentUserId();
+        int playerId = getPlayerIdByUserId(userId);
+        Map<String, Object> result = sectService.levelUp(playerId);
+        if ((boolean) result.get("success")) {
+            return Response.ok(GameMessage.restOk((String) result.get("message"), null).toString()).build();
+        }
+        return Response.ok(GameMessage.restError(400, (String) result.get("message")).toString()).build();
+    }
+
+    @POST
+    @Path("/sect/transfer/{targetPlayerId}")
+    @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("game.sect.manage")
+    public Response transferSect(@PathParam("targetPlayerId") long targetPlayerId) {
+        Long userId = getCurrentUserId();
+        int playerId = getPlayerIdByUserId(userId);
+        Map<String, Object> result = sectService.transferLeader(playerId, targetPlayerId);
+        if ((boolean) result.get("success")) {
+            return Response.ok(GameMessage.restOk((String) result.get("message"), null).toString()).build();
+        }
+        return Response.ok(GameMessage.restError(400, (String) result.get("message")).toString()).build();
+    }
+
+    @POST
+    @Path("/sect/war/{targetSectId}")
+    @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("game.sect.manage")
+    public Response declareWar(@PathParam("targetSectId") long targetSectId) {
+        Long userId = getCurrentUserId();
+        int playerId = getPlayerIdByUserId(userId);
+        Map<String, Object> result = sectService.declareWar(playerId, targetSectId);
+        if ((boolean) result.get("success")) {
+            JsonObject data = new JsonObject();
+            data.addProperty("winner", (String) result.get("winner"));
+            data.addProperty("attackerWins", (int) result.get("attackerWins"));
+            data.addProperty("defenderWins", (int) result.get("defenderWins"));
+            data.addProperty("battleLog", (String) result.get("battleLog"));
+            return Response.ok(GameMessage.restOk((String) result.get("message"), data).toString()).build();
+        }
+        return Response.ok(GameMessage.restError(400, (String) result.get("message")).toString()).build();
+    }
+
     @GET
     @Path("/sect/top")
     @Produces(MediaType.APPLICATION_JSON)

@@ -448,6 +448,23 @@ public class DatabaseManager {
         }
         sectWarehouseTableSql += ")";
 
+        String sectWarsTableSql = "CREATE TABLE IF NOT EXISTS sect_wars (" +
+                "id " + pk + ", " +
+                "attacker_sect_id BIGINT NOT NULL, " +
+                "defender_sect_id BIGINT NOT NULL, " +
+                "winner_sect_id BIGINT DEFAULT NULL, " +
+                "attacker_wins INT DEFAULT 0, " +
+                "defender_wins INT DEFAULT 0, " +
+                "prestige_stake BIGINT DEFAULT 0, " +
+                "battle_log TEXT, " +
+                "created_at " + tsDefault;
+
+        if (!IS_SQLITE) {
+            sectWarsTableSql += ", FOREIGN KEY (attacker_sect_id) REFERENCES sects(id) ON DELETE CASCADE, " +
+                    "FOREIGN KEY (defender_sect_id) REFERENCES sects(id) ON DELETE CASCADE";
+        }
+        sectWarsTableSql += ")";
+
         String redeemCodesTableSql = "CREATE TABLE IF NOT EXISTS redeem_codes (" +
                 "id " + pk + ", " +
                 "code VARCHAR(32) NOT NULL UNIQUE, " +
@@ -505,6 +522,7 @@ public class DatabaseManager {
             stmt.execute(sectMembersTableSql);
             stmt.execute(sectApplicationsTableSql);
             stmt.execute(sectWarehouseTableSql);
+            stmt.execute(sectWarsTableSql);
             stmt.execute(redeemCodesTableSql);
             stmt.execute(redeemedCodesTableSql);
 

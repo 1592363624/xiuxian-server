@@ -43,12 +43,23 @@ public class Sect {
     public String getCreatedAt() { return createdAt; }
     public void setCreatedAt(String createdAt) { this.createdAt = createdAt; }
 
-    public static final int MIN_LEVEL_CREATE = 3;
-    public static final long CREATE_COST_SPIRIT_STONES = 100;
+    public static final int MIN_LEVEL_CREATE = 4;                  // 金丹期
+    public static final long CREATE_COST_SPIRIT_STONES = 500;      // 灵石
+    public static final int MAX_LEVEL = 10;
     public static final int MAX_MEMBERS_BASE = 20;
     public static final int MAX_MEMBERS_PER_LEVEL = 5;
+    public static final long LEVEL_UP_PRESTIGE_PER_LEVEL = 1000;   // 每级消耗声望基数
+    public static final long TRANSFER_COST_SPIRIT_STONES = 200;    // 转让消耗灵石
+    public static final long DECLARE_WAR_PRESTIGE_COST = 1000;      // 宣战消耗声望
+    public static final long DECLARE_WAR_SPIRIT_STONE_COST = 300;   // 宣战消耗灵石
+    public static final int WAR_MEMBERS_PER_SIDE = 5;               // 每方出战人数
+    public static final long WAR_WIN_PRESTIGE = 500;                // 战胜方额外获得的声望
 
     public static int getMaxMembersForLevel(int level) {
         return MAX_MEMBERS_BASE + (level - 1) * MAX_MEMBERS_PER_LEVEL;
+    }
+
+    public static long getLevelUpCost(int currentLevel) {
+        return currentLevel * LEVEL_UP_PRESTIGE_PER_LEVEL;
     }
 }
