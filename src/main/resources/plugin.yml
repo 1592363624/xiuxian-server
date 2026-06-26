@@ -1,0 +1,11 @@
+name: XiuxianBridge
+version: "1.0"
+main: com.mtxgdn.minecraft.plugin.XiuxianBridgePlugin
+api-version: "1.13"
+description: 修仙世界 MC 桥接插件 - 转接 /xiuxian 指令到主服务端
+
+commands:
+  xiuxian:
+    description: 修仙世界指令
+    usage: /xiuxian <子命令> [参数]
+    aliases: [xx, xian]

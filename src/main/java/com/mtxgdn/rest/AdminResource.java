@@ -17,6 +17,7 @@ import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.permission.PermissionCode;
 import com.mtxgdn.permission.PermissionService;
 import com.mtxgdn.util.GameLogger;
+import com.mtxgdn.util.StatsCollector;
 
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.DefaultValue;
@@ -1105,6 +1106,198 @@ public class AdminResource {
             obj.add("items", itemsObj);
         }
         return obj;
+    }
+
+    // ========== 消息与指令统计 API ==========
+
+    @GET
+    @Path("/stats/messages")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response getMessageStats() {
+        JsonObject stats = StatsCollector.getInstance().getMessageStats();
+        JsonObject result = new JsonObject();
+        result.addProperty("code", 200);
+        result.add("stats", stats);
+        return Response.ok(gson.toJson(result)).build();
+    }
+
+    @GET
+    @Path("/stats/commands")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response getCommandStats() {
+        JsonObject stats = StatsCollector.getInstance().getCommandStats();
+        JsonObject result = new JsonObject();
+        result.addProperty("code", 200);
+        result.add("stats", stats);
+        return Response.ok(gson.toJson(result)).build();
+    }
+
+    // ========== 黑名单管理 API ==========
+
+    @GET
+    @Path("/blacklist")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response getBlacklist() {
+        com.mtxgdn.onebot.BlacklistService blacklistService = new com.mtxgdn.onebot.BlacklistService();
+        java.util.List<com.mtxgdn.onebot.Blacklist> list = blacklistService.getAllBlacklist();
+
+        JsonArray arr = new JsonArray();
+        for (com.mtxgdn.onebot.Blacklist b : list) {
+            JsonObject obj = new JsonObject();
+            obj.addProperty("id", b.getId());
+            obj.addProperty("qqNumber", b.getQqNumber());
+            obj.addProperty("userId", b.getUserId());
+            obj.addProperty("reason", b.getReason());
+            obj.addProperty("bannedBy", b.getBannedBy());
+            obj.addProperty("createdAt", b.getCreatedAt());
+            arr.add(obj);
+        }
+
+        JsonObject result = new JsonObject();
+        result.addProperty("code", 200);
+        result.add("blacklist", arr);
+        return Response.ok(gson.toJson(result)).build();
+    }
+
+    @POST
+    @Path("/blacklist")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response addToBlacklist(String body) {
+        JsonObject req = com.google.gson.JsonParser.parseString(body).getAsJsonObject();
+        String qqNumber = req.has("qqNumber") ? req.get("qqNumber").getAsString() : null;
+        String reason = req.has("reason") ? req.get("reason").getAsString() : "";
+
+        if (qqNumber == null || qqNumber.isBlank()) {
+            JsonObject err = new JsonObject();
+            err.addProperty("code", 400);
+            err.addProperty("message", "QQ号不能为空");
+            return Response.status(400).entity(gson.toJson(err)).build();
+        }
+
+        com.mtxgdn.onebot.BlacklistService blacklistService = new com.mtxgdn.onebot.BlacklistService();
+        com.mtxgdn.onebot.QqBindingService bindingService = new com.mtxgdn.onebot.QqBindingService();
+        com.mtxgdn.onebot.QqBinding binding = bindingService.findByQq(qqNumber);
+        Long userId = binding != null ? binding.getUserId() : null;
+
+        try {
+            blacklistService.addToBlacklist(qqNumber, userId, reason, null);
+            JsonObject result = new JsonObject();
+            result.addProperty("code", 200);
+            result.addProperty("message", "已添加到黑名单");
+            return Response.ok(gson.toJson(result)).build();
+        } catch (RuntimeException e) {
+            JsonObject err = new JsonObject();
+            err.addProperty("code", 400);
+            err.addProperty("message", e.getMessage());
+            return Response.status(400).entity(gson.toJson(err)).build();
+        }
+    }
+
+    @DELETE
+    @Path("/blacklist/{qqNumber}")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response removeFromBlacklist(@PathParam("qqNumber") String qqNumber) {
+        com.mtxgdn.onebot.BlacklistService blacklistService = new com.mtxgdn.onebot.BlacklistService();
+        try {
+            blacklistService.removeFromBlacklist(qqNumber);
+            JsonObject result = new JsonObject();
+            result.addProperty("code", 200);
+            result.addProperty("message", "已从黑名单移除");
+            return Response.ok(gson.toJson(result)).build();
+        } catch (RuntimeException e) {
+            JsonObject err = new JsonObject();
+            err.addProperty("code", 400);
+            err.addProperty("message", e.getMessage());
+            return Response.status(400).entity(gson.toJson(err)).build();
+        }
+    }
+
+    // ========== OneBot群组配置 API ==========
+
+    @GET
+    @Path("/onebot/groups")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response getOneBotGroupConfigs() {
+        com.mtxgdn.onebot.OneBotGroupConfigService configService = new com.mtxgdn.onebot.OneBotGroupConfigService();
+        java.util.List<com.mtxgdn.onebot.OneBotGroupConfig> list = configService.getAllConfigs();
+
+        JsonArray arr = new JsonArray();
+        for (com.mtxgdn.onebot.OneBotGroupConfig c : list) {
+            JsonObject obj = new JsonObject();
+            obj.addProperty("id", c.getId());
+            obj.addProperty("groupId", c.getGroupId());
+            obj.addProperty("autoMuteEnabled", c.isAutoMuteEnabled());
+            obj.addProperty("muteDurationDays", c.getMuteDurationDays());
+            obj.addProperty("createdAt", c.getCreatedAt());
+            obj.addProperty("updatedAt", c.getUpdatedAt());
+            arr.add(obj);
+        }
+
+        JsonObject result = new JsonObject();
+        result.addProperty("code", 200);
+        result.add("groups", arr);
+        return Response.ok(gson.toJson(result)).build();
+    }
+
+    @POST
+    @Path("/onebot/groups/{groupId}/autoMute")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response setAutoMute(@PathParam("groupId") long groupId, String body) {
+        JsonObject req = com.google.gson.JsonParser.parseString(body).getAsJsonObject();
+        boolean enabled = req.has("enabled") ? req.get("enabled").getAsBoolean() : false;
+
+        com.mtxgdn.onebot.OneBotGroupConfigService configService = new com.mtxgdn.onebot.OneBotGroupConfigService();
+        configService.setAutoMute(groupId, enabled);
+
+        JsonObject result = new JsonObject();
+        result.addProperty("code", 200);
+        result.addProperty("message", enabled ? "已启用自动禁言" : "已关闭自动禁言");
+        return Response.ok(gson.toJson(result)).build();
+    }
+
+    @POST
+    @Path("/onebot/groups/{groupId}/muteDuration")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response setMuteDuration(@PathParam("groupId") long groupId, String body) {
+        JsonObject req = com.google.gson.JsonParser.parseString(body).getAsJsonObject();
+        int days = req.has("days") ? req.get("days").getAsInt() : 29;
+
+        if (days < 1 || days > 30) {
+            JsonObject err = new JsonObject();
+            err.addProperty("code", 400);
+            err.addProperty("message", "禁言天数必须在1-30之间");
+            return Response.status(400).entity(gson.toJson(err)).build();
+        }
+
+        com.mtxgdn.onebot.OneBotGroupConfigService configService = new com.mtxgdn.onebot.OneBotGroupConfigService();
+        configService.setMuteDuration(groupId, days);
+
+        JsonObject result = new JsonObject();
+        result.addProperty("code", 200);
+        result.addProperty("message", "禁言天数已设置为 " + days + " 天");
+        return Response.ok(gson.toJson(result)).build();
+    }
+
+    @DELETE
+    @Path("/onebot/groups/{groupId}")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response deleteGroupConfig(@PathParam("groupId") long groupId) {
+        com.mtxgdn.onebot.OneBotGroupConfigService configService = new com.mtxgdn.onebot.OneBotGroupConfigService();
+        try {
+            configService.deleteConfig(groupId);
+            JsonObject result = new JsonObject();
+            result.addProperty("code", 200);
+            result.addProperty("message", "群组配置已删除");
+            return Response.ok(gson.toJson(result)).build();
+        } catch (RuntimeException e) {
+            JsonObject err = new JsonObject();
+            err.addProperty("code", 400);
+            err.addProperty("message", e.getMessage());
+            return Response.status(400).entity(gson.toJson(err)).build();
+        }
     }
 
     private static String formatUptime(long millis) {

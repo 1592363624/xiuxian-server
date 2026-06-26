@@ -6,7 +6,7 @@
 
     <groupId>com.mtxgdn</groupId>
     <artifactId>main</artifactId>
-    <version>V1.4.1-alpha1</version>
+    <version>V1.4.1-alpha2</version>
 
     <properties>
         <maven.compiler.source>23</maven.compiler.source>
@@ -141,6 +141,10 @@
                     <source>23</source>
                     <target>23</target>
                     <encoding>UTF-8</encoding>
+                    <excludes>
+                        <!-- 插件源码依赖 Bukkit API，由 build-mc-plugin.bat 单独编译 -->
+                        <exclude>**/minecraft/plugin/**</exclude>
+                    </excludes>
                 </configuration>
             </plugin>
             <plugin>

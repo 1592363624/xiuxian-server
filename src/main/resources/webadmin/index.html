@@ -539,6 +539,13 @@ select option { background: var(--bg-panel); color: var(--text-primary); }
       <div class="nav-item" onclick="switchTab('players')">
         <span class="nav-icon">👥</span> 玩家管理
       </div>
+      <div class="nav-section" style="margin-top:8px">统计</div>
+      <div class="nav-item" onclick="switchTab('statsMessages')">
+        <span class="nav-icon">💬</span> 消息统计
+      </div>
+      <div class="nav-item" onclick="switchTab('statsCommands')">
+        <span class="nav-icon">⚡</span> 指令统计
+      </div>
       <div class="nav-section" style="margin-top:8px">系统</div>
       <div class="nav-item" onclick="switchTab('database')">
         <span class="nav-icon">🗄️</span> 数据库
@@ -700,6 +707,56 @@ select option { background: var(--bg-panel); color: var(--text-primary); }
           <div id="tracesPagination" style="margin-top:12px"></div>
         </div>
       </div>
+
+      <div class="tab" id="tab-statsMessages">
+        <div class="card">
+          <div class="card-title">💬 消息统计</div>
+          <div class="row">
+            <button class="btn btn-primary" onclick="loadMessageStats()">🔄 刷新</button>
+            <span style="color:var(--text-muted);font-size:12px;margin-left:auto">仅统计本次服务器运行期间的数据</span>
+          </div>
+        </div>
+        <div class="stats-grid" id="msgStatsCards" style="margin-bottom:20px"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+          <div class="card">
+            <div class="card-title">👤 按用户 (Top 20)</div>
+            <div id="msgByUser" class="table-wrap"></div>
+          </div>
+          <div class="card">
+            <div class="card-title">👥 按群 (Top 20)</div>
+            <div id="msgByGroup" class="table-wrap"></div>
+          </div>
+        </div>
+        <div class="card" style="margin-top:18px">
+          <div class="card-title">📈 按时间（最近24小时）</div>
+          <div id="msgByTime" class="table-wrap"></div>
+        </div>
+      </div>
+
+      <div class="tab" id="tab-statsCommands">
+        <div class="card">
+          <div class="card-title">⚡ 指令调用统计</div>
+          <div class="row">
+            <button class="btn btn-primary" onclick="loadCommandStats()">🔄 刷新</button>
+            <span style="color:var(--text-muted);font-size:12px;margin-left:auto">仅统计本次服务器运行期间的数据</span>
+          </div>
+        </div>
+        <div class="stats-grid" id="cmdStatsCards" style="margin-bottom:20px"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+          <div class="card">
+            <div class="card-title">👥 按群 (Top 20)</div>
+            <div id="cmdByGroup" class="table-wrap"></div>
+          </div>
+          <div class="card">
+            <div class="card-title">⌨️ 按指令种类 (Top 30)</div>
+            <div id="cmdByCommand" class="table-wrap"></div>
+          </div>
+        </div>
+        <div class="card" style="margin-top:18px">
+          <div class="card-title">📈 按时间（最近24小时）</div>
+          <div id="cmdByTime" class="table-wrap"></div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -764,7 +821,7 @@ async function fetchStatus() {
   } catch (x) { document.getElementById('connDot').className = 'conn-dot off'; }
 }
 
-const TAB_TITLES = { overview:'📊 总览', players:'👥 玩家管理', database:'🗄️ 数据库', users:'🔑 用户/角色', logs:'📜 实时日志', traces:'👣 玩家轨迹', redeemCodes:'🎫 兑换码' };
+const TAB_TITLES = { overview:'📊 总览', players:'👥 玩家管理', database:'🗄️ 数据库', users:'🔑 用户/角色', logs:'📜 实时日志', traces:'👣 玩家轨迹', redeemCodes:'🎫 兑换码', statsMessages:'💬 消息统计', statsCommands:'⚡ 指令统计' };
 
 function switchTab(name) {
   currentTab = name;
@@ -782,6 +839,12 @@ function switchTab(name) {
   } else if (name === 'traces' || name === 'database' || name === 'redeemCodes') {
     if (logsTimer) { clearInterval(logsTimer); logsTimer = null; }
     if (name === 'redeemCodes') loadRedeemCodes();
+  } else if (name === 'statsMessages') {
+    if (logsTimer) { clearInterval(logsTimer); logsTimer = null; }
+    loadMessageStats();
+  } else if (name === 'statsCommands') {
+    if (logsTimer) { clearInterval(logsTimer); logsTimer = null; }
+    loadCommandStats();
   } else {
     if (logsTimer) { clearInterval(logsTimer); logsTimer = null; }
     loadAllData();
@@ -1797,6 +1860,117 @@ async function deleteRedeemCode(id, code) {
       document.getElementById('tracesTable').innerHTML = '<div class="empty">加载失败: ' + $h(x.message||'') + '</div>';
     }
   }
+// ========== 消息 & 指令统计 ==========
+
+async function loadMessageStats() {
+  try {
+    const d = await api('/stats/messages');
+    const s = d.stats;
+    if (!s) return;
+
+    // 总览卡片
+    document.getElementById('msgStatsCards').innerHTML =
+      '<div class="stat-card"><div class="label">📨 消息总数</div><div class="value">' + (s.total||0) + '</div><div class="desc">本次运行累计</div></div>' +
+      '<div class="stat-card"><div class="label">👤 活跃用户</div><div class="value">' + (s.byUser ? s.byUser.length : 0) + '</div><div class="desc">Top 20 中</div></div>' +
+      '<div class="stat-card"><div class="label">👥 活跃群</div><div class="value">' + (s.byGroup ? s.byGroup.length : 0) + '</div><div class="desc">Top 20 中</div></div>';
+
+    // 按用户
+    let userHtml = '<table><tr><th>QQ号</th><th>消息数</th></tr>';
+    if (s.byUser && s.byUser.length > 0) {
+      for (const u of s.byUser) {
+        userHtml += '<tr><td>' + $h(u.key) + '</td><td style="color:var(--gold)">' + u.count + '</td></tr>';
+      }
+    } else {
+      userHtml += '<tr><td colspan="2" style="text-align:center;color:var(--text-muted)">暂无数据</td></tr>';
+    }
+    userHtml += '</table>';
+    document.getElementById('msgByUser').innerHTML = userHtml;
+
+    // 按群
+    let groupHtml = '<table><tr><th>群号</th><th>消息数</th></tr>';
+    if (s.byGroup && s.byGroup.length > 0) {
+      for (const g of s.byGroup) {
+        groupHtml += '<tr><td>' + $h(g.key) + '</td><td style="color:var(--gold)">' + g.count + '</td></tr>';
+      }
+    } else {
+      groupHtml += '<tr><td colspan="2" style="text-align:center;color:var(--text-muted)">暂无数据</td></tr>';
+    }
+    groupHtml += '</table>';
+    document.getElementById('msgByGroup').innerHTML = groupHtml;
+
+    // 按时间
+    let timeHtml = '<table><tr><th>小时</th><th>消息数</th></tr>';
+    if (s.byTime && s.byTime.length > 0) {
+      for (const t of s.byTime) {
+        const pct = s.total > 0 ? ((t.count / s.total) * 100).toFixed(1) : 0;
+        const bar = '<span style="display:inline-block;height:6px;border-radius:3px;background:var(--gold);width:' + Math.max(pct*3,1) + 'px;margin-left:8px;vertical-align:middle"></span>';
+        timeHtml += '<tr><td>' + $h(t.hour) + '</td><td style="color:var(--gold)">' + t.count + bar + '</td></tr>';
+      }
+    } else {
+      timeHtml += '<tr><td colspan="2" style="text-align:center;color:var(--text-muted)">暂无数据</td></tr>';
+    }
+    timeHtml += '</table>';
+    document.getElementById('msgByTime').innerHTML = timeHtml;
+  } catch (x) {
+    document.getElementById('msgStatsCards').innerHTML = '<div class="empty">加载失败</div>';
+  }
+}
+
+async function loadCommandStats() {
+  try {
+    const d = await api('/stats/commands');
+    const s = d.stats;
+    if (!s) return;
+
+    // 总览卡片
+    document.getElementById('cmdStatsCards').innerHTML =
+      '<div class="stat-card"><div class="label">⚡ 指令总调用</div><div class="value">' + (s.total||0) + '</div><div class="desc">本次运行累计</div></div>' +
+      '<div class="stat-card"><div class="label">👥 活跃群</div><div class="value">' + (s.byGroup ? s.byGroup.length : 0) + '</div><div class="desc">Top 20 中</div></div>' +
+      '<div class="stat-card"><div class="label">⌨️ 指令种类</div><div class="value">' + (s.byCommand ? s.byCommand.length : 0) + '</div><div class="desc">Top 30 中</div></div>';
+
+    // 按群
+    let groupHtml = '<table><tr><th>群号</th><th>调用次数</th></tr>';
+    if (s.byGroup && s.byGroup.length > 0) {
+      for (const g of s.byGroup) {
+        groupHtml += '<tr><td>' + $h(g.key) + '</td><td style="color:var(--jade)">' + g.count + '</td></tr>';
+      }
+    } else {
+      groupHtml += '<tr><td colspan="2" style="text-align:center;color:var(--text-muted)">暂无数据</td></tr>';
+    }
+    groupHtml += '</table>';
+    document.getElementById('cmdByGroup').innerHTML = groupHtml;
+
+    // 按指令种类
+    let cmdHtml = '<table><tr><th>指令</th><th>次数</th><th>占比</th></tr>';
+    if (s.byCommand && s.byCommand.length > 0) {
+      for (const c of s.byCommand) {
+        const pct = s.total > 0 ? ((c.count / s.total) * 100).toFixed(1) : 0;
+        cmdHtml += '<tr><td style="color:var(--gold)">/' + $h(c.key) + '</td><td style="color:var(--jade)">' + c.count + '</td><td>' + pct + '%</td></tr>';
+      }
+    } else {
+      cmdHtml += '<tr><td colspan="3" style="text-align:center;color:var(--text-muted)">暂无数据</td></tr>';
+    }
+    cmdHtml += '</table>';
+    document.getElementById('cmdByCommand').innerHTML = cmdHtml;
+
+    // 按时间
+    let timeHtml = '<table><tr><th>小时</th><th>调用次数</th></tr>';
+    if (s.byTime && s.byTime.length > 0) {
+      for (const t of s.byTime) {
+        const pct = s.total > 0 ? ((t.count / s.total) * 100).toFixed(1) : 0;
+        const bar = '<span style="display:inline-block;height:6px;border-radius:3px;background:var(--jade);width:' + Math.max(pct*3,1) + 'px;margin-left:8px;vertical-align:middle"></span>';
+        timeHtml += '<tr><td>' + $h(t.hour) + '</td><td style="color:var(--jade)">' + t.count + bar + '</td></tr>';
+      }
+    } else {
+      timeHtml += '<tr><td colspan="2" style="text-align:center;color:var(--text-muted)">暂无数据</td></tr>';
+    }
+    timeHtml += '</table>';
+    document.getElementById('cmdByTime').innerHTML = timeHtml;
+  } catch (x) {
+    document.getElementById('cmdStatsCards').innerHTML = '<div class="empty">加载失败</div>';
+  }
+}
+
 </script>
 </body>
 </html>

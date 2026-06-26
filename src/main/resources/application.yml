@@ -55,6 +55,32 @@ onebot:
     # 截图轮询间隔 (毫秒)
     poll_interval: 2000
 
+# ---- Minecraft 适配器 ----
+minecraft:
+  adapter:
+    # 是否启用 Minecraft 适配器
+    enabled: false
+  # 服务端 jar 文件路径（绝对路径或相对于项目根目录）
+  jar_path: ""
+  # 服务端运行目录（plugins/等资源放这里）
+  server_dir: mc_server
+  # Java 可执行文件路径（留空则使用系统 PATH 中的 java）
+  java_path: java
+  # 最小/最大 JVM 堆内存 (MB)
+  min_memory_mb: 512
+  max_memory_mb: 1024
+  # 启动 Minecraft 服务端时是否自动开始（false = 手动通过后台启动）
+  auto_start: false
+  # 等待服务端就绪的超时秒数
+  ready_timeout_seconds: 120
+  # 额外 JVM 参数（空格分隔），例: "-XX:+UseG1GC -Dfile.encoding=UTF-8"
+  extra_jvm_args: ""
+  # 在线模式: true = 正版验证(UUID走Mojang API), false = 离线模式(UUID由名字生成)
+  online_mode: false
+  # 指令前缀（避免和其他插件冲突）。如 "xiuxian" 则玩家用 /xiuxian status，
+  # 空串 = 无前缀，所有 /xxx 都走修仙适配器
+  command_prefix: "xiuxian"
+
 # ---- 日志 ----
 logging:
   level: DEBUG

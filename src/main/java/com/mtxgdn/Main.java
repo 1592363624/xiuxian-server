@@ -11,11 +11,14 @@ import com.mtxgdn.plugin.PluginMaker;
 import com.mtxgdn.plugin.gui.PluginMakerGUI;
 
 import java.io.File;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 
 import com.mtxgdn.game.service.CraftingService;
 import com.mtxgdn.game.service.SkillService;
 import com.mtxgdn.game.service.TechniqueService;
 import com.mtxgdn.minecraft.MinecraftMotdServer;
+import com.mtxgdn.minecraft.adapter.MinecraftAdapter;
 import com.mtxgdn.onebot.OneBotScreenshotBot;
 import com.mtxgdn.onebot.OneBotWebSocketServer;
 import com.mtxgdn.util.AppConfig;
@@ -46,6 +49,7 @@ public class Main {
     public static GameWebSocketApp gameWebSocketApp;
     public static OneBotWebSocketServer oneBotWebSocketServer;
     public static OneBotScreenshotBot screenshotBot;
+    public static MinecraftAdapter minecraftAdapter;
     public static HttpServer oneBotServer;
     public static HttpServer mainServer;
 
@@ -74,8 +78,14 @@ public class Main {
                 PluginManager.getInstance().disablePlugins();
             } catch (Exception ignore) {
             }
+            if (oneBotWebSocketServer != null) {
+                oneBotWebSocketServer.shutdown();
+            }
             if (screenshotBot != null) {
                 screenshotBot.stop();
+            }
+            if (minecraftAdapter != null) {
+                minecraftAdapter.stop();
             }
             if (gameWebSocketApp != null) {
                 try {
@@ -211,6 +221,22 @@ public class Main {
             }
         }
 
+        boolean mcAdapterEnabled = AppConfig.getBoolean("minecraft.adapter.enabled", false);
+        if (mcAdapterEnabled) {
+            try {
+                LOG.info("正在启动 Minecraft 适配器...");
+                minecraftAdapter = new MinecraftAdapter();
+                boolean mcStarted = minecraftAdapter.start();
+                if (mcStarted) {
+                    LOG.info("Minecraft 适配器已启动");
+                } else {
+                    LOG.warn("Minecraft 适配器启动失败，请检查 minecraft.jar_path 配置");
+                }
+            } catch (Exception e) {
+                LOG.error("Minecraft 适配器启动失败", e);
+            }
+        }
+
         CLStaticHttpHandler adminHandler = new CLStaticHttpHandler(Main.class.getClassLoader(), "/webadmin/");
         server.getServerConfiguration().addHttpHandler(adminHandler, "/admin");
         LOG.info("管理控制台启动在 http://127.0.0.1:8080/admin/");
@@ -231,6 +257,7 @@ public class Main {
             DemoClient.main(new String[0]);
             motdServer.stop();
             if (screenshotBot != null) screenshotBot.stop();
+            if (minecraftAdapter != null) minecraftAdapter.stop();
             if (oneBotServer != null) oneBotServer.shutdownNow();
             server.shutdownNow();
             return;
@@ -238,9 +265,10 @@ public class Main {
 
         if (nogui) {
             LOG.info("无GUI模式，按 Enter 键关闭服务器...");
-            System.in.read();
+            waitForEnter();
             motdServer.stop();
             if (screenshotBot != null) screenshotBot.stop();
+            if (minecraftAdapter != null) minecraftAdapter.stop();
             if (oneBotServer != null) oneBotServer.shutdownNow();
             server.shutdownNow();
             return;
@@ -248,11 +276,21 @@ public class Main {
 
         LOG.info("Web 管理控制台: http://127.0.0.1:8080/admin/");
         LOG.info("按 Enter 键关闭服务器...");
-        System.in.read();
+        waitForEnter();
         motdServer.stop();
         if (screenshotBot != null) screenshotBot.stop();
+        if (minecraftAdapter != null) minecraftAdapter.stop();
         if (oneBotServer != null) oneBotServer.shutdownNow();
         server.shutdownNow();
+    }
+
+    private static void waitForEnter() {
+        try {
+            BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
+            reader.readLine();
+        } catch (Exception e) {
+            // 忽略异常
+        }
     }
 
     private static boolean hasArg(String[] args, String target) {

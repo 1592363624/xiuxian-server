@@ -2,13 +2,15 @@ package com.mtxgdn.onebot.command.account;
 
 import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandContext;
+import com.mtxgdn.minecraft.adapter.MinecraftAdapter;
+import com.mtxgdn.minecraft.adapter.MinecraftCommandContext;
 import com.mtxgdn.onebot.command.OneBotCommandContext;
 
 public class UnbindCommand extends Command {
 
     public UnbindCommand() {
         super(new String[]{"unbind", "解绑"},
-                "解除QQ号与游戏账号的绑定",
+                "解除QQ号/MC号与游戏账号的绑定",
                 "/unbind",
                 "账号",
                 "game.player.info",
@@ -17,7 +19,12 @@ public class UnbindCommand extends Command {
 
     @Override
     public void execute(CommandContext ctx) {
-        OneBotCommandContext octx = (OneBotCommandContext) ctx;
-        octx.getAccountFlow().handleUnbind(octx.getSocket(), octx.getSelfId(), octx.getSenderId());
+        if (ctx instanceof OneBotCommandContext) {
+            OneBotCommandContext octx = (OneBotCommandContext) ctx;
+            octx.getAccountFlow().handleUnbind(octx.getSocket(), octx.getSelfId(), octx.getSenderId());
+        } else if (ctx instanceof MinecraftCommandContext) {
+            MinecraftCommandContext mctx = (MinecraftCommandContext) ctx;
+            MinecraftAdapter.getInstance().handleUnbind(mctx.getMcName(), mctx.getMcUuid());
+        }
     }
 }

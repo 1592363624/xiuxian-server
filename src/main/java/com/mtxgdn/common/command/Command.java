@@ -174,6 +174,19 @@ public abstract class Command {
         return privateOnly;
     }
 
+    /**
+     * 返回此命令的 OneBot 子命令名列表，用于帮助信息中紧凑展示。
+     */
+    public List<String> getSubCommandNames() {
+        List<String> names = new ArrayList<>();
+        for (RouteDefinition r : routes) {
+            if (!r.isHttpOnly() && r.getSubCommand() != null) {
+                names.add(r.getSubCommand());
+            }
+        }
+        return names;
+    }
+
     public boolean shouldShowInHelp(Long userId) {
         if (permission == null) {
             return true;

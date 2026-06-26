@@ -5,6 +5,8 @@ import com.mtxgdn.game.entity.PlayerInfo;
 import com.mtxgdn.game.item.Item;
 import com.mtxgdn.game.item.ItemRegistry;
 import com.mtxgdn.game.service.ItemService;
+import com.mtxgdn.minecraft.adapter.MinecraftPlayerBinding;
+import com.mtxgdn.minecraft.adapter.MinecraftPlayerBindingService;
 import com.mtxgdn.onebot.QqBinding;
 import com.mtxgdn.onebot.QqBindingService;
 import com.mtxgdn.common.service.ServiceRegistry;
@@ -41,12 +43,18 @@ public abstract class CommandContext {
     public abstract void replyPrivate(String message);
 
     public Long requireBinding() {
-        QqBinding b = new QqBindingService().findByQq(senderId);
-        if (b == null) {
-            reply("请先注册或绑定账号。\n注册: /register <用户名> <密码>\n绑定: /bind");
-            return null;
+        // 先查 QQ 绑定
+        QqBinding qqB = new QqBindingService().findByQq(senderId);
+        if (qqB != null) {
+            return qqB.getUserId();
         }
-        return b.getUserId();
+        // 再查 MC 绑定
+        MinecraftPlayerBinding mcB = new MinecraftPlayerBindingService().findByMcUuid(senderId);
+        if (mcB != null) {
+            return mcB.getUserId();
+        }
+        reply("请先注册或绑定账号。\n注册: /register <用户名> <密码>\n绑定: /bind");
+        return null;
     }
 
     public PlayerInfo requirePlayer(Long userId) {
@@ -59,11 +67,11 @@ public abstract class CommandContext {
     }
 
     public boolean checkPermission(String permission) {
-        QqBinding b = new QqBindingService().findByQq(senderId);
-        if (b == null) {
+        Long userId = resolveUserId();
+        if (userId == null) {
             return false;
         }
-        if (!PermissionService.hasPermission(b.getUserId(), permission)) {
+        if (!PermissionService.hasPermission(userId, permission)) {
             reply("权限不足，你无权使用此功能。");
             return false;
         }
@@ -71,16 +79,24 @@ public abstract class CommandContext {
     }
 
     public boolean requirePermission(String permission) {
-        QqBinding b = new QqBindingService().findByQq(senderId);
-        if (b == null) {
+        Long userId = resolveUserId();
+        if (userId == null) {
             reply("请先绑定账号。\n私聊使用 /bind");
             return false;
         }
-        if (!PermissionService.hasPermission(b.getUserId(), permission)) {
+        if (!PermissionService.hasPermission(userId, permission)) {
             reply("权限不足，你无权使用此功能。");
             return false;
         }
         return true;
+    }
+
+    private Long resolveUserId() {
+        QqBinding qqB = new QqBindingService().findByQq(senderId);
+        if (qqB != null) return qqB.getUserId();
+        MinecraftPlayerBinding mcB = new MinecraftPlayerBindingService().findByMcUuid(senderId);
+        if (mcB != null) return mcB.getUserId();
+        return null;
     }
 
     public static String formatPlayerStatus(PlayerInfo p) {

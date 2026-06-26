@@ -49,6 +49,7 @@ public class PermissionService {
         moderatorPermissions.add(PermissionCode.ADMIN_STATUS);
         moderatorPermissions.add(PermissionCode.ADMIN_LOGS_VIEW);
         moderatorPermissions.add(PermissionCode.QQ_COMMAND_ADMIN);
+        moderatorPermissions.add(PermissionCode.ADMIN_BLACKLIST_VIEW);
 
         // ADMIN: 全部权限，但不含最高管理权限
         Set<PermissionCode> adminPermissions = EnumSet.allOf(PermissionCode.class);

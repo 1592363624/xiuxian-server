@@ -1,3 +1,56 @@
+# V1.4.1-alpha2 更新日志（黑名单系统 + 自动禁言）
+
+---
+
+## 🔒 黑名单系统
+
+### 后台管理
+- 新增 `/admin/blacklist` API —— 查看黑名单列表
+- 新增 `/admin/blacklist` POST —— 添加黑名单（支持 QQ号 + 原因）
+- 新增 `/admin/blacklist/{qqNumber}` DELETE —— 移除黑名单
+- 黑名单作用于对应账户绑定的 QQ 账号
+- 新增权限码：`admin.blacklist.view`（查看）/ `admin.blacklist.manage`（管理）
+
+### OneBot 群组配置
+- 新增 `/admin/onebot/groups` API —— 查看所有群组配置
+- 新增 `/admin/onebot/groups/{groupId}/autoMute` —— 设置自动禁言开关
+- 新增 `/admin/onebot/groups/{groupId}/muteDuration` —— 设置禁言天数（1-30天，默认29天）
+- 默认不开启自动禁言，需单独为每个群组开启
+- 新增权限码：`admin.onebot.group.config`
+
+### 自动禁言逻辑
+- 当黑名单用户在群组发送消息时，自动检测机器人是否为管理员
+- 如果机器人是管理员，对该用户执行指定天数的禁言
+- 每12小时自动续期禁言，确保黑名单用户持续被封禁
+- 从黑名单移除用户即可取消禁言
+
+---
+
+## 📁 新增文件
+
+| 文件 | 描述 |
+|------|------|
+| `onebot/Blacklist.java` | 黑名单实体类（QQ号/用户ID/原因/封禁者/时间） |
+| `onebot/BlacklistService.java` | 黑名单服务（查询/添加/移除） |
+| `onebot/OneBotGroupConfig.java` | 群组配置实体（自动禁言开关/禁言天数） |
+| `onebot/OneBotGroupConfigService.java` | 群组配置服务（查询/保存/删除） |
+
+---
+
+## 🗃 数据库
+
+- 新增 `blacklist` 表 —— 黑名单记录
+- 新增 `onebot_group_config` 表 —— OneBot 群组配置
+
+---
+
+## 🐛 修复
+
+- 修复：按 Enter 键无法正常关闭程序（改用 BufferedReader.readLine()）
+- 移除：`/quiz start` 和 `/quiz stop` 功能（题库仅保留查看/添加/删除）
+
+---
+
 # V1.4.1-alpha1 更新日志（插件生成器 + GUI + 事件系统）
 
 ---

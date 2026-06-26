@@ -3,6 +3,8 @@ package com.mtxgdn.onebot.command.account;
 import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandContext;
 import com.mtxgdn.common.command.CommandRegistry;
+import com.mtxgdn.minecraft.adapter.MinecraftPlayerBinding;
+import com.mtxgdn.minecraft.adapter.MinecraftPlayerBindingService;
 import com.mtxgdn.onebot.QqBinding;
 import com.mtxgdn.onebot.QqBindingService;
 import java.util.*;
@@ -18,8 +20,17 @@ public class HelpCommand extends Command {
 
     @Override
     public void execute(CommandContext ctx) {
-        QqBinding b = new QqBindingService().findByQq(ctx.getSenderId());
-        Long userId = b != null ? b.getUserId() : null;
+        // 同时查找 QQ 绑定和 MC 绑定
+        Long userId = null;
+        QqBinding qqBinding = new QqBindingService().findByQq(ctx.getSenderId());
+        if (qqBinding != null) {
+            userId = qqBinding.getUserId();
+        } else {
+            MinecraftPlayerBinding mcBinding = new MinecraftPlayerBindingService().findByMcUuid(ctx.getSenderId());
+            if (mcBinding != null) {
+                userId = mcBinding.getUserId();
+            }
+        }
 
         // 按分类动态分组，按 Command.getCategoryOrder() 排序
         Map<String, List<Command>> categories = new LinkedHashMap<>();
@@ -37,7 +48,7 @@ public class HelpCommand extends Command {
         }));
 
         StringBuilder sb = new StringBuilder();
-        sb.append("════ 修仙世界 · QQ Bot 指令 ════\n");
+        sb.append("════ 修仙世界 · 指令列表 ════\n");
 
         for (String cat : orderedCats) {
             List<Command> cmds = categories.get(cat);
@@ -55,13 +66,27 @@ public class HelpCommand extends Command {
     }
 
     private String formatCommand(Command cmd) {
-        String usage = cmd.getUsage();
+        String name = cmd.getNames()[0];
         String desc = cmd.getDescription();
-        if (desc == null || desc.isEmpty()) desc = usage;
-        if (usage.length() < 13) {
-            return String.format("  %-13s %s", usage, desc);
+
+        // 如果有子命令，紧凑展示
+        List<String> subs = cmd.getSubCommandNames();
+        if (!subs.isEmpty()) {
+            String subStr = String.join("|", subs);
+            if (subStr.length() > 24) {
+                subStr = subStr.substring(0, 22) + "..";
+            }
+            name = name + " [" + subStr + "]";
+        }
+
+        // 描述可为空时回退
+        if (desc == null || desc.isBlank()) desc = "";
+
+        // 固定宽度对齐
+        if (name.length() < 13) {
+            return String.format("  %-13s %s", "/" + name, desc);
         } else {
-            return String.format("  %s  -  %s", usage, desc);
+            return String.format("  %s  %s", "/" + name, desc);
         }
     }
 }

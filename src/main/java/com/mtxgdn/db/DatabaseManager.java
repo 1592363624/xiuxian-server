@@ -314,6 +314,15 @@ public class DatabaseManager {
                 (IS_SQLITE ? "" : ", FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE") +
                 ")";
 
+        String mcBindingsTableSql = "CREATE TABLE IF NOT EXISTS mc_bindings (" +
+                "id " + pk + ", " +
+                "mc_uuid VARCHAR(64) NOT NULL UNIQUE, " +
+                "mc_name VARCHAR(32) NOT NULL, " +
+                "user_id BIGINT NOT NULL UNIQUE, " +
+                "created_at " + tsDefault +
+                (IS_SQLITE ? "" : ", FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE") +
+                ")";
+
         String rolesTableSql = "CREATE TABLE IF NOT EXISTS roles (" +
                 "id " + pk + ", " +
                 "name VARCHAR(32) NOT NULL UNIQUE, " +
@@ -484,6 +493,7 @@ public class DatabaseManager {
             stmt.execute(tradeListingsTableSql);
             stmt.execute(playerDailyTableSql);
             stmt.execute(qqBindingsTableSql);
+            stmt.execute(mcBindingsTableSql);
             stmt.execute(rolesTableSql);
             stmt.execute(permissionsTableSql);
             stmt.execute(rolePermissionsTableSql);
@@ -554,6 +564,26 @@ public class DatabaseManager {
                     "created_at " + tsDefault +
                     ")";
             stmt.execute(auctionBidsTableSql);
+
+            String blacklistTableSql = "CREATE TABLE IF NOT EXISTS blacklist (" +
+                    "id " + pk + ", " +
+                    "qq_number VARCHAR(32) NOT NULL UNIQUE, " +
+                    "user_id BIGINT DEFAULT NULL, " +
+                    "reason VARCHAR(256) DEFAULT '', " +
+                    "banned_by BIGINT DEFAULT NULL, " +
+                    "created_at " + tsDefault +
+                    ")";
+            stmt.execute(blacklistTableSql);
+
+            String onebotGroupConfigTableSql = "CREATE TABLE IF NOT EXISTS onebot_group_config (" +
+                    "id " + pk + ", " +
+                    "group_id BIGINT NOT NULL UNIQUE, " +
+                    "auto_mute_enabled " + boolType + ", " +
+                    "mute_duration_days INT DEFAULT 29, " +
+                    "created_at " + tsDefault + ", " +
+                    "updated_at " + tsUpdate +
+                    ")";
+            stmt.execute(onebotGroupConfigTableSql);
         } catch (SQLException e) {
             throw new RuntimeException("创建数据库表失败", e);
         }
@@ -657,6 +687,7 @@ public class DatabaseManager {
             int sc2 = stmt.executeUpdate("DELETE FROM sects");
             int pl = stmt.executeUpdate("DELETE FROM players");
             int qb = stmt.executeUpdate("DELETE FROM qq_bindings");
+            int mb = stmt.executeUpdate("DELETE FROM mc_bindings");
             int ur = stmt.executeUpdate("DELETE FROM user_roles");
             int rp = stmt.executeUpdate("DELETE FROM role_permissions");
             int roles = stmt.executeUpdate("DELETE FROM roles");
@@ -681,6 +712,7 @@ public class DatabaseManager {
             result.put("sects", sc2);
             result.put("players", pl);
             result.put("qq_bindings", qb);
+            result.put("mc_bindings", mb);
             result.put("user_roles", ur);
             result.put("role_permissions", rp);
             result.put("roles", roles);

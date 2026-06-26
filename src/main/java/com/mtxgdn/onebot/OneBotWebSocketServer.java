@@ -16,6 +16,7 @@ import com.mtxgdn.util.GameLogger;
 import com.mtxgdn.util.OneBotLogger;
 import com.mtxgdn.util.PlayerActionLogger;
 import com.mtxgdn.util.RateLimiter;
+import com.mtxgdn.util.StatsCollector;
 import org.glassfish.grizzly.websockets.DataFrame;
 import org.glassfish.grizzly.websockets.WebSocket;
 import org.glassfish.grizzly.websockets.WebSocketApplication;
@@ -42,6 +43,86 @@ public class OneBotWebSocketServer extends WebSocketApplication
     private final Map<WebSocket, String> sessionBots = new ConcurrentHashMap<>();
     private final Map<String, WebSocket> botSessions = new ConcurrentHashMap<>();
     private final Map<String, PendingSession> pendingSessions = new ConcurrentHashMap<>();
+
+    // 黑名单自动续期禁言定时任务
+    private final java.util.concurrent.ScheduledExecutorService muteRenewalScheduler =
+            java.util.concurrent.Executors.newSingleThreadScheduledExecutor();
+    private final BlacklistService blacklistService = new BlacklistService();
+    private final OneBotGroupConfigService groupConfigService = new OneBotGroupConfigService();
+
+    public OneBotWebSocketServer() {
+        // 每12小时检查一次黑名单用户并续期禁言
+        muteRenewalScheduler.scheduleAtFixedRate(this::renewMuteForBlacklistedUsers,
+                12, 12, java.util.concurrent.TimeUnit.HOURS);
+        log.info("黑名单自动续期禁言定时任务已启动（每12小时执行一次）");
+    }
+
+    private void renewMuteForBlacklistedUsers() {
+        if (botSessions.isEmpty()) {
+            return;
+        }
+        java.util.List<Blacklist> blacklist = blacklistService.getAllBlacklist();
+        if (blacklist.isEmpty()) {
+            return;
+        }
+        java.util.List<OneBotGroupConfig> configs = groupConfigService.getAllConfigs();
+        if (configs.isEmpty()) {
+            return;
+        }
+
+        for (Map.Entry<String, WebSocket> entry : botSessions.entrySet()) {
+            String selfId = entry.getKey();
+            WebSocket socket = entry.getValue();
+
+            for (OneBotGroupConfig config : configs) {
+                if (!config.isAutoMuteEnabled()) {
+                    continue;
+                }
+                Long groupId = config.getGroupId();
+                int muteDays = config.getMuteDurationDays();
+
+                for (Blacklist b : blacklist) {
+                    // 检查机器人是否为管理员，然后续期禁言
+                    checkAndRenewMute(socket, selfId, groupId, b.getQqNumber(), muteDays);
+                }
+            }
+        }
+        log.info("黑名单自动续期禁言检查完成，处理 " + blacklist.size() + " 个黑名单用户");
+    }
+
+    private void checkAndRenewMute(WebSocket socket, String selfId, Long groupId, String targetQq, int muteDays) {
+        JsonObject api = new JsonObject();
+        api.addProperty("action", "get_group_member_info");
+        JsonObject params = new JsonObject();
+        params.addProperty("group_id", groupId);
+        params.addProperty("user_id", selfId);
+        api.add("params", params);
+        api.addProperty("echo", "renew_mute_" + groupId + "_" + targetQq + "_" + muteDays);
+        String jsonStr = gson.toJson(api);
+        botLog.logSendToGroup(groupId, jsonStr);
+        socket.send(jsonStr);
+    }
+
+    private void handleRenewMuteResponse(WebSocket socket, JsonObject json) {
+        String echo = json.has("echo") ? json.get("echo").getAsString() : "";
+        if (!echo.startsWith("renew_mute_")) return;
+
+        String[] parts = echo.substring("renew_mute_".length()).split("_");
+        if (parts.length < 3) return;
+
+        Long groupId = Long.parseLong(parts[0]);
+        String targetQq = parts[1];
+        int muteDays = Integer.parseInt(parts[2]);
+
+        if (json.has("data")) {
+            JsonObject data = json.getAsJsonObject("data");
+            String role = data.has("role") ? data.get("role").getAsString() : "member";
+            if ("admin".equals(role) || "owner".equals(role)) {
+                // 机器人是管理员，续期禁言
+                setGroupBan(socket, groupId, targetQq, muteDays);
+            }
+        }
+    }
 
     private static class PendingSession {
         Long sourceGroupId;
@@ -96,6 +177,11 @@ public class OneBotWebSocketServer extends WebSocketApplication
         }
     }
 
+    public void shutdown() {
+        muteRenewalScheduler.shutdown();
+        log.info("黑名单自动续期禁言定时任务已停止");
+    }
+
     private void handleMetaEvent(WebSocket socket, JsonObject json) {
         String metaType = json.get("meta_event_type").getAsString();
         if ("lifecycle".equals(metaType)) {
@@ -140,12 +226,17 @@ public class OneBotWebSocketServer extends WebSocketApplication
                                        String senderNickname, String rawMessage) {
         log.info("[私聊:" + senderQq + "] " + senderNickname + ": " + rawMessage);
         String trimmed = rawMessage.trim();
+        StatsCollector.getInstance().recordMessage(senderQq, null);
 
         PendingSession session = pendingSessions.get(senderQq);
         if (session != null) {
             handlePendingFlow(socket, selfId, senderQq, session, trimmed);
             return;
         }
+
+        com.mtxgdn.onebot.quiz.QuizService.getInstance().processMessage(rawMessage);
+
+        if (tryHandleQuiz(socket, selfId, senderQq, null, trimmed)) return;
 
         if (!isCommand(trimmed)) return;
 
@@ -161,6 +252,23 @@ public class OneBotWebSocketServer extends WebSocketApplication
                                      String senderQq, String senderNickname, String rawMessage) {
         log.info("[群聊:" + groupId + "] [QQ:" + senderQq + "] " + senderNickname + ": " + rawMessage);
         String trimmed = rawMessage.trim();
+        StatsCollector.getInstance().recordMessage(senderQq, groupId);
+
+        // 黑名单检查：如果在黑名单中且群组启用了自动禁言，则禁言
+        BlacklistService blacklistService = new BlacklistService();
+        if (blacklistService.isBlacklisted(senderQq)) {
+            OneBotGroupConfigService configService = new OneBotGroupConfigService();
+            if (configService.isAutoMuteEnabled(groupId)) {
+                int muteDays = configService.getMuteDuration(groupId);
+                checkAndMuteBlacklistedUser(socket, selfId, groupId, senderQq, muteDays);
+            }
+            return;
+        }
+
+        com.mtxgdn.onebot.quiz.QuizService.getInstance().processMessage(rawMessage);
+
+        if (tryHandleQuiz(socket, selfId, senderQq, groupId, trimmed)) return;
+
         if (!isCommand(trimmed)) return;
 
         String[] parsed = parseCommand(trimmed);
@@ -177,8 +285,22 @@ public class OneBotWebSocketServer extends WebSocketApplication
         dispatchCommand(socket, selfId, senderQq, senderNickname, groupId, parsed[0], parsed[1]);
     }
 
+    private boolean tryHandleQuiz(WebSocket socket, String selfId, String senderQq,
+                                   Long groupId, String message) {
+        com.mtxgdn.onebot.quiz.QuizService quiz = com.mtxgdn.onebot.quiz.QuizService.getInstance();
+        com.mtxgdn.onebot.quiz.QuizQuestion q = quiz.findMatch(message);
+        if (q == null) return false;
+
+        StringBuilder sb = new StringBuilder();
+        sb.append(q.getQuestion()).append("\n");
+        sb.append("\n修仙答").append(q.getAnswer());
+        replyToSource(socket, selfId, senderQq, groupId, sb.toString());
+        return true;
+    }
+
     private void dispatchCommand(WebSocket socket, String selfId, String senderQq,
                                   String senderNickname, Long groupId, String cmd, String arg) {
+        StatsCollector.getInstance().recordCommand(cmd, groupId);
         Command command = CommandRegistry.get(cmd);
         if (command == null) {
             String msg = "未知指令，请输入 /help 查看可用指令";
@@ -211,6 +333,10 @@ public class OneBotWebSocketServer extends WebSocketApplication
         if (!"ok".equals(status)) {
             log.warn("API 调用失败 [echo=" + echo + "]");
         }
+        // 处理管理员检查响应
+        handleAdminCheckResponse(socket, json);
+        // 处理续期禁言响应
+        handleRenewMuteResponse(socket, json);
     }
 
     // ==================== OneBotMessageSender ====================
@@ -538,5 +664,63 @@ public class OneBotWebSocketServer extends WebSocketApplication
             stmt.setLong(1, userId);
             stmt.executeUpdate();
         } catch (SQLException e) { throw new RuntimeException("删除用户失败", e); }
+    }
+
+    // ==================== 黑名单自动禁言 ====================
+
+    private void checkAndMuteBlacklistedUser(WebSocket socket, String selfId, Long groupId, String senderQq, int muteDays) {
+        // 先检查机器人是否为管理员
+        checkBotAdminStatus(socket, selfId, groupId, senderQq, muteDays);
+    }
+
+    private void checkBotAdminStatus(WebSocket socket, String selfId, Long groupId, String targetQq, int muteDays) {
+        JsonObject api = new JsonObject();
+        api.addProperty("action", "get_group_member_info");
+        JsonObject params = new JsonObject();
+        params.addProperty("group_id", groupId);
+        params.addProperty("user_id", selfId);
+        api.add("params", params);
+        api.addProperty("echo", "check_admin_" + groupId + "_" + targetQq + "_" + muteDays);
+        String jsonStr = gson.toJson(api);
+        botLog.logSendToGroup(groupId, jsonStr);
+        socket.send(jsonStr);
+    }
+
+    private void handleAdminCheckResponse(WebSocket socket, JsonObject json) {
+        String echo = json.has("echo") ? json.get("echo").getAsString() : "";
+        if (!echo.startsWith("check_admin_")) return;
+
+        String[] parts = echo.substring("check_admin_".length()).split("_");
+        if (parts.length < 3) return;
+
+        Long groupId = Long.parseLong(parts[0]);
+        String targetQq = parts[1];
+        int muteDays = Integer.parseInt(parts[2]);
+
+        if (json.has("data")) {
+            JsonObject data = json.getAsJsonObject("data");
+            String role = data.has("role") ? data.get("role").getAsString() : "member";
+            if ("admin".equals(role) || "owner".equals(role)) {
+                // 机器人是管理员，执行禁言
+                setGroupBan(socket, groupId, targetQq, muteDays);
+            }
+        }
+    }
+
+    private void setGroupBan(WebSocket socket, Long groupId, String targetQq, int muteDays) {
+        // 禁言时长转换为秒（天数 * 24小时 * 60分钟 * 60秒）
+        long durationSeconds = muteDays * 24 * 60 * 60L;
+        JsonObject api = new JsonObject();
+        api.addProperty("action", "set_group_ban");
+        JsonObject params = new JsonObject();
+        params.addProperty("group_id", groupId);
+        params.addProperty("user_id", targetQq);
+        params.addProperty("duration", durationSeconds);
+        api.add("params", params);
+        api.addProperty("echo", UUID.randomUUID().toString());
+        String jsonStr = gson.toJson(api);
+        botLog.logSendToGroup(groupId, jsonStr);
+        socket.send(jsonStr);
+        log.info("[黑名单禁言] 群:" + groupId + " QQ:" + targetQq + " 禁言" + muteDays + "天");
     }
 }
