@@ -25,6 +25,7 @@
 - **坊市交易**：玩家间物品交易，使用灵石结算，5% 手续费（土金灵根减半），挂单/购买/撤单完整流程
 - **宗门系统**：创建宗门/申请加入/审批/任命/捐献/仓库存取/踢出/解散/宗门升级/宗主转让/宗门战，金丹期以上消耗 500 灵石创建，声望排行，宗门仓库共享物品
 - **物品系统**：7 种类型、6 种稀有度，组件化效果（经验/回血/货币/buff/技能书），支持按中文名称/key 使用物品
+- **能量转化系统**：等价交换式物品能量互转，物品→能量→物品闭环；支持主程序物品和插件物品，插件可通过 `PluginContext.registerItemEnergy()` 注册自定义能量值；管理员可管理玩家能量；REST API 接口开放外部调用
 - **技能系统**：攻击技能和辅助技能，熟练度升级（使用获得熟练度，技能书 +1 级），等级越高蓝耗越大，金水木灵根熟练度 +30%
 - **装备系统**：装备穿戴/卸下，属性加成
 - **聊天系统**：世界频道（全服广播）+ 私聊（点对点消息），消息持久化存储，WebSocket 实时推送
@@ -160,6 +161,7 @@ src/main/java/com/mtxgdn/
 │       ├── ChatService.java        # 聊天系统（世界频道+私聊）
 │       ├── FriendService.java      # 好友系统
 │       ├── TradeService.java       # 坊市交易
+│       ├── EnergyService.java      # 能量转化（物品↔能量 + 插件自定义注册）
 │       └── SectService.java        # 宗门系统
 │
 ├── minecraft/
@@ -179,6 +181,7 @@ src/main/java/com/mtxgdn/
 │       ├── exploration/               # 探索指令（Explore/SecretAreas/SecretEnter）
 │       ├── item/                      # 物品指令（Backpack/ItemUse/ItemMap/Equip/Unequip/Equipped）
 │       ├── market/                    # 坊市指令（Market/ListItem/BuyItem/CancelListing/MyListings）
+│       ├── economy/                   # 经济指令（ExchangeCommand）
 │       ├── social/                    # 社交指令（Friend/PrivateMessage/Rank）
 │       ├── combat/                    # 战斗指令（Pvp/Skills/LearnSkill）
 │       ├── daily/                     # 每日指令（Daily/Morning）
@@ -439,6 +442,10 @@ java -jar target/main-V0.0.0-alpha.jar
 | GET | `/api/game/status` | - | 服务器状态 |
 | GET | `/api/game/players` | - | 玩家排行榜 |
 | GET | `/api/game/players/search` | - | 搜索玩家 |
+| GET | `/api/game/energy/status` | - | 查询自身能量值 |
+| GET | `/api/game/energy/list` | - | 可转化物品列表（含能量价值） |
+| POST | `/api/game/energy/convert` | - | 物品转化为能量 |
+| POST | `/api/game/energy/exchange` | - | 能量兑换为物品 |
 
 ### 管理后台 API（需管理员 Token）
 
@@ -457,6 +464,10 @@ java -jar target/main-V0.0.0-alpha.jar
 | DELETE | `/api/admin/user/{userId}/role/{roleName}` | `admin.users.manage` | 移除用户角色 |
 | POST | `/api/admin/database/clear_players` | `admin.database.clear_players` | 清除所有玩家数据 |
 | POST | `/api/admin/database/reset_all` | `admin.database.reset_all` | 重置全部数据（含熔断初始化） |
+| GET | `/api/admin/energy/{playerId}` | `admin.status` | 查看指定玩家能量值 |
+| POST | `/api/admin/energy/set` | `admin.status` | 覆盖玩家能量值 |
+| POST | `/api/admin/energy/add` | `admin.status` | 增加玩家能量值 |
+| POST | `/api/admin/energy/remove` | `admin.status` | 减少玩家能量值 |
 
 ---
 
@@ -661,6 +672,18 @@ java -jar target/main-V0.0.0-alpha.jar
 |------|------|------|
 | `/cleardb_players` / `/清除玩家数据` | `admin.database.clear_players` | 清除所有玩家数据 |
 | `/cleardb_all` / `/重置全部数据` | `admin.database.reset_all` | 重置全部数据并重新初始化 |
+| `/能量管理 <玩家ID> 查看` | `admin.status` | 查看指定玩家能量值 |
+| `/能量管理 <玩家ID> 设置 <值>` | `admin.status` | 设置玩家能量值 |
+| `/能量管理 <玩家ID> 增加 <值>` | `admin.status` | 增加玩家能量值 |
+| `/能量管理 <玩家ID> 减少 <值>` | `admin.status` | 减少玩家能量值 |
+
+### 实用功能
+
+| 指令 | 权限 | 说明 |
+|------|------|------|
+| `/转化 <物品> [数量]` | `game.inventory.view` | 将物品转化为能量（按物品价值） |
+| `/转化 兑换 <物品> [数量]` | `game.inventory.view` | 用能量兑换物品 |
+| `/转化 列表` | `game.inventory.view` | 查看所有可转化物品及能量价值 |
 
 ---
 
@@ -947,6 +970,7 @@ Boss 拥有 3 倍以上属性，更高掉落率和更丰富的稀有物品掉落
 | `sect_warehouse_items` | 宗门仓库物品（宗门ID、物品种类、数量） |
 | `sect_wars` | 宗门战记录（攻方/守方/胜方/比分/战报） |
 | `player_daily` | 每日数据（晨修时间、机缘进度、活跃天数） |
+| `player_energy` | 玩家能量值（能量转化系统） |
 | `qq_bindings` | QQ 与游戏账号绑定 |
 | `roles` | 角色定义（名称、显示名、等级） |
 | `permissions` | 权限码定义 |

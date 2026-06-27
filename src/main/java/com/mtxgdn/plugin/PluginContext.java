@@ -117,6 +117,19 @@ public final class PluginContext {
         log.debug("注册物品: " + item.getFullKey());
     }
 
+    /**
+     * 注册物品的能量转化值（供能量转化系统使用）。
+     * 插件可以通过此接口为自己的物品设置自定义能量价值，
+     * 无需修改物品本身的 price 属性。
+     *
+     * @param itemKey     物品完整键（如 "myplugin:custom_sword"）
+     * @param energyValue 每个物品对应的能量值（必须大于0）
+     */
+    public void registerItemEnergy(String itemKey, long energyValue) {
+        EnergyService.registerItemEnergy(itemKey, energyValue);
+        log.debug("注册物品能量值: " + itemKey + " = " + energyValue);
+    }
+
     /** 注册一个探索事件。 */
     public void registerExplorationEvent(ExplorationEvent event) {
         ExplorationEventRegistry.register(event);
@@ -181,4 +194,5 @@ public final class PluginContext {
     public TradeService getTradeService() { return ServiceRegistry.getTradeService(); }
     public NewbieGuideService getGuideService() { return ServiceRegistry.getGuideService(); }
     public RealmService getRealmService() { return ServiceRegistry.getRealmService(); }
+    public EnergyService getEnergyService() { return ServiceRegistry.getEnergyService(); }
 }

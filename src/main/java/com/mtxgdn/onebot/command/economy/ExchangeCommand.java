@@ -83,7 +83,7 @@ public class ExchangeCommand extends Command {
             return;
         }
 
-        long energyPerItem = item.getPrice();
+        long energyPerItem = EnergyService.resolveEnergyValue(fullKey);
         if (energyPerItem <= 0) {
             ctx.reply("【" + item.getName() + "】没有转化价值，无法转化为能量。");
             return;
@@ -135,7 +135,7 @@ public class ExchangeCommand extends Command {
             return;
         }
 
-        long energyPerItem = item.getPrice();
+        long energyPerItem = EnergyService.resolveEnergyValue(item.getFullKey());
         if (energyPerItem <= 0) {
             ctx.reply("【" + item.getName() + "】没有转化价值，无法用能量兑换。");
             return;
@@ -178,13 +178,14 @@ public class ExchangeCommand extends Command {
         sb.append("可转化的物品列表（按价值排序）:\n");
 
         items.stream()
-                .filter(item -> item.getPrice() > 0)
-                .sorted((a, b) -> Long.compare(b.getPrice(), a.getPrice()))
+                .filter(item -> EnergyService.resolveEnergyValue(item.getFullKey()) > 0)
+                .sorted((a, b) -> Long.compare(EnergyService.resolveEnergyValue(b.getFullKey()), EnergyService.resolveEnergyValue(a.getFullKey())))
                 .forEach(item -> {
+                    long value = EnergyService.resolveEnergyValue(item.getFullKey());
                     sb.append("  ")
                             .append(item.getName())
                             .append(" (").append(item.getFullKey()).append(")")
-                            .append(" - 价值: ").append(item.getPrice()).append(" 能量\n");
+                            .append(" - 价值: ").append(value).append(" 能量\n");
                 });
 
         if (sb.length() == 0 || sb.indexOf("价值:") == -1) {
@@ -263,7 +264,7 @@ public class ExchangeCommand extends Command {
                 return result;
             }
 
-            long energyPerItem = item.getPrice();
+            long energyPerItem = EnergyService.resolveEnergyValue(fullKey);
             if (energyPerItem <= 0) {
                 result.addProperty("code", 400);
                 result.addProperty("message", "该物品没有转化价值");
@@ -327,7 +328,7 @@ public class ExchangeCommand extends Command {
                 return result;
             }
 
-            long energyPerItem = item.getPrice();
+            long energyPerItem = EnergyService.resolveEnergyValue(item.getFullKey());
             if (energyPerItem <= 0) {
                 result.addProperty("code", 400);
                 result.addProperty("message", "该物品没有转化价值，无法兑换");
@@ -380,13 +381,13 @@ public class ExchangeCommand extends Command {
 
             JsonArray itemsArr = new JsonArray();
             ItemRegistry.getAll().stream()
-                    .filter(item -> item.getPrice() > 0)
-                    .sorted((a, b) -> Long.compare(b.getPrice(), a.getPrice()))
+                    .filter(item -> EnergyService.resolveEnergyValue(item.getFullKey()) > 0)
+                    .sorted((a, b) -> Long.compare(EnergyService.resolveEnergyValue(b.getFullKey()), EnergyService.resolveEnergyValue(a.getFullKey())))
                     .forEach(item -> {
                         JsonObject io = new JsonObject();
                         io.addProperty("itemKey", item.getFullKey());
                         io.addProperty("itemName", item.getName());
-                        io.addProperty("energyValue", item.getPrice());
+                        io.addProperty("energyValue", EnergyService.resolveEnergyValue(item.getFullKey()));
                         itemsArr.add(io);
                     });
 

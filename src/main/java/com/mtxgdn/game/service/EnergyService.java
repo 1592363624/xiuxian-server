@@ -1,13 +1,67 @@
 package com.mtxgdn.game.service;
 
 import com.mtxgdn.db.DatabaseManager;
+import com.mtxgdn.game.item.Item;
+import com.mtxgdn.game.item.ItemRegistry;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 public class EnergyService {
+
+    /** 插件注册的自定义物品能量值 key=fullKey → value=能量值 */
+    private static final Map<String, Long> customEnergyValues = new LinkedHashMap<>();
+
+    private static volatile Map<String, Long> customEnergyView;
+
+    /**
+     * 注册自定义物品能量值（供插件调用）。
+     * 若物品未注册，能量值仍会被记录；等物品注册后生效。
+     */
+    public static void registerItemEnergy(String itemKey, long energyValue) {
+        if (energyValue <= 0) {
+            throw new IllegalArgumentException("能量值必须大于0: " + itemKey);
+        }
+        customEnergyValues.put(itemKey, energyValue);
+        customEnergyView = null; // 使缓存失效
+        System.out.println("[EnergyService] 注册物品能量值: " + itemKey + " = " + energyValue);
+    }
+
+    /**
+     * 解析物品的能量值。
+     * 优先返回插件注册的自定义值，其次返回物品本身的 price。
+     */
+    public static long resolveEnergyValue(String itemKey) {
+        Map<String, Long> view = getCustomEnergyView();
+        Long custom = view.get(itemKey);
+        if (custom != null) {
+            return custom;
+        }
+        Item item = ItemRegistry.get(itemKey);
+        if (item != null && item.getPrice() > 0) {
+            return item.getPrice();
+        }
+        return 0;
+    }
+
+    /**
+     * 获取当前所有自定义能量值（只读视图）。
+     */
+    public static Map<String, Long> getCustomEnergyValues() {
+        return getCustomEnergyView();
+    }
+
+    private static synchronized Map<String, Long> getCustomEnergyView() {
+        if (customEnergyView == null) {
+            customEnergyView = Collections.unmodifiableMap(new LinkedHashMap<>(customEnergyValues));
+        }
+        return customEnergyView;
+    }
 
     /**
      * 获取玩家能量值
