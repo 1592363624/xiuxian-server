@@ -359,6 +359,9 @@ select option { background: var(--bg-panel); color: var(--text-primary); }
   padding: 3px 10px; border-radius: 20px; font-size: 11px;
   display: inline-flex; align-items: center; gap: 4px;
 }
+.tag-perm {
+  background: rgba(212,168,83,0.15); color: var(--gold);
+}
 .tag .tag-x {
   cursor: pointer; color: var(--crimson);
   font-weight: bold; font-size: 14px; line-height: 1;
@@ -1401,19 +1404,35 @@ async function loadUsers() {
       document.getElementById('userRolesTable').innerHTML = '<div class="empty">暂无用户</div>';
       return;
     }
-    const roles = await api('/roles');
+    const [roles, perms] = await Promise.all([api('/roles'), api('/permissions')]);
     const allRoles = [];
     for (const r of roles.roles) allRoles.push(r.name);
+    const allPerms = perms.permissions || [];
 
-    let h = '<table><tr><th>ID</th><th>用户名</th><th>角色</th><th>操作</th></tr>';
+    let h = '<table><tr><th>ID</th><th>用户名</th><th>角色</th><th>单独权限</th><th>操作</th></tr>';
     for (const u of d.users) {
       const roleTags = (u.roles||[]).map(r =>
         '<span class="tag">' + $h(r) + ' <span class="tag-x" onclick="removeRole(' + u.id + ',\'' + r + '\')" title="移除角色">&times;</span></span>'
       ).join(' ');
+
+      const directPerms = u.directPermissions || [];
+      const permTags = directPerms.map(p =>
+        '<span class="tag tag-perm">' + $h(p) + ' <span class="tag-x" onclick="removePermission(' + u.id + ',\'' + p + '\')" title="移除权限">&times;</span></span>'
+      ).join(' ');
+
+      const availablePerms = allPerms.filter(p => !directPerms.includes(p.code));
+      const permOptions = availablePerms.map(p => '<option value="' + p.code + '">' + $h(p.code) + ' (' + $h(p.category) + ')</option>').join('');
+      const permRow = (hasPerm('admin.users.manage') ?
+        '<div style="margin-top:4px;display:flex;gap:4px;align-items:center">' +
+          '<select id="permSel_' + u.id + '" style="width:180px;font-size:11px"><option value="">--添加权限--</option>' + permOptions + '</select>' +
+          '<button class="btn btn-action btn-sm" onclick="assignPermission(' + u.id + ')">+</button>' +
+        '</div>' : '');
+
       h += '<tr>' +
         '<td style="color:var(--text-muted)">' + u.id + '</td>' +
         '<td>' + $h(u.username) + '</td>' +
         '<td><span class="tags">' + (roleTags || '<span class="badge badge-gray">无</span>') + '</span></td>' +
+        '<td><span class="tags">' + (permTags || '<span class="badge badge-gray">—</span>') + '</span>' + permRow + '</td>' +
         '<td>' +
           '<select id="roleSel_' + u.id + '" style="width:100px">' +
             allRoles.map(r => '<option value="' + r + '">' + r + '</option>').join('') +
@@ -1425,6 +1444,24 @@ async function loadUsers() {
     h += '</table>';
     document.getElementById('userRolesTable').innerHTML = h;
   } catch (x) { document.getElementById('userRolesTable').innerHTML = '<div class="empty">加载失败</div>'; }
+}
+
+async function assignPermission(uid) {
+  const sel = document.getElementById('permSel_' + uid);
+  const perm = sel.value;
+  if (!perm) { alert('请选择权限'); return; }
+  try {
+    await api('/user/' + uid + '/permissions', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({permission:perm}) });
+    loadUsers();
+  } catch (x) { alert('权限分配失败'); }
+}
+
+async function removePermission(uid, permCode) {
+  if (!confirm('确定移除用户 #' + uid + ' 的权限【' + permCode + '】吗？')) return;
+  try {
+    await api('/user/' + uid + '/permissions/' + encodeURIComponent(permCode), { method:'DELETE' });
+    loadUsers();
+  } catch (x) { alert('权限移除失败'); }
 }
 
 async function assignRole(uid) {

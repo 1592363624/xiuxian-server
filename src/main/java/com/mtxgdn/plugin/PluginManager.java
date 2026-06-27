@@ -175,6 +175,9 @@ public final class PluginManager {
         File dataFolder = new File(pluginsDir, info.getName());
         PluginContext ctx = new PluginContext(info, dataFolder, cl);
 
+        // 5.1 自动加载插件翻译文件
+        ctx.loadLang();
+
         // 6. 记录
         LoadedPlugin lp = new LoadedPlugin(info, instance, ctx, jar);
         loaded.put(info.getName(), lp);

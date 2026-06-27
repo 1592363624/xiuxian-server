@@ -14,8 +14,12 @@ import com.mtxgdn.game.service.PlayerService;
 import com.mtxgdn.game.service.SkillService;
 import com.mtxgdn.game.service.TechniqueService;
 import com.mtxgdn.common.service.ServiceRegistry;
+import com.mtxgdn.entity.User;
 import com.mtxgdn.permission.PermissionCode;
 import com.mtxgdn.permission.PermissionService;
+import com.mtxgdn.permission.RequirePermission;
+import com.mtxgdn.service.UserService;
+import com.mtxgdn.util.JwtUtil;
 import com.mtxgdn.util.GameLogger;
 import com.mtxgdn.util.StatsCollector;
 
@@ -51,18 +55,43 @@ public class AdminResource {
         String username = req.has("username") ? req.get("username").getAsString() : "";
         String password = req.has("password") ? req.get("password").getAsString() : "";
 
-        if (!AdminAuthFilter.validateCredentials(username, password)) {
+        if (username.isBlank() || password.isBlank()) {
+            JsonObject err = new JsonObject();
+            err.addProperty("code", 401);
+            err.addProperty("message", "用户名和密码不能为空");
+            return Response.status(401).entity(gson.toJson(err)).build();
+        }
+
+        UserService userService = new UserService();
+        User user = userService.authenticate(username, password);
+        if (user == null) {
             JsonObject err = new JsonObject();
             err.addProperty("code", 401);
             err.addProperty("message", "用户名或密码错误");
             return Response.status(401).entity(gson.toJson(err)).build();
         }
 
-        String token = AdminAuthFilter.generateAdminToken(username);
+        if (!PermissionService.hasPermission(user.getId(), PermissionCode.ADMIN_LOGIN.getCode())) {
+            JsonObject err = new JsonObject();
+            err.addProperty("code", 403);
+            err.addProperty("message", "无管理后台权限，请联系超级管理员分配角色");
+            return Response.status(403).entity(gson.toJson(err)).build();
+        }
+
+        String token = JwtUtil.generateToken(user.getId(), user.getUsername());
+        String highestRole = PermissionService.getHighestRole(user.getId());
+        JsonArray perms = new JsonArray();
+        for (PermissionCode pc : PermissionService.getUserPermissions(user.getId())) {
+            perms.add(pc.getCode());
+        }
+
         JsonObject result = new JsonObject();
         result.addProperty("code", 200);
         result.addProperty("token", token);
-        result.addProperty("username", username);
+        result.addProperty("username", user.getUsername());
+        result.addProperty("userId", user.getId());
+        result.addProperty("highestRole", highestRole != null ? highestRole : "");
+        result.add("permissions", perms);
         return Response.ok(gson.toJson(result)).build();
     }
 
@@ -136,6 +165,7 @@ public class AdminResource {
     @GET
     @Path("/roles")
     @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("admin.roles.manage")
     public Response getRoles() {
         JsonArray roles = new JsonArray();
         for (Map.Entry<String, Integer> entry : PermissionService.getRoleHierarchy().entrySet()) {
@@ -164,6 +194,7 @@ public class AdminResource {
     @GET
     @Path("/permissions")
     @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("admin.roles.manage")
     public Response getPermissions() {
         JsonArray perms = new JsonArray();
         for (PermissionCode pc : PermissionCode.values()) {
@@ -183,6 +214,7 @@ public class AdminResource {
     @GET
     @Path("/users")
     @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("admin.users.manage")
     public Response getUsersWithRoles() {
         List<Map<String, Object>> users = PermissionService.getAllUsersWithRoles();
 
@@ -200,6 +232,22 @@ public class AdminResource {
                 }
             }
             obj.add("roles", roles);
+            // 单独分配的权限
+            JsonArray directPerms = new JsonArray();
+            @SuppressWarnings("unchecked")
+            List<String> permList = (List<String>) user.get("directPermissions");
+            if (permList != null) {
+                for (String perm : permList) {
+                    directPerms.add(perm);
+                }
+            }
+            obj.add("directPermissions", directPerms);
+            // 全部有效权限
+            JsonArray allPerms = new JsonArray();
+            for (PermissionCode pc : PermissionService.getUserPermissions(((Number) user.get("id")).longValue())) {
+                allPerms.add(pc.getCode());
+            }
+            obj.add("allPermissions", allPerms);
             arr.add(obj);
         }
 
@@ -213,6 +261,7 @@ public class AdminResource {
     @Path("/user/{userId}/role")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("admin.users.manage")
     public Response assignRole(@PathParam("userId") long userId, String body) {
         JsonObject req = com.google.gson.JsonParser.parseString(body).getAsJsonObject();
         String roleName = req.has("role") ? req.get("role").getAsString() : null;
@@ -235,6 +284,7 @@ public class AdminResource {
     @DELETE
     @Path("/user/{userId}/role/{roleName}")
     @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("admin.users.manage")
     public Response removeRole(@PathParam("userId") long userId, @PathParam("roleName") String roleName) {
         if (!PermissionService.getRoleNames().contains(roleName)) {
             JsonObject err = new JsonObject();
@@ -255,9 +305,93 @@ public class AdminResource {
         return Response.ok(gson.toJson(result)).build();
     }
 
+    // ========== 用户单独权限管理 ==========
+
+    @GET
+    @Path("/user/{userId}/permissions")
+    @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("admin.users.manage")
+    public Response getUserDirectPermissions(@PathParam("userId") long userId) {
+        JsonArray perms = new JsonArray();
+        for (PermissionCode pc : PermissionService.getUserDirectPermissions(userId)) {
+            JsonObject obj = new JsonObject();
+            obj.addProperty("code", pc.getCode());
+            obj.addProperty("name", pc.getName());
+            obj.addProperty("category", pc.getCategory());
+            perms.add(obj);
+        }
+        JsonObject result = new JsonObject();
+        result.addProperty("code", 200);
+        result.add("directPermissions", perms);
+
+        JsonArray effectivePerms = new JsonArray();
+        for (PermissionCode pc : PermissionService.getUserPermissions(userId)) {
+            effectivePerms.add(pc.getCode());
+        }
+        result.add("allPermissions", effectivePerms);
+        return Response.ok(gson.toJson(result)).build();
+    }
+
+    @POST
+    @Path("/user/{userId}/permissions")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("admin.users.manage")
+    public Response assignUserPermission(@PathParam("userId") long userId, String body) {
+        JsonObject req = com.google.gson.JsonParser.parseString(body).getAsJsonObject();
+        String permissionCode = req.has("permission") ? req.get("permission").getAsString() : null;
+
+        if (permissionCode == null || permissionCode.isBlank()) {
+            JsonObject err = new JsonObject();
+            err.addProperty("code", 400);
+            err.addProperty("message", "权限码不能为空");
+            return Response.status(400).entity(gson.toJson(err)).build();
+        }
+
+        if (PermissionCode.fromCode(permissionCode) == null) {
+            JsonObject err = new JsonObject();
+            err.addProperty("code", 400);
+            err.addProperty("message", "无效的权限码: " + permissionCode);
+            return Response.status(400).entity(gson.toJson(err)).build();
+        }
+
+        try {
+            PermissionService.assignPermission(userId, permissionCode);
+            JsonObject result = new JsonObject();
+            result.addProperty("code", 200);
+            result.addProperty("message", "权限分配成功");
+            return Response.ok(gson.toJson(result)).build();
+        } catch (Exception e) {
+            JsonObject err = new JsonObject();
+            err.addProperty("code", 500);
+            err.addProperty("message", "分配失败: " + e.getMessage());
+            return Response.status(500).entity(gson.toJson(err)).build();
+        }
+    }
+
+    @DELETE
+    @Path("/user/{userId}/permissions/{permissionCode}")
+    @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("admin.users.manage")
+    public Response removeUserPermission(@PathParam("userId") long userId, @PathParam("permissionCode") String permissionCode) {
+        try {
+            PermissionService.removePermission(userId, permissionCode);
+            JsonObject result = new JsonObject();
+            result.addProperty("code", 200);
+            result.addProperty("message", "权限移除成功");
+            return Response.ok(gson.toJson(result)).build();
+        } catch (Exception e) {
+            JsonObject err = new JsonObject();
+            err.addProperty("code", 500);
+            err.addProperty("message", "移除失败: " + e.getMessage());
+            return Response.status(500).entity(gson.toJson(err)).build();
+        }
+    }
+
     @POST
     @Path("/database/clear_players")
     @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("admin.database.clear_players")
     public Response clearPlayerData() {
         System.out.println("[Admin] >>> POST /admin/database/clear_players");
         Map<String, Integer> counts = DatabaseManager.clearPlayerData();
@@ -281,6 +415,7 @@ public class AdminResource {
     @POST
     @Path("/database/reset_all")
     @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("admin.database.reset_all")
     public Response resetAllData() {
         System.out.println("[Admin] >>> POST /admin/database/reset_all");
         Map<String, Integer> counts = DatabaseManager.resetAllData();
@@ -361,6 +496,7 @@ public class AdminResource {
     @GET
     @Path("/players/{id}")
     @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("admin.status")
     public Response getPlayerDetail(@PathParam("id") long playerId) {
         var p = playerService.getPlayerById(playerId);
         if (p == null) {
@@ -415,6 +551,7 @@ public class AdminResource {
     @Path("/players/{id}/give")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("admin.users.manage")
     public Response giveToPlayer(@PathParam("id") long playerId, String body) {
         var p = playerService.getPlayerById(playerId);
         if (p == null) {
@@ -463,6 +600,7 @@ public class AdminResource {
     @Path("/players/{id}/edit")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("admin.users.manage")
     public Response editPlayer(@PathParam("id") long playerId, String body) {
         var p = playerService.getPlayerById(playerId);
         if (p == null) {
@@ -499,6 +637,7 @@ public class AdminResource {
     @Path("/players/{id}/spiritual-root")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("admin.users.manage")
     public Response setSpiritualRoot(@PathParam("id") long playerId, String body) {
         var p = playerService.getPlayerById(playerId);
         if (p == null) {
@@ -540,6 +679,7 @@ public class AdminResource {
     @GET
     @Path("/spiritual-roots")
     @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("admin.status")
     public Response getSpiritualRoots() {
         JsonArray arr = new JsonArray();
         for (com.mtxgdn.game.entity.SpiritualRoot root : com.mtxgdn.game.entity.SpiritualRoot.values()) {
@@ -566,6 +706,7 @@ public class AdminResource {
     @GET
     @Path("/items")
     @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("admin.status")
     public Response getAllItems() {
         JsonArray arr = new JsonArray();
         for (Item item : ItemRegistry.getAll()) {
@@ -586,6 +727,7 @@ public class AdminResource {
     @GET
     @Path("/player-traces")
     @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("admin.logs.view")
     public Response getPlayerTraces(
             @QueryParam("userId") Long userId,
             @QueryParam("playerName") @DefaultValue("") String playerName,
@@ -639,6 +781,7 @@ public class AdminResource {
     @GET
     @Path("/db/tables")
     @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("admin.database.reset_all")
     public Response getDbTables() {
         try {
             List<String> tables = DatabaseManager.getAllTableNames();
@@ -668,6 +811,7 @@ public class AdminResource {
     @GET
     @Path("/db/tables/{tableName}")
     @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("admin.database.reset_all")
     public Response getTableData(
             @PathParam("tableName") String tableName,
             @QueryParam("limit") @DefaultValue("50") int limit,
@@ -817,6 +961,7 @@ public class AdminResource {
     @Path("/db/tables/{tableName}/{id}")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("admin.database.reset_all")
     public Response updateTableRow(
             @PathParam("tableName") String tableName,
             @PathParam("id") long id,
@@ -916,6 +1061,7 @@ public class AdminResource {
     @Path("/backup/import")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("admin.database.reset_all")
     public Response importBackup(String body) {
         try {
             Map<String, Integer> counts = DatabaseManager.importData(body);
@@ -957,6 +1103,7 @@ public class AdminResource {
     @GET
     @Path("/redeem-codes")
     @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("admin.redeem.code.manage")
     public Response getRedeemCodes() {
         List<com.mtxgdn.game.entity.RedeemCode> codes = redeemCodeService.listAll();
         JsonArray arr = new JsonArray();
@@ -1066,6 +1213,7 @@ public class AdminResource {
     @DELETE
     @Path("/redeem-codes/{id}")
     @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("admin.redeem.code.manage")
     public Response deleteRedeemCode(@PathParam("id") long id) {
         try {
             redeemCodeService.deleteCode(id);
@@ -1113,6 +1261,7 @@ public class AdminResource {
     @GET
     @Path("/stats/messages")
     @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("admin.status")
     public Response getMessageStats() {
         JsonObject stats = StatsCollector.getInstance().getMessageStats();
         JsonObject result = new JsonObject();
@@ -1163,6 +1312,7 @@ public class AdminResource {
     @Path("/blacklist")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("admin.blacklist.manage")
     public Response addToBlacklist(String body) {
         JsonObject req = com.google.gson.JsonParser.parseString(body).getAsJsonObject();
         String qqNumber = req.has("qqNumber") ? req.get("qqNumber").getAsString() : null;
@@ -1284,6 +1434,7 @@ public class AdminResource {
     @DELETE
     @Path("/onebot/groups/{groupId}")
     @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("admin.onebot.group.config")
     public Response deleteGroupConfig(@PathParam("groupId") long groupId) {
         com.mtxgdn.onebot.OneBotGroupConfigService configService = new com.mtxgdn.onebot.OneBotGroupConfigService();
         try {

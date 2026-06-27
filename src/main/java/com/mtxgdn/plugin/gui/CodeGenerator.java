@@ -41,6 +41,9 @@ public final class CodeGenerator {
         generatedPaths.add(writeTemplated(outDir, "plugin.json", "plugin.json.template"));
         generatedPaths.add(writeMainClass(outDir));
 
+        // ========== 翻译文件 ==========
+        generatedPaths.add(writeLangJson(outDir));
+
         // ========== 物品（每个物品一个文件，含其触发器） ==========
         for (RegistrableEntry item : config.getItems()) {
             if (!item.isEnabled() || item.getKey().isEmpty()) continue;
@@ -425,6 +428,45 @@ public final class CodeGenerator {
         File target = new File(outDir, "src/main/java/" + config.getPackagePath() + "/realm/" + className + ".java");
         ensureParent(target);
         Files.write(target.toPath(), sb.toString().getBytes(StandardCharsets.UTF_8));
+        return target.getAbsolutePath();
+    }
+
+    // ==================== 翻译文件 ====================
+
+    private String writeLangJson(File outDir) throws IOException {
+        com.google.gson.Gson gson = new com.google.gson.Gson();
+        java.util.LinkedHashMap<String, String> map = new java.util.LinkedHashMap<>();
+
+        for (RegistrableEntry item : config.getItems()) {
+            if (!item.isEnabled() || item.getKey().isEmpty()) continue;
+            map.put("item." + item.getKey() + ".name", item.getName());
+            if (item.getDescription() != null && !item.getDescription().isEmpty()) {
+                map.put("item." + item.getKey() + ".desc", item.getDescription());
+            }
+        }
+
+        for (RegistrableEntry ev : config.getEvents()) {
+            if (!ev.isEnabled() || ev.getKey().isEmpty()) continue;
+            map.put("explorationevent." + ev.getKey() + ".name", ev.getName());
+            if (ev.getDescription() != null && !ev.getDescription().isEmpty()) {
+                map.put("explorationevent." + ev.getKey() + ".desc", ev.getDescription());
+            }
+        }
+
+        for (RegistrableEntry realm : config.getSecretRealms()) {
+            if (!realm.isEnabled() || realm.getKey().isEmpty()) continue;
+            map.put("secretrealm." + realm.getKey() + ".name", realm.getName());
+            if (realm.getDescription() != null && !realm.getDescription().isEmpty()) {
+                map.put("secretrealm." + realm.getKey() + ".desc", realm.getDescription());
+            }
+        }
+
+        if (map.isEmpty()) return ""; // 没有需要翻译的条目
+
+        String json = gson.toJson(map);
+        File target = new File(outDir, "src/main/resources/lang/zh_cn.json");
+        ensureParent(target);
+        Files.write(target.toPath(), json.getBytes(StandardCharsets.UTF_8));
         return target.getAbsolutePath();
     }
 

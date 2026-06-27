@@ -139,19 +139,51 @@ public class PermissionService {
         return ROLE_HIERARCHY.getOrDefault(role, 0);
     }
 
-    public static Set<PermissionCode> getUserPermissions(long userId) {
-        List<String> roles = getUserRoles(userId);
-        if (roles.isEmpty()) {
-            return ROLE_PERMISSIONS.getOrDefault(getDefaultRoleName(), Collections.emptySet());
+    /**
+     * 获取用户单独分配的权限码（非角色继承）
+     */
+    public static Set<PermissionCode> getUserDirectPermissions(long userId) {
+        Set<PermissionCode> result = EnumSet.noneOf(PermissionCode.class);
+        String sql = "SELECT permission_code FROM user_permissions WHERE user_id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, userId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    PermissionCode pc = PermissionCode.fromCode(rs.getString("permission_code"));
+                    if (pc != null) {
+                        result.add(pc);
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("查询用户单独权限失败", e);
         }
+        return result;
+    }
 
-        Set<PermissionCode> permissions = EnumSet.noneOf(PermissionCode.class);
-        for (String role : roles) {
-            Set<PermissionCode> rolePerms = ROLE_PERMISSIONS.get(role);
-            if (rolePerms != null) {
-                permissions.addAll(rolePerms);
+    /**
+     * 获取用户全部有效权限（角色继承 + 单独分配）
+     */
+    public static Set<PermissionCode> getUserPermissions(long userId) {
+        // 1. 角色继承的权限
+        List<String> roles = getUserRoles(userId);
+        Set<PermissionCode> permissions;
+        if (roles.isEmpty()) {
+            permissions = ROLE_PERMISSIONS.getOrDefault(getDefaultRoleName(), Collections.emptySet());
+        } else {
+            permissions = EnumSet.noneOf(PermissionCode.class);
+            for (String role : roles) {
+                Set<PermissionCode> rolePerms = ROLE_PERMISSIONS.get(role);
+                if (rolePerms != null) {
+                    permissions.addAll(rolePerms);
+                }
             }
         }
+
+        // 2. 合并用户单独分配的权限
+        permissions.addAll(getUserDirectPermissions(userId));
+
         return permissions;
     }
 
@@ -199,6 +231,39 @@ public class PermissionService {
         assignRole(userId, getDefaultRoleName());
     }
 
+    /**
+     * 给用户单独分配一个权限码
+     */
+    public static void assignPermission(long userId, String permissionCode) {
+        if (PermissionCode.fromCode(permissionCode) == null) {
+            throw new IllegalArgumentException("未知权限码: " + permissionCode);
+        }
+        String sql = INSERT_OR_IGNORE + " INTO user_permissions (user_id, permission_code) VALUES (?, ?)";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, userId);
+            ps.setString(2, permissionCode);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new RuntimeException("分配权限失败", e);
+        }
+    }
+
+    /**
+     * 移除用户单独分配的权限码
+     */
+    public static void removePermission(long userId, String permissionCode) {
+        String sql = "DELETE FROM user_permissions WHERE user_id = ? AND permission_code = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, userId);
+            ps.setString(2, permissionCode);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new RuntimeException("移除权限失败", e);
+        }
+    }
+
     public static Set<PermissionCode> getRoleDefaultPermissions(String roleName) {
         return ROLE_PERMISSIONS.getOrDefault(roleName, Collections.emptySet());
     }
@@ -223,8 +288,15 @@ public class PermissionService {
                     roles.add(roleName);
                 }
             }
-            for (Map<String, Object> entry : userMap.values()) {
-                result.add(entry);
+            // 查询每个用户的单独权限
+            for (Map.Entry<Long, Map<String, Object>> entry : userMap.entrySet()) {
+                Set<PermissionCode> directPerms = getUserDirectPermissions(entry.getKey());
+                List<String> permCodes = new ArrayList<>();
+                for (PermissionCode pc : directPerms) {
+                    permCodes.add(pc.getCode());
+                }
+                entry.getValue().put("directPermissions", permCodes);
+                result.add(entry.getValue());
             }
         } catch (SQLException e) {
             throw new RuntimeException("查询用户角色列表失败", e);
@@ -233,6 +305,18 @@ public class PermissionService {
     }
 
     public static void initDefaultData() {
+        // 创建用户单独权限表
+        try (Connection conn = DatabaseManager.getConnection();
+             Statement stmt = conn.createStatement()) {
+            stmt.executeUpdate("CREATE TABLE IF NOT EXISTS user_permissions (" +
+                    "user_id INTEGER NOT NULL, " +
+                    "permission_code TEXT NOT NULL, " +
+                    "UNIQUE(user_id, permission_code)" +
+                    ")");
+        } catch (SQLException e) {
+            throw new RuntimeException("创建用户权限表失败", e);
+        }
+
         for (Map.Entry<String, Integer> entry : ROLE_HIERARCHY.entrySet()) {
             String sql = INSERT_OR_IGNORE + " INTO roles (name, level, display_name) VALUES (?, ?, ?)";
             try (Connection conn = DatabaseManager.getConnection();

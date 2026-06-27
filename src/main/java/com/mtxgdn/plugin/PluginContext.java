@@ -14,6 +14,7 @@ import com.mtxgdn.plugin.event.PluginEvent;
 import com.mtxgdn.plugin.event.PluginEventHandler;
 import com.mtxgdn.plugin.event.PluginEventManager;
 import com.mtxgdn.util.GameLogger;
+import com.mtxgdn.util.LangManager;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -60,6 +61,29 @@ public final class PluginContext {
      */
     public InputStream getResource(String resourcePath) {
         return classLoader.getResourceAsStream(resourcePath);
+    }
+
+    /**
+     * 自动加载插件 jar 包中的翻译文件到全局 {@link LangManager}。
+     * 扫描 jar 根目录下 lang/ 目录中的 .json 文件，按文件名推导语言代码。
+     * 由 PluginManager 在插件加载后自动调用，插件开发者无需手动调用。
+     */
+    public void loadLang() {
+        // 按约定：插件翻译文件位于 jar 内 lang/ 目录，如 lang/zh_cn.json
+        String currentLang = LangManager.getLanguage();
+        tryLoadLangFile(currentLang);
+    }
+
+    private void tryLoadLangFile(String lang) {
+        String path = "lang/" + lang + ".json";
+        try (InputStream is = getResource(path)) {
+            if (is != null) {
+                LangManager.merge(lang, is);
+                log.debug("已加载插件翻译文件: " + path);
+            }
+        } catch (Exception e) {
+            log.warn("加载插件翻译文件失败: " + path + " - " + e.getMessage());
+        }
     }
 
     /**

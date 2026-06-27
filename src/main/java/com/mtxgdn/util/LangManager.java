@@ -64,6 +64,26 @@ public class LangManager {
         }
     }
 
+    /**
+     * 合并外部翻译文件到当前缓存（供插件等使用）。
+     * 若 key 冲突，后加载的会覆盖先加载的。
+     *
+     * @param lang       语言代码，如 "zh_cn"
+     * @param jsonStream JSON 格式翻译文件输入流（调用方负责关闭）
+     */
+    public static void merge(String lang, InputStream jsonStream) {
+        try (Reader reader = new InputStreamReader(jsonStream, StandardCharsets.UTF_8)) {
+            Map<String, String> newEntries = gson.fromJson(reader, MAP_TYPE);
+            if (newEntries != null && !newEntries.isEmpty()) {
+                cache.computeIfAbsent(lang, k -> new ConcurrentHashMap<>()).putAll(newEntries);
+            }
+        } catch (JsonSyntaxException e) {
+            GameLogger.getLogger(LangManager.class).error("合并翻译文件语法错误: lang=" + lang, e);
+        } catch (Exception e) {
+            GameLogger.getLogger(LangManager.class).error("合并翻译文件失败: lang=" + lang, e);
+        }
+    }
+
     public static void reload() {
         cache.clear();
     }

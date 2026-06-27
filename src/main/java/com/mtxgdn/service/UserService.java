@@ -83,6 +83,18 @@ public class UserService {
         return Response.ok(GameMessage.restOk("登录成功", data).toString()).build();
     }
 
+    public User authenticate(String username, String rawPassword) {
+        String trimmedUsername = username.trim();
+        if (trimmedUsername.isEmpty() || rawPassword == null || rawPassword.isEmpty()) {
+            return null;
+        }
+        User user = findUserByUsername(trimmedUsername);
+        if (user == null || !BCrypt.checkpw(rawPassword, user.getPassword())) {
+            return null;
+        }
+        return user;
+    }
+
     private User findUserByUsername(String username) {
         String sql = "SELECT id, username, password FROM users WHERE username = ?";
         try (Connection conn = DatabaseManager.getConnection();
