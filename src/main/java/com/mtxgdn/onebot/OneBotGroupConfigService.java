@@ -17,7 +17,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class OneBotGroupConfigService {
 
-    private static final String CONFIG_FILE = "onebot_group_config.yml";
+    private static final String CONFIG_FILE = "config/onebot_group_config.yml";
     private static final DateTimeFormatter DTF = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     private final Path configPath;

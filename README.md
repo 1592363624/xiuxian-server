@@ -1190,8 +1190,8 @@ public void onEnable(PluginContext context) {
 
 | 文件名 | 说明 |
 |------|------|
-| `blacklist.yml` | 黑名单列表（QQ号、关联用户、封禁原因、封禁者、创建时间） |
-| `onebot_group_config.yml` | OneBot 群组配置（群组ID、自动禁言开关、禁言天数、时间戳） |
+| `config/blacklist.yml` | 黑名单列表（QQ号、关联用户、封禁原因、封禁者、创建时间） |
+| `config/onebot_group_config.yml` | OneBot 群组配置（群组ID、自动禁言开关、禁言天数、时间戳） |
 
 ### blacklist.yml 格式
 

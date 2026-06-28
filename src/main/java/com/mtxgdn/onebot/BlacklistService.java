@@ -17,7 +17,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class BlacklistService {
 
-    private static final String CONFIG_FILE = "blacklist.yml";
+    private static final String CONFIG_FILE = "config/blacklist.yml";
     private static final DateTimeFormatter DTF = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     private final Path configPath;
