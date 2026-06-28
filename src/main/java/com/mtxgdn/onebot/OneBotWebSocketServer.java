@@ -70,6 +70,12 @@ public class OneBotWebSocketServer extends WebSocketApplication
             return;
         }
 
+        // 解析所有黑名单条目对应的QQ号（userId自动查绑定）
+        java.util.List<String> targetQqs = new java.util.ArrayList<>();
+        for (Blacklist b : blacklist) {
+            targetQqs.addAll(blacklistService.resolveQqNumbers(b));
+        }
+
         for (Map.Entry<String, WebSocket> entry : botSessions.entrySet()) {
             String selfId = entry.getKey();
             WebSocket socket = entry.getValue();
@@ -81,13 +87,12 @@ public class OneBotWebSocketServer extends WebSocketApplication
                 Long groupId = config.getGroupId();
                 int muteDays = config.getMuteDurationDays();
 
-                for (Blacklist b : blacklist) {
-                    // 检查机器人是否为管理员，然后续期禁言
-                    checkAndRenewMute(socket, selfId, groupId, b.getQqNumber(), muteDays);
+                for (String targetQq : targetQqs) {
+                    checkAndRenewMute(socket, selfId, groupId, targetQq, muteDays);
                 }
             }
         }
-        log.info("黑名单自动续期禁言检查完成，处理 " + blacklist.size() + " 个黑名单用户");
+        log.info("黑名单自动续期禁言检查完成，处理 " + blacklist.size() + " 个黑名单条目，共 " + targetQqs.size() + " 个目标QQ");
     }
 
     private void checkAndRenewMute(WebSocket socket, String selfId, Long groupId, String targetQq, int muteDays) {

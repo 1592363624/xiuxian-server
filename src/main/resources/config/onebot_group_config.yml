@@ -1,4 +1,22 @@
 # OneBot 群组配置
 # 每个群组可单独控制自动禁言的开关和禁言天数（默认29天）
 # 可通过后台 API 或直接编辑此文件管理群组配置
-groups: []
+
+# 字段说明：
+# groupId: QQ群号（必填）
+# autoMuteEnabled: 是否启用自动禁言，默认false，仅对此群生效
+# muteDurationDays: 禁言天数，默认29天
+# createdAt: 创建时间
+# updatedAt: 更新时间
+
+groups:
+  - groupId: 1234567890
+    autoMuteEnabled: true
+    muteDurationDays: 29
+    createdAt: "2026-06-25 12:00:00"
+    updatedAt: "2026-06-25 12:00:00"
+  - groupId: 0987654321
+    autoMuteEnabled: false
+    muteDurationDays: 7
+    createdAt: "2026-06-25 13:00:00"
+    updatedAt: "2026-06-25 13:00:00"

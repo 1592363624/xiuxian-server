@@ -1,4 +1,24 @@
 # 黑名单配置文件
 # 当黑名单用户在启用了自动禁言的群组中发言时，机器人将自动执行禁言
 # 可通过后台 API 或直接编辑此文件管理黑名单
-entries: []
+
+# 字段说明（qqNumber 和 userId 二选一，不能同时填写）：
+# qqNumber: 被封禁的QQ号码（与 userId 二选一，填QQ号直接ban该QQ）
+# userId: 被封禁的用户ID（与 qqNumber 二选一，会自动查绑定表找到该用户的QQ号并禁言）
+# reason: 封禁原因
+# bannedBy: 执行封禁的管理员用户ID，可为null
+# createdAt: 创建时间，格式如 "2026-06-25 12:00:00"
+
+entries:
+  # 示例1：通过QQ号封禁
+  - qqNumber: "123456789"
+    userId: null
+    reason: "违规发言"
+    bannedBy: 1
+    createdAt: "2026-06-25 12:00:00"
+  # 示例2：通过用户ID封禁（自动查绑定找到对应QQ号）
+  - qqNumber: null
+    userId: 1001
+    reason: "恶意刷屏"
+    bannedBy: null
+    createdAt: "2026-06-25 13:00:00"

@@ -1342,26 +1342,34 @@ public class AdminResource {
     @RequirePermission("admin.blacklist.manage")
     public Response addToBlacklist(String body) {
         JsonObject req = com.google.gson.JsonParser.parseString(body).getAsJsonObject();
-        String qqNumber = req.has("qqNumber") ? req.get("qqNumber").getAsString() : null;
+        // qqNumber 和 userId 二选一
+        String qqNumber = req.has("qqNumber") && !req.get("qqNumber").isJsonNull() ? req.get("qqNumber").getAsString() : null;
+        Long userId = req.has("userId") && !req.get("userId").isJsonNull() ? req.get("userId").getAsLong() : null;
         String reason = req.has("reason") ? req.get("reason").getAsString() : "";
 
-        if (qqNumber == null || qqNumber.isBlank()) {
+        boolean hasQq = qqNumber != null && !qqNumber.isBlank();
+        boolean hasUid = userId != null;
+
+        if (!hasQq && !hasUid) {
             JsonObject err = new JsonObject();
             err.addProperty("code", 400);
-            err.addProperty("message", "QQ号不能为空");
+            err.addProperty("message", "qqNumber 和 userId 必须填写其中一个");
+            return Response.status(400).entity(gson.toJson(err)).build();
+        }
+        if (hasQq && hasUid) {
+            JsonObject err = new JsonObject();
+            err.addProperty("code", 400);
+            err.addProperty("message", "qqNumber 和 userId 只能二选一");
             return Response.status(400).entity(gson.toJson(err)).build();
         }
 
         com.mtxgdn.onebot.BlacklistService blacklistService = new com.mtxgdn.onebot.BlacklistService();
-        com.mtxgdn.onebot.QqBindingService bindingService = new com.mtxgdn.onebot.QqBindingService();
-        com.mtxgdn.onebot.QqBinding binding = bindingService.findByQq(qqNumber);
-        Long userId = binding != null ? binding.getUserId() : null;
 
         try {
             blacklistService.addToBlacklist(qqNumber, userId, reason, null);
             JsonObject result = new JsonObject();
             result.addProperty("code", 200);
-            result.addProperty("message", "已添加到黑名单");
+            result.addProperty("message", hasUid ? "已通过用户ID添加到黑名单" : "已通过QQ号添加到黑名单");
             return Response.ok(gson.toJson(result)).build();
         } catch (RuntimeException e) {
             JsonObject err = new JsonObject();
@@ -1372,12 +1380,33 @@ public class AdminResource {
     }
 
     @DELETE
-    @Path("/blacklist/{qqNumber}")
+    @Path("/blacklist/qq/{qqNumber}")
     @Produces(MediaType.APPLICATION_JSON)
-    public Response removeFromBlacklist(@PathParam("qqNumber") String qqNumber) {
+    @RequirePermission("admin.blacklist.manage")
+    public Response removeFromBlacklistByQq(@PathParam("qqNumber") String qqNumber) {
         com.mtxgdn.onebot.BlacklistService blacklistService = new com.mtxgdn.onebot.BlacklistService();
         try {
             blacklistService.removeFromBlacklist(qqNumber);
+            JsonObject result = new JsonObject();
+            result.addProperty("code", 200);
+            result.addProperty("message", "已从黑名单移除");
+            return Response.ok(gson.toJson(result)).build();
+        } catch (RuntimeException e) {
+            JsonObject err = new JsonObject();
+            err.addProperty("code", 400);
+            err.addProperty("message", e.getMessage());
+            return Response.status(400).entity(gson.toJson(err)).build();
+        }
+    }
+
+    @DELETE
+    @Path("/blacklist/user/{userId}")
+    @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("admin.blacklist.manage")
+    public Response removeFromBlacklistByUserId(@PathParam("userId") long userId) {
+        com.mtxgdn.onebot.BlacklistService blacklistService = new com.mtxgdn.onebot.BlacklistService();
+        try {
+            blacklistService.removeFromBlacklistByUserId(userId);
             JsonObject result = new JsonObject();
             result.addProperty("code", 200);
             result.addProperty("message", "已从黑名单移除");

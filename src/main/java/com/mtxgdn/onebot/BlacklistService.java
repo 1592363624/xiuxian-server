@@ -88,7 +88,8 @@ public class BlacklistService {
 
     private Blacklist fromMap(Map<String, Object> map) {
         Blacklist b = new Blacklist();
-        b.setQqNumber(String.valueOf(map.get("qqNumber")));
+        Object qq = map.get("qqNumber");
+        b.setQqNumber(qq != null && !String.valueOf(qq).isEmpty() ? String.valueOf(qq) : null);
         Object uid = map.get("userId");
         b.setUserId(uid != null ? Long.valueOf(String.valueOf(uid)) : null);
         b.setReason(map.get("reason") != null ? String.valueOf(map.get("reason")) : "");
@@ -100,22 +101,53 @@ public class BlacklistService {
 
     private Map<String, Object> toMap(Blacklist b) {
         Map<String, Object> map = new LinkedHashMap<>();
-        map.put("qqNumber", b.getQqNumber());
-        map.put("userId", b.getUserId());
+        map.put("qqNumber", b.isQqMode() ? b.getQqNumber() : null);
+        map.put("userId", b.isUserMode() ? b.getUserId() : null);
         map.put("reason", b.getReason());
         map.put("bannedBy", b.getBannedBy());
         map.put("createdAt", b.getCreatedAt());
         return map;
     }
 
+    /**
+     * 检查QQ号是否在黑名单中（直接ban QQ号，或通过userId关联的绑定账号）。
+     */
     public boolean isBlacklisted(String qqNumber) {
         List<Map<String, Object>> list = loadRawList();
         for (Map<String, Object> entry : list) {
-            if (qqNumber.equals(String.valueOf(entry.get("qqNumber")))) {
+            // 直接ban的QQ号
+            Object eqq = entry.get("qqNumber");
+            if (eqq != null && qqNumber.equals(String.valueOf(eqq))) {
                 return true;
+            }
+            // 通过userId ban（查绑定）
+            Object uid = entry.get("userId");
+            if (uid != null) {
+                QqBinding binding = new QqBindingService().findByQq(qqNumber);
+                if (binding != null && String.valueOf(binding.getUserId()).equals(String.valueOf(uid))) {
+                    return true;
+                }
             }
         }
         return false;
+    }
+
+    /**
+     * 获取黑名单条目对应的所有需要禁言的QQ号。
+     * - QQ号模式：直接返回该QQ号
+     * - 用户ID模式：通过绑定表找到该用户绑定的QQ号
+     */
+    public List<String> resolveQqNumbers(Blacklist b) {
+        List<String> result = new ArrayList<>();
+        if (b.isQqMode()) {
+            result.add(b.getQqNumber());
+        } else if (b.isUserMode()) {
+            QqBinding binding = new QqBindingService().findByUserId(b.getUserId());
+            if (binding != null) {
+                result.add(binding.getQqNumber());
+            }
+        }
+        return result;
     }
 
     public boolean isBlacklistedByUserId(Long userId) {
@@ -133,7 +165,8 @@ public class BlacklistService {
     public Blacklist findByQq(String qqNumber) {
         List<Map<String, Object>> list = loadRawList();
         for (Map<String, Object> entry : list) {
-            if (qqNumber.equals(String.valueOf(entry.get("qqNumber")))) {
+            Object eqq = entry.get("qqNumber");
+            if (eqq != null && qqNumber.equals(String.valueOf(eqq))) {
                 return fromMap(entry);
             }
         }
@@ -161,14 +194,32 @@ public class BlacklistService {
         return list;
     }
 
+    /**
+     * 添加到黑名单。qqNumber 和 userId 二选一。
+     * - 填 qqNumber：直接 ban 该QQ号
+     * - 填 userId：ban 该用户，自动通过绑定表找到其QQ号禁言
+     */
     public void addToBlacklist(String qqNumber, Long userId, String reason, Long bannedBy) {
-        if (isBlacklisted(qqNumber)) {
+        boolean hasQq = qqNumber != null && !qqNumber.isEmpty();
+        boolean hasUid = userId != null;
+        if (hasQq && hasUid) {
+            throw new RuntimeException("qqNumber 和 userId 只能二选一");
+        }
+        if (!hasQq && !hasUid) {
+            throw new RuntimeException("qqNumber 和 userId 必须填写其中一个");
+        }
+
+        if (hasQq && isBlacklisted(qqNumber)) {
             throw new RuntimeException("该QQ号已在黑名单中");
         }
+        if (hasUid && isBlacklistedByUserId(userId)) {
+            throw new RuntimeException("该用户已在黑名单中");
+        }
+
         List<Map<String, Object>> list = loadRawList();
         Map<String, Object> entry = new LinkedHashMap<>();
-        entry.put("qqNumber", qqNumber);
-        entry.put("userId", userId);
+        entry.put("qqNumber", hasQq ? qqNumber : null);
+        entry.put("userId", hasUid ? userId : null);
         entry.put("reason", reason != null ? reason : "");
         entry.put("bannedBy", bannedBy);
         entry.put("createdAt", LocalDateTime.now().format(DTF));
@@ -178,7 +229,10 @@ public class BlacklistService {
 
     public void removeFromBlacklist(String qqNumber) {
         List<Map<String, Object>> list = loadRawList();
-        boolean removed = list.removeIf(e -> qqNumber.equals(String.valueOf(e.get("qqNumber"))));
+        boolean removed = list.removeIf(e -> {
+            Object eqq = e.get("qqNumber");
+            return eqq != null && qqNumber.equals(String.valueOf(eqq));
+        });
         if (!removed) {
             throw new RuntimeException("该QQ号不在黑名单中");
         }
