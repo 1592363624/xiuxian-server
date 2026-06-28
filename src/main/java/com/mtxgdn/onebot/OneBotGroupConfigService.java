@@ -26,12 +26,29 @@ public class OneBotGroupConfigService {
 
     public OneBotGroupConfigService() {
         this.configPath = Paths.get(CONFIG_FILE);
+        copyDefaultIfMissing();
         DumperOptions options = new DumperOptions();
         options.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
         options.setPrettyFlow(true);
         Representer representer = new Representer(options);
         representer.getPropertyUtils().setSkipMissingProperties(true);
         this.yaml = new Yaml(representer, options);
+    }
+
+    private void copyDefaultIfMissing() {
+        if (Files.exists(configPath)) return;
+        try {
+            Files.createDirectories(configPath.getParent());
+            try (InputStream in = getClass().getClassLoader().getResourceAsStream("config/onebot_group_config.yml")) {
+                if (in != null) {
+                    Files.copy(in, configPath);
+                } else {
+                    Files.createFile(configPath);
+                }
+            }
+        } catch (IOException e) {
+            throw new RuntimeException("初始化群组配置文件失败", e);
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -106,7 +123,6 @@ public class OneBotGroupConfigService {
             Map<String, Object> entry = it.next();
             Object gid = entry.get("groupId");
             if (gid != null && String.valueOf(config.getGroupId()).equals(String.valueOf(gid))) {
-                // 更新
                 entry.put("autoMuteEnabled", config.isAutoMuteEnabled());
                 entry.put("muteDurationDays", config.getMuteDurationDays());
                 entry.put("updatedAt", LocalDateTime.now().format(DTF));

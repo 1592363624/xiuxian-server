@@ -26,12 +26,29 @@ public class BlacklistService {
 
     public BlacklistService() {
         this.configPath = Paths.get(CONFIG_FILE);
+        copyDefaultIfMissing();
         DumperOptions options = new DumperOptions();
         options.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
         options.setPrettyFlow(true);
         Representer representer = new Representer(options);
         representer.getPropertyUtils().setSkipMissingProperties(true);
         this.yaml = new Yaml(representer, options);
+    }
+
+    private void copyDefaultIfMissing() {
+        if (Files.exists(configPath)) return;
+        try {
+            Files.createDirectories(configPath.getParent());
+            try (InputStream in = getClass().getClassLoader().getResourceAsStream("config/blacklist.yml")) {
+                if (in != null) {
+                    Files.copy(in, configPath);
+                } else {
+                    Files.createFile(configPath);
+                }
+            }
+        } catch (IOException e) {
+            throw new RuntimeException("初始化黑名单配置文件失败", e);
+        }
     }
 
     @SuppressWarnings("unchecked")
