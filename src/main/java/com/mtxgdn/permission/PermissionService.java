@@ -32,6 +32,62 @@ public class PermissionService {
         ROLE_HIERARCHY.put("GUEST", 0);
     }
 
+    /** 插件注册的权限。key=权限码，value=权限信息 */
+    private static final Map<String, PluginPermissionInfo> pluginPermissions = new LinkedHashMap<>();
+
+    /** 插件权限信息。 */
+    public static class PluginPermissionInfo {
+        public final String code;
+        public final String name;
+        public final String category;
+        PluginPermissionInfo(String code, String name, String category) {
+            this.code = code;
+            this.name = name;
+            this.category = category;
+        }
+    }
+
+    /**
+     * 注册一个插件自定义权限。在插件 onLoad/onEnable 阶段调用。
+     * 权限码会写入数据库 permissions 表，并可用于 hasPermission / assignPermission 等所有检查。
+     * 注意：插件权限不自动分配给任何角色，需管理员手动分配。
+     */
+    public static void registerPluginPermission(String code, String name, String category) {
+        if (code == null || code.isEmpty()) {
+            throw new IllegalArgumentException("权限码不能为空");
+        }
+        if (PermissionCode.fromCode(code) != null || pluginPermissions.containsKey(code)) {
+            throw new IllegalArgumentException("权限码已存在: " + code);
+        }
+        pluginPermissions.put(code, new PluginPermissionInfo(code, name, category));
+        // 写入数据库
+        String sql = INSERT_OR_IGNORE + " INTO permissions (code, name, category) VALUES (?, ?, ?)";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, code);
+            ps.setString(2, name);
+            ps.setString(3, category != null ? category : "插件扩展");
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new RuntimeException("注册插件权限失败: " + code, e);
+        }
+    }
+
+    /** 判断一个权限码是否为已注册的插件权限。 */
+    public static boolean isPluginPermission(String code) {
+        return pluginPermissions.containsKey(code);
+    }
+
+    /** 获取所有插件注册的权限。 */
+    public static Map<String, PluginPermissionInfo> getPluginPermissions() {
+        return Collections.unmodifiableMap(pluginPermissions);
+    }
+
+    /** 判断权限码是否有效（内置枚举或插件注册）。 */
+    public static boolean isValidPermissionCode(String code) {
+        return PermissionCode.fromCode(code) != null || pluginPermissions.containsKey(code);
+    }
+
     private static final Map<String, Set<PermissionCode>> ROLE_PERMISSIONS = new HashMap<>();
     static {
         Set<PermissionCode> allPermissions = EnumSet.allOf(PermissionCode.class);
@@ -163,6 +219,29 @@ public class PermissionService {
     }
 
     /**
+     * 获取用户单独分配的插件权限码字符串集合。
+     */
+    public static Set<String> getUserPluginPermissionCodes(long userId) {
+        Set<String> result = new java.util.HashSet<>();
+        String sql = "SELECT permission_code FROM user_permissions WHERE user_id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, userId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    String code = rs.getString("permission_code");
+                    if (pluginPermissions.containsKey(code)) {
+                        result.add(code);
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("查询用户插件权限失败", e);
+        }
+        return result;
+    }
+
+    /**
      * 获取用户全部有效权限（角色继承 + 单独分配）
      */
     public static Set<PermissionCode> getUserPermissions(long userId) {
@@ -194,7 +273,8 @@ public class PermissionService {
                 return true;
             }
         }
-        return false;
+        // 也检查插件权限
+        return getUserPluginPermissionCodes(userId).contains(permissionCode);
     }
 
     public static void assignRole(long userId, String roleName) {
@@ -235,7 +315,7 @@ public class PermissionService {
      * 给用户单独分配一个权限码
      */
     public static void assignPermission(long userId, String permissionCode) {
-        if (PermissionCode.fromCode(permissionCode) == null) {
+        if (!isValidPermissionCode(permissionCode)) {
             throw new IllegalArgumentException("未知权限码: " + permissionCode);
         }
         String sql = INSERT_OR_IGNORE + " INTO user_permissions (user_id, permission_code) VALUES (?, ?)";
@@ -295,6 +375,8 @@ public class PermissionService {
                 for (PermissionCode pc : directPerms) {
                     permCodes.add(pc.getCode());
                 }
+                // 也合并插件权限
+                permCodes.addAll(getUserPluginPermissionCodes(entry.getKey()));
                 entry.getValue().put("directPermissions", permCodes);
                 result.add(entry.getValue());
             }

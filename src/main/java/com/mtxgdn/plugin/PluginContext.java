@@ -12,6 +12,7 @@ import com.mtxgdn.game.item.ItemRegistry;
 import com.mtxgdn.game.secretrealm.SecretRealm;
 import com.mtxgdn.game.secretrealm.SecretRealmRegistry;
 import com.mtxgdn.game.service.*;
+import com.mtxgdn.permission.PermissionService;
 import com.mtxgdn.plugin.event.PluginEvent;
 import com.mtxgdn.plugin.event.PluginEventHandler;
 import com.mtxgdn.plugin.event.PluginEventManager;
@@ -172,6 +173,38 @@ public final class PluginContext {
     public void unregisterSecretRealm(SecretRealm realm) {
         SecretRealmRegistry.unregister(realm);
         log.debug("取消注册秘境: " + realm.getFullKey());
+    }
+
+    // ================ 权限注册接口 =================
+
+    /**
+     * 注册一个插件自定义权限。权限码会同步到数据库并可用于 hasPermission / assignPermission 等检查。
+     * 注意：插件权限不会自动分配给任何角色，需管理员通过后台手动为用户分配。
+     *
+     * @param code     权限码（建议使用 "plugin.{插件名}.{功能}" 格式，如 "plugin.shop.admin"）
+     * @param name     权限中文名称（如 "商店管理"）
+     * @param category 权限分类（如 "插件扩展"）
+     */
+    public void registerPermission(String code, String name, String category) {
+        PermissionService.registerPluginPermission(code, name, category);
+        log.debug("注册插件权限: " + code + " (" + name + ")");
+    }
+
+    /**
+     * 批量注册多个插件自定义权限。
+     *
+     * @param permissionCodes 权限码数组（建议使用 "plugin.{插件名}.{功能}" 格式）
+     * @param names           对应的中文名称数组
+     * @param category        权限分类（如 "插件扩展"）
+     */
+    public void registerPermissions(String[] permissionCodes, String[] names, String category) {
+        if (permissionCodes.length != names.length) {
+            throw new IllegalArgumentException("权限码数量和名称数量不一致");
+        }
+        for (int i = 0; i < permissionCodes.length; i++) {
+            PermissionService.registerPluginPermission(permissionCodes[i], names[i], category);
+            log.debug("注册插件权限: " + permissionCodes[i] + " (" + names[i] + ")");
+        }
     }
 
     // ================ 事件处理器注册接口 =================
