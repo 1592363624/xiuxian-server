@@ -18,6 +18,14 @@ public class CommandRegistry {
         }
     }
 
+    /** 取消注册一个命令（通过命令实体的所有名称移除）。 */
+    public static void unregister(Command command) {
+        if (command == null) return;
+        for (String name : command.getNames()) {
+            commands.remove(name.toLowerCase(), command);
+        }
+    }
+
     public static Command get(String name) {
         return commands.get(name.toLowerCase());
     }

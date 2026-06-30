@@ -3,6 +3,7 @@ package com.mtxgdn.plugin.event;
 import com.mtxgdn.util.GameLogger;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -42,6 +43,13 @@ public final class PluginEventManager {
 
     // ==================== 注册 API ====================
 
+    /** 默认优先级 */
+    public static final int PRIORITY_NORMAL = 0;
+    /** 最高优先级 */
+    public static final int PRIORITY_HIGHEST = Integer.MAX_VALUE;
+    /** 最低优先级 */
+    public static final int PRIORITY_LOWEST = Integer.MIN_VALUE;
+
     /**
      * 订阅指定类型的事件。
      * @param pluginName 插件名称（用于日志/调试）
@@ -51,7 +59,15 @@ public final class PluginEventManager {
      */
     public void register(String pluginName, PluginEvent.Type type,
                          String condition, PluginEventHandler action) {
-        HandlerEntry entry = new HandlerEntry(pluginName, type, "", condition, action, true);
+        register(pluginName, type, condition, PRIORITY_NORMAL, action);
+    }
+
+    /**
+     * 订阅指定类型的事件并设置优先级。优先级数值越大越先执行。
+     */
+    public void register(String pluginName, PluginEvent.Type type,
+                         String condition, int priority, PluginEventHandler action) {
+        HandlerEntry entry = new HandlerEntry(pluginName, type, "", condition, priority, action, true);
         handlersByType.get(type).add(entry);
         allHandlers.add(entry);
         LOG.info("[" + pluginName + "] 注册事件处理器: " + type + (condition != null && !condition.isEmpty() ? " (" + condition + ")" : ""));
@@ -60,7 +76,13 @@ public final class PluginEventManager {
     /** 订阅自定义 key 的事件（type 自动为 CUSTOM）。 */
     public void registerCustom(String pluginName, String customKey,
                                String condition, PluginEventHandler action) {
-        HandlerEntry entry = new HandlerEntry(pluginName, PluginEvent.Type.CUSTOM, customKey, condition, action, true);
+        registerCustom(pluginName, customKey, condition, PRIORITY_NORMAL, action);
+    }
+
+    /** 订阅自定义 key 的事件并设置优先级。 */
+    public void registerCustom(String pluginName, String customKey,
+                               String condition, int priority, PluginEventHandler action) {
+        HandlerEntry entry = new HandlerEntry(pluginName, PluginEvent.Type.CUSTOM, customKey, condition, priority, action, true);
         handlersByKey.computeIfAbsent(customKey, k -> new CopyOnWriteArrayList<>()).add(entry);
         allHandlers.add(entry);
         LOG.info("[" + pluginName + "] 注册自定义事件: " + customKey);
@@ -89,7 +111,7 @@ public final class PluginEventManager {
 
     // ==================== 分发 API ====================
 
-    /** 触发一个事件，分发给所有相关处理器。 */
+    /** 触发一个事件，分发给所有相关处理器。按优先级降序执行。 */
     public void fire(PluginEvent event) {
         List<HandlerEntry> targets = new ArrayList<>();
         if (event.getType() == PluginEvent.Type.CUSTOM) {
@@ -99,9 +121,13 @@ public final class PluginEventManager {
             targets.addAll(handlersByType.get(event.getType()));
         }
 
+        // 按优先级降序排列（数值大的先执行）
+        targets.sort(Comparator.comparingInt((HandlerEntry h) -> h.priority).reversed());
+
         int dispatched = 0;
         for (HandlerEntry h : targets) {
             if (!h.enabled) continue;
+            if (event.isCancelled()) break;
             if (h.condition != null && !h.condition.isEmpty() && !matchesCondition(event, h.condition)) continue;
             try {
                 h.action.handle(event);
@@ -153,15 +179,17 @@ public final class PluginEventManager {
         final PluginEvent.Type type;
         final String customKey;
         final String condition;
+        final int priority;
         final PluginEventHandler action;
         volatile boolean enabled;
 
         HandlerEntry(String pluginName, PluginEvent.Type type, String customKey,
-                     String condition, PluginEventHandler action, boolean enabled) {
+                     String condition, int priority, PluginEventHandler action, boolean enabled) {
             this.pluginName = pluginName;
             this.type = type;
             this.customKey = customKey;
             this.condition = condition;
+            this.priority = priority;
             this.action = action;
             this.enabled = enabled;
         }

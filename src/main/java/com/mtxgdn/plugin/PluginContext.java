@@ -113,10 +113,22 @@ public final class PluginContext {
         log.debug("注册命令: " + command.getClass().getSimpleName());
     }
 
+    /** 取消注册一条命令。 */
+    public void unregisterCommand(Command command) {
+        CommandRegistry.unregister(command);
+        log.debug("取消注册命令: " + command.getClass().getSimpleName());
+    }
+
     /** 注册一个物品。 */
     public void registerItem(Item item) {
         ItemRegistry.register(item);
         log.debug("注册物品: " + item.getFullKey());
+    }
+
+    /** 取消注册一个物品。 */
+    public void unregisterItem(Item item) {
+        ItemRegistry.unregister(item);
+        log.debug("取消注册物品: " + item.getFullKey());
     }
 
     /**
@@ -132,16 +144,34 @@ public final class PluginContext {
         log.debug("注册物品能量值: " + itemKey + " = " + energyValue);
     }
 
+    /** 取消注册物品能量转化值。 */
+    public void unregisterItemEnergy(String itemKey) {
+        EnergyService.unregisterItemEnergy(itemKey);
+        log.debug("取消注册物品能量值: " + itemKey);
+    }
+
     /** 注册一个探索事件。 */
     public void registerExplorationEvent(ExplorationEvent event) {
         ExplorationEventRegistry.register(event);
         log.debug("注册探索事件: " + event.getFullKey());
     }
 
+    /** 取消注册一个探索事件。 */
+    public void unregisterExplorationEvent(ExplorationEvent event) {
+        ExplorationEventRegistry.unregister(event);
+        log.debug("取消注册探索事件: " + event.getFullKey());
+    }
+
     /** 注册一个秘境。 */
     public void registerSecretRealm(SecretRealm realm) {
         SecretRealmRegistry.register(realm);
         log.debug("注册秘境: " + realm.getFullKey());
+    }
+
+    /** 取消注册一个秘境。 */
+    public void unregisterSecretRealm(SecretRealm realm) {
+        SecretRealmRegistry.unregister(realm);
+        log.debug("取消注册秘境: " + realm.getFullKey());
     }
 
     // ================ 事件处理器注册接口 =================
@@ -153,17 +183,33 @@ public final class PluginContext {
      * @param handler 事件处理器（lambda）
      */
     public void registerHandler(PluginEvent.Type type, String condition, PluginEventHandler handler) {
-        PluginEventManager.getInstance().register(info.getName(), type, condition, handler);
+        registerHandler(type, condition, PluginEventManager.PRIORITY_NORMAL, handler);
+    }
+
+    /**
+     * 注册一个事件处理器并设置优先级。优先级数值越大越先执行。
+     */
+    public void registerHandler(PluginEvent.Type type, String condition, int priority, PluginEventHandler handler) {
+        PluginEventManager.getInstance().register(info.getName(), type, condition, priority, handler);
     }
 
     /** 简化版：注册事件处理器，不设条件。 */
     public void registerHandler(PluginEvent.Type type, PluginEventHandler handler) {
-        registerHandler(type, "", handler);
+        registerHandler(type, "", PluginEventManager.PRIORITY_NORMAL, handler);
     }
 
-    /** 注册自定义 key 的事件处理器（type 自动为 CUSTOM）。 */
+    /**
+     * 注册自定义 key 的事件处理器（type 自动为 CUSTOM）。
+     */
     public void registerCustomHandler(String customKey, String condition, PluginEventHandler handler) {
-        PluginEventManager.getInstance().registerCustom(info.getName(), customKey, condition, handler);
+        registerCustomHandler(customKey, condition, PluginEventManager.PRIORITY_NORMAL, handler);
+    }
+
+    /**
+     * 注册自定义 key 的事件处理器并设置优先级。
+     */
+    public void registerCustomHandler(String customKey, String condition, int priority, PluginEventHandler handler) {
+        PluginEventManager.getInstance().registerCustom(info.getName(), customKey, condition, priority, handler);
     }
 
     /** 切换本插件某类事件的启用状态。 */

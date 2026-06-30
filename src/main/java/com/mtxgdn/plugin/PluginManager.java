@@ -110,18 +110,64 @@ public final class PluginManager {
         List<LoadedPlugin> reverse = new ArrayList<>(loaded.values());
         Collections.reverse(reverse);
         for (LoadedPlugin lp : reverse) {
-            try {
-                lp.instance.onDisable(lp.context);
-                LOG.info("插件已停用: " + lp.info.getName());
-            } catch (Throwable t) {
-                LOG.error("插件 onDisable 异常: " + lp.info.getName(), t);
+            disableSingle(lp);
+        }
+        loaded.clear();
+    }
+
+    /** 卸载指定插件（调用 onDisable 并清理资源）。 */
+    public synchronized boolean unloadPlugin(String name) {
+        LoadedPlugin lp = loaded.remove(name);
+        if (lp == null) return false;
+        disableSingle(lp);
+        return true;
+    }
+
+    /** 重新加载指定插件。会先卸载再加载，jar 文件原地不变。 */
+    public synchronized boolean reloadPlugin(String name) {
+        LoadedPlugin lp = loaded.get(name);
+        if (lp == null) {
+            LOG.warn("插件未加载，无法重载: " + name);
+            return false;
+        }
+        File jarFile = lp.jarFile;
+        // 卸载
+        disableSingle(lp);
+        loaded.remove(name);
+        // 重新加载
+        try {
+            loadSingle(jarFile);
+            // 对新加载的插件调用 onLoad 和 onEnable
+            LoadedPlugin reloaded = loaded.get(name);
+            if (reloaded != null) {
+                reloaded.instance.onLoad(reloaded.context);
+                reloaded.instance.onEnable(reloaded.context);
+                LOG.info("插件重载成功: " + name);
             }
+            return true;
+        } catch (Throwable t) {
+            LOG.error("插件重载失败: " + name, t);
+            return false;
         }
-        // 尝试关闭类加载器（释放文件句柄）
-        for (PluginClassLoader cl : classLoaders) {
-            try { cl.close(); } catch (Exception ignored) { }
+    }
+
+    private void disableSingle(LoadedPlugin lp) {
+        try {
+            lp.instance.onDisable(lp.context);
+            LOG.info("插件已停用: " + lp.info.getName());
+        } catch (Throwable t) {
+            LOG.error("插件 onDisable 异常: " + lp.info.getName(), t);
         }
-        classLoaders.clear();
+        // 清理事件处理器
+        com.mtxgdn.plugin.event.PluginEventManager.getInstance().unregisterAll(lp.info.getName());
+        // 清理 Web 资源
+        PluginWebManager.getInstance().unregisterPlugin(lp.info.getName());
+        // 关闭类加载器（释放文件句柄）
+        try {
+            PluginClassLoader cl = (PluginClassLoader) lp.context.getClassLoader();
+            classLoaders.remove(cl);
+            cl.close();
+        } catch (Exception ignored) { }
     }
 
     /** 获取已加载插件列表。 */
@@ -139,8 +185,12 @@ public final class PluginManager {
     // =================== 内部实现 ===================
 
     private void loadSingle(File jar) throws Exception {
-        // 1. 读取 plugin.json（若存在）
+        // 1. 读取 plugin.json（若存在，先检查名称冲突避免无谓创建 ClassLoader）
         PluginInfo info = readPluginJson(jar);
+        if (info != null && loaded.containsKey(info.getName())) {
+            LOG.warn("插件名称冲突，跳过: " + info.getName());
+            return;
+        }
 
         // 2. 使用自定义类加载器加载 jar
         PluginClassLoader cl = new PluginClassLoader(jar, getClass().getClassLoader());
@@ -154,19 +204,22 @@ public final class PluginManager {
             // 回退：扫描 jar 中所有实现了 Plugin 接口的类（取第一个）
             mainClassName = findPluginMainClass(jar, cl);
             if (mainClassName == null) {
+                closeClassLoader(cl);
                 throw new RuntimeException("jar 中未找到 plugin.json，也未发现实现 Plugin 接口的类");
             }
             info = buildPluginInfoFromClass(cl, mainClassName);
-        }
-
-        if (loaded.containsKey(info.getName())) {
-            LOG.warn("插件名称冲突，跳过: " + info.getName());
-            return;
+            // 回退路径也需要检查名称冲突
+            if (loaded.containsKey(info.getName())) {
+                LOG.warn("插件名称冲突，跳过: " + info.getName());
+                closeClassLoader(cl);
+                return;
+            }
         }
 
         // 4. 实例化插件主类
         Class<?> mainCls = Class.forName(mainClassName, true, cl);
         if (!Plugin.class.isAssignableFrom(mainCls)) {
+            closeClassLoader(cl);
             throw new RuntimeException("主类 " + mainClassName + " 未实现 Plugin 接口");
         }
         Plugin instance = (Plugin) mainCls.getDeclaredConstructor().newInstance();
@@ -182,6 +235,12 @@ public final class PluginManager {
         LoadedPlugin lp = new LoadedPlugin(info, instance, ctx, jar);
         loaded.put(info.getName(), lp);
         LOG.info("发现插件: " + info);
+    }
+
+    /** 从 classLoaders 列表中移除并关闭指定的 ClassLoader。 */
+    private void closeClassLoader(PluginClassLoader cl) {
+        classLoaders.remove(cl);
+        try { cl.close(); } catch (Exception ignored) { }
     }
 
     private PluginInfo readPluginJson(File jar) {

@@ -25,6 +25,15 @@ public class ExplorationEventRegistry {
         LOG.debug("注册事件: " + fullKey);
     }
 
+    /** 取消注册一个探索事件。 */
+    public static void unregister(ExplorationEvent event) {
+        if (event == null) return;
+        String fullKey = event.getFullKey();
+        if (events.remove(fullKey) != null) {
+            LOG.debug("取消注册事件: " + fullKey);
+        }
+    }
+
     public static ExplorationEvent get(String fullKey) {
         return events.get(fullKey);
     }

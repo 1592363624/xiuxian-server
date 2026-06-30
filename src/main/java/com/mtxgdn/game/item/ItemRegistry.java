@@ -28,6 +28,15 @@ public class ItemRegistry {
         LOG.debug("注册物品: " + fullKey);
     }
 
+    /** 取消注册一个物品（通过 fullKey 移除）。 */
+    public static void unregister(Item item) {
+        if (item == null) return;
+        String fullKey = item.getFullKey();
+        if (items.remove(fullKey) != null) {
+            LOG.debug("取消注册物品: " + fullKey);
+        }
+    }
+
     public static Item get(String fullKey) {
         return items.get(fullKey);
     }

@@ -1,6 +1,5 @@
 package com.mtxgdn.plugin.event;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -54,7 +53,7 @@ public class PluginEvent {
     PluginEvent(Builder b) {
         this.type = b.type;
         this.customKey = b.customKey;
-        this.data = Collections.unmodifiableMap(new HashMap<>(b.data));
+        this.data = new HashMap<>(b.data);
         this.timestamp = System.currentTimeMillis();
         this.cancelled = false;
     }
@@ -71,7 +70,17 @@ public class PluginEvent {
         return (T) data.get(key);
     }
 
-    /** 标记事件为已取消（由 Handler 决定实际效果） */
+    /** 
+     * 设置/修改事件数据。Handler 可通过此方法向事件中写入数据，
+     * 供后续 Handler 或事件源读取。
+     */
+    public void set(String key, Object value) {
+        if (key != null && value != null) {
+            data.put(key, value);
+        }
+    }
+
+    /** 标记事件为已取消。取消后后续 Handler 不再执行。 */
     public void cancel() { this.cancelled = true; }
 
     /** 获取用于日志的简短描述 */

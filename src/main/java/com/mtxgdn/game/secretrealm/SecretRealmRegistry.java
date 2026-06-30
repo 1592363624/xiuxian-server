@@ -27,6 +27,15 @@ public class SecretRealmRegistry {
         LOG.debug("注册秘境: " + fullKey);
     }
 
+    /** 取消注册一个秘境。 */
+    public static void unregister(SecretRealm realm) {
+        if (realm == null) return;
+        String fullKey = realm.getFullKey();
+        if (realms.remove(fullKey) != null) {
+            LOG.debug("取消注册秘境: " + fullKey);
+        }
+    }
+
     public static SecretRealm get(String fullKey) {
         return realms.get(fullKey);
     }

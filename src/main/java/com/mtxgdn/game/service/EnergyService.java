@@ -32,6 +32,15 @@ public class EnergyService {
         System.out.println("[EnergyService] 注册物品能量值: " + itemKey + " = " + energyValue);
     }
 
+    /** 取消注册物品能量转化值。 */
+    public static void unregisterItemEnergy(String itemKey) {
+        if (itemKey == null) return;
+        if (customEnergyValues.remove(itemKey) != null) {
+            customEnergyView = null; // 使缓存失效
+            System.out.println("[EnergyService] 取消注册物品能量值: " + itemKey);
+        }
+    }
+
     /**
      * 解析物品的能量值。
      * 优先返回插件注册的自定义值，其次返回物品本身的 price。

@@ -165,6 +165,20 @@ public final class PluginWebManager {
         return pages.get(path);
     }
 
+    /**
+     * 移除某个插件的所有 Web 注册（页面、资源、WebSocket 处理器）。
+     * 在插件卸载时由 PluginManager 自动调用。
+     */
+    public void unregisterPlugin(String pluginName) {
+        pluginPages.remove(pluginName);
+        resourceEntries.remove(pluginName);
+        // 清理 WebSocket 处理器
+        for (List<WsHandlerEntry> list : wsHandlers.values()) {
+            list.removeIf(e -> e.pluginName.equals(pluginName));
+        }
+        LOG.debug("已清理插件 [" + pluginName + "] 的所有 Web 资源");
+    }
+
     /** 页面信息。 */
     public static final class WebPage {
         public final String title;
@@ -195,17 +209,10 @@ public final class PluginWebManager {
 
     // ======================= 内部 HTTP 路由 =======================
 
-    private volatile boolean pluginPageHandlerRegistered = false;
+    private volatile boolean httpHandlerRegistered = false;
 
     private void ensurePluginPageHandler() {
-        if (!pluginPageHandlerRegistered && server != null) {
-            synchronized (this) {
-                if (!pluginPageHandlerRegistered) {
-                    server.getServerConfiguration().addHttpHandler(new PluginPageHttpHandler(), "/admin/plugins");
-                    pluginPageHandlerRegistered = true;
-                }
-            }
-        }
+        ensureHttpHandler();
     }
 
     private final Map<String, ResourceEntry> resourceEntries = new ConcurrentHashMap<>();
@@ -216,17 +223,18 @@ public final class PluginWebManager {
         ResourceEntry(String dir, ClassLoader cl) { resourceDir = dir; classLoader = cl; }
     }
 
-    private volatile boolean resourceHandlerRegistered = false;
-
     private void ensureResourceHandler(String pluginName, String resourceDir, ClassLoader classLoader) {
         resourceEntries.put(pluginName, new ResourceEntry(resourceDir, classLoader));
-        if (!resourceHandlerRegistered && server != null) {
+        ensureHttpHandler();
+    }
+
+    /** 确保 /admin/plugins 的 HTTP handler 已注册（只注册一次）。 */
+    private void ensureHttpHandler() {
+        if (!httpHandlerRegistered && server != null) {
             synchronized (this) {
-                if (!resourceHandlerRegistered) {
-                    PluginPageHttpHandler handler = new PluginPageHttpHandler();
-                    server.getServerConfiguration().addHttpHandler(handler, "/admin/plugins");
-                    resourceHandlerRegistered = true;
-                    pluginPageHandlerRegistered = true; // 复用同一个 handler
+                if (!httpHandlerRegistered) {
+                    server.getServerConfiguration().addHttpHandler(new PluginPageHttpHandler(), "/admin/plugins");
+                    httpHandlerRegistered = true;
                 }
             }
         }
@@ -235,7 +243,6 @@ public final class PluginWebManager {
     private class PluginPageHttpHandler extends HttpHandler {
         @Override
         public void service(Request request, Response response) throws Exception {
-            String servletPath = request.getContextPath();
             String fullPath = request.getHttpHandlerPath();
             
             // 路径格式: /admin/plugins/{pluginName}/{...}
