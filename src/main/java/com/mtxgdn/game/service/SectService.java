@@ -181,7 +181,7 @@ public class SectService {
         String sql = "SELECT sm.*, p.name AS player_name, p.realm AS player_realm, p.level AS player_level " +
                 "FROM sect_members sm JOIN players p ON sm.player_id = p.id " +
                 "WHERE sm.sect_id = ? ORDER BY " +
-                "CASE sm.role WHEN 'LEADER' THEN 0 WHEN 'ELDER' THEN 1 ELSE 2 END, sm.joined_at";
+                "CASE sm.role WHEN 'LEADER' THEN 0 WHEN 'VICE_LEADER' THEN 1 WHEN 'ELDER' THEN 2 WHEN 'INNER_MEMBER' THEN 3 ELSE 4 END, sm.joined_at";
         List<SectMember> result = new ArrayList<>();
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -352,7 +352,7 @@ public class SectService {
     }
 
     private void addMember(long sectId, long playerId) {
-        String sql = "INSERT INTO sect_members (sect_id, player_id, role) VALUES (?, ?, 'MEMBER')";
+        String sql = "INSERT INTO sect_members (sect_id, player_id, role) VALUES (?, ?, 'OUTER_MEMBER')";
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setLong(1, sectId);
@@ -437,8 +437,11 @@ public class SectService {
         if (target.isLeader()) {
             result.put("success", false); result.put("message", "不能踢出宗主"); return result;
         }
-        if (kicker.isElder() && target.isElder()) {
-            result.put("success", false); result.put("message", "长老不能踢出同级的其他长老"); return result;
+        if (target.isViceLeader() && !kicker.isLeader()) {
+            result.put("success", false); result.put("message", "只有宗主才能踢出副宗主"); return result;
+        }
+        if (!kicker.canKickOrAppoint(target)) {
+            result.put("success", false); result.put("message", "不能踢出同级或更高级别的成员"); return result;
         }
 
         deleteMember(kicker.getSectId(), targetPlayerId);
@@ -450,8 +453,33 @@ public class SectService {
     public Map<String, Object> appointMember(long appointerPlayerId, long targetPlayerId, String newRole) {
         Map<String, Object> result = new LinkedHashMap<>();
         SectMember appointer = getPlayerMember(appointerPlayerId);
-        if (appointer == null || !appointer.isLeader()) {
-            result.put("success", false); result.put("message", "只有宗主才能任命宗门职位"); return result;
+        if (appointer == null || !appointer.canManage()) {
+            result.put("success", false); result.put("message", "只有宗主、副宗主和长老才能任命宗门职位"); return result;
+        }
+
+        // 先解析目标角色
+        String role;
+        switch (newRole.toLowerCase()) {
+            case "副宗主", "vice_leader", "viceleader": role = SectMember.ROLE_VICE_LEADER; break;
+            case "长老", "elder": role = SectMember.ROLE_ELDER; break;
+            case "内门", "内门弟子", "inner", "inner_member": role = SectMember.ROLE_INNER_MEMBER; break;
+            case "外门", "外门弟子", "outer", "outer_member": role = SectMember.ROLE_OUTER_MEMBER; break;
+            default:
+                result.put("success", false);
+                result.put("message", "无效的职位，可用：副宗主/长老/内门弟子/外门弟子");
+                return result;
+        }
+
+        // 权限检查
+        if (appointer.isElder()) {
+            if (!role.equals(SectMember.ROLE_INNER_MEMBER) && !role.equals(SectMember.ROLE_OUTER_MEMBER)) {
+                result.put("success", false);
+                result.put("message", "长老只能任命内门弟子和外门弟子"); return result;
+            }
+        }
+        if (appointer.isViceLeader() && role.equals(SectMember.ROLE_VICE_LEADER)) {
+            result.put("success", false);
+            result.put("message", "副宗主不能任命副宗主，只有宗主可以"); return result;
         }
 
         SectMember target = getMember(appointer.getSectId(), targetPlayerId);
@@ -461,15 +489,11 @@ public class SectService {
         if (target.isLeader()) {
             result.put("success", false); result.put("message", "不能改变宗主的职位"); return result;
         }
-
-        String role;
-        switch (newRole.toLowerCase()) {
-            case "长老", "elder": role = SectMember.ROLE_ELDER; break;
-            case "弟子", "member": role = SectMember.ROLE_MEMBER; break;
-            default:
-                result.put("success", false);
-                result.put("message", "无效的职位，可用：长老/弟子");
-                return result;
+        if (target.isViceLeader() && !appointer.isLeader()) {
+            result.put("success", false); result.put("message", "只有宗主才能改变副宗主的职位"); return result;
+        }
+        if (target.isElder() && appointer.isElder()) {
+            result.put("success", false); result.put("message", "长老不能操作同级"); return result;
         }
 
         if (role.equals(target.getRole())) {
@@ -487,7 +511,7 @@ public class SectService {
         } catch (SQLException e) { throw new RuntimeException("任命失败", e); }
 
         result.put("success", true);
-        result.put("message", "已将 " + target.getPlayerName() + " 任命为" + SectMember.getRoleDisplayName(role));
+        result.put("message", "已将 " + target.getPlayerName() + " 任命为" + SectMember.getRoleDisplayName(role) + "（原为" + SectMember.getRoleDisplayName(target.getRole()) + "）");
         return result;
     }
 
@@ -732,7 +756,7 @@ public class SectService {
                 ps.executeUpdate();
             } catch (SQLException e) { throw new RuntimeException(e); }
 
-            sql = "UPDATE sect_members SET role = 'ELDER' WHERE sect_id = ? AND player_id = ?";
+            sql = "UPDATE sect_members SET role = 'VICE_LEADER' WHERE sect_id = ? AND player_id = ?";
             try (PreparedStatement ps = conn.prepareStatement(sql)) {
                 ps.setLong(1, sect.getId());
                 ps.setLong(2, fromPlayerId);
@@ -750,7 +774,7 @@ public class SectService {
 
         result.put("success", true);
         result.put("message", fromMember.getPlayerName() + " 已将宗主之位传于 " + toMember.getPlayerName()
-                + "，消耗灵石 " + Sect.TRANSFER_COST_SPIRIT_STONES + "，从此退居长老之位");
+                + "，消耗灵石 " + Sect.TRANSFER_COST_SPIRIT_STONES + "，从此退居副宗主之位");
         return result;
     }
 

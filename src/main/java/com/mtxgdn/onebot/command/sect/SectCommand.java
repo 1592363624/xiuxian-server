@@ -233,7 +233,7 @@ public class SectCommand extends Command {
     }
 
     private void handleAppoint(CommandContext ctx, PlayerInfo p, String[] parts) {
-        if (parts.length < 3) { ctx.reply("用法: /宗门 appoint <玩家名> <长老|弟子>"); return; }
+        if (parts.length < 3) { ctx.reply("用法: /宗门 appoint <玩家名> <副宗主|长老|内门弟子|外门弟子>"); return; }
         String targetName = parts[1].trim();
         String role = parts[2].trim();
 
@@ -453,7 +453,7 @@ public class SectCommand extends Command {
 /宗门 reject <玩家名>        拒绝申请
 /宗门 leave                  退出宗门
 /宗门 kick <玩家名>          踢出成员（宗主/长老）
-/宗门 appoint <玩家名> <长老|弟子>  任命职位（宗主）
+/宗门 appoint <玩家名> <副宗主|长老|内门弟子|外门弟子>  任命职位（宗主可任命所有，副宗主可任命长老及以下，长老可任命内门外门）
 /宗门 transfer <玩家名>      转让宗主之位（宗主，需200灵石）
 /宗门 levelup                升级宗门（宗主，消耗声望）
 /宗门 war <宗门名>           向其他宗门宣战（宗主，消耗1000声望+300灵石）
