@@ -13,6 +13,7 @@ import com.mtxgdn.game.service.ItemService;
 import com.mtxgdn.game.service.PlayerService;
 import com.mtxgdn.game.service.SkillService;
 import com.mtxgdn.game.service.TechniqueService;
+import com.mtxgdn.game.title.TitleRegistry;
 import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.entity.User;
 import com.mtxgdn.permission.PermissionCode;
@@ -1885,6 +1886,93 @@ public class AdminResource {
             err.addProperty("message", e.getMessage());
             return Response.status(400).entity(gson.toJson(err)).build();
         }
+    }
+
+    // ==================== 称号管理 ====================
+
+    @POST
+    @Path("/players/{playerId}/titles")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("admin.titles.manage")
+    public Response grantTitle(@PathParam("playerId") long playerId, String body) {
+        JsonObject req = gson.fromJson(body, JsonObject.class);
+        String titleKey = req.has("titleKey") ? req.get("titleKey").getAsString() : "";
+        if (titleKey.isBlank()) {
+            JsonObject err = new JsonObject();
+            err.addProperty("code", 400);
+            err.addProperty("message", "请提供称号键(titleKey)");
+            return Response.ok(gson.toJson(err)).build();
+        }
+        var ts = ServiceRegistry.getTitleService();
+        var result = ts.grantTitle(playerId, titleKey);
+        return Response.ok(gson.toJson(result)).build();
+    }
+
+    @DELETE
+    @Path("/players/{playerId}/titles/{titleKey}")
+    @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("admin.titles.manage")
+    public Response revokeTitle(@PathParam("playerId") long playerId, @PathParam("titleKey") String titleKey) {
+        var ts = ServiceRegistry.getTitleService();
+        var result = ts.revokeTitle(playerId, titleKey);
+        return Response.ok(gson.toJson(result)).build();
+    }
+
+    @GET
+    @Path("/players/{playerId}/titles")
+    @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("admin.titles.manage")
+    public Response getPlayerTitles(@PathParam("playerId") long playerId) {
+        var ts = ServiceRegistry.getTitleService();
+        var titles = ts.getPlayerTitles(playerId);
+        var eq = ts.getEquippedTitle(playerId);
+        JsonArray arr = new JsonArray();
+        for (var t : titles) {
+            JsonObject o = new JsonObject();
+            for (var entry : t.entrySet()) {
+                Object val = entry.getValue();
+                if (val instanceof String) o.addProperty(entry.getKey(), (String) val);
+                else if (val instanceof Number) o.addProperty(entry.getKey(), (Number) val);
+                else if (val instanceof Boolean) o.addProperty(entry.getKey(), (Boolean) val);
+            }
+            arr.add(o);
+        }
+        JsonObject data = new JsonObject();
+        data.add("titles", arr);
+        if (eq != null) {
+            JsonObject eo = new JsonObject();
+            eo.addProperty("key", eq.getKey());
+            eo.addProperty("name", eq.getName());
+            data.add("equipped", eo);
+        }
+        return Response.ok(data.toString()).build();
+    }
+
+    @GET
+    @Path("/titles/catalog")
+    @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("admin.titles.manage")
+    public Response getTitleCatalog() {
+        TitleRegistry.init();
+        JsonArray arr = new JsonArray();
+        for (var t : TitleRegistry.getAll()) {
+            JsonObject o = new JsonObject();
+            o.addProperty("key", t.getKey());
+            o.addProperty("name", t.getName());
+            o.addProperty("description", t.getDescription());
+            o.addProperty("rarity", t.getRarity().name());
+            o.addProperty("rarityLabel", t.getRarityLabel());
+            o.addProperty("requiredRealm", t.getRequiredRealm());
+            o.addProperty("attackBonus", t.getAttackBonus());
+            o.addProperty("hpBonus", t.getHpBonus());
+            o.addProperty("mpBonus", t.getMpBonus());
+            o.addProperty("expBonus", t.getExpBonus());
+            arr.add(o);
+        }
+        JsonObject data = new JsonObject();
+        data.add("titles", arr);
+        return Response.ok(data.toString()).build();
     }
 
     private static String formatUptime(long millis) {

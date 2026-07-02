@@ -3,7 +3,9 @@ package com.mtxgdn.onebot.command.player;
 import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandContext;
 import com.mtxgdn.game.entity.PlayerInfo;
+import com.mtxgdn.game.entity.Title;
 import com.mtxgdn.game.service.OfflineRewardService;
+import com.mtxgdn.common.service.ServiceRegistry;
 
 public class StatusCommand extends Command {
 
@@ -29,6 +31,14 @@ public class StatusCommand extends Command {
                 new OfflineRewardService().processOfflineRewards(userId);
 
         StringBuilder sb = new StringBuilder();
+
+        // 显示当前称号
+        Title activeTitle = ServiceRegistry.getTitleService().getEquippedTitle(p.getId());
+        if (activeTitle != null) {
+            sb.append("称号: ").append(activeTitle.getRarityColor())
+              .append(activeTitle.getName()).append(" [").append(activeTitle.getRarityLabel()).append("]\n");
+        }
+
         sb.append(CommandContext.formatPlayerStatus(p));
 
         if (offlineReward.hasReward) {

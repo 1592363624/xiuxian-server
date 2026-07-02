@@ -43,6 +43,9 @@ import com.mtxgdn.game.entity.MapLocation;
 import com.mtxgdn.game.entity.Sect;
 import com.mtxgdn.game.entity.SectMember;
 import com.mtxgdn.game.entity.SectApplication;
+import com.mtxgdn.game.entity.Title;
+import com.mtxgdn.game.service.TitleService;
+import com.mtxgdn.game.title.TitleRegistry;
 import com.mtxgdn.game.entity.SectWarehouseItem;
 import com.mtxgdn.game.entity.SpiritualRoot;
 import com.mtxgdn.permission.RequirePermission;
@@ -1912,5 +1915,124 @@ public class GameResource {
         }
         sb.append(seconds).append("秒");
         return sb.toString();
+    }
+
+    // ==================== 称号系统 ====================
+
+    private TitleService titleService() { return ServiceRegistry.getTitleService(); }
+
+    @GET
+    @Path("/title/all")
+    @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("game.title.view")
+    public Response getAllTitles() {
+        TitleRegistry.init();
+        JsonArray arr = new JsonArray();
+        for (Title t : TitleRegistry.getAll()) {
+            arr.add(toTitleJson(t));
+        }
+        JsonObject data = new JsonObject();
+        data.add("titles", arr);
+        return Response.ok(GameMessage.restOk("获取成功", data).toString()).build();
+    }
+
+    @GET
+    @Path("/title/my")
+    @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("game.title.view")
+    public Response getMyTitles() {
+        Long userId = getCurrentUserId();
+        PlayerInfo player = playerService.getPlayerByUserId(userId);
+        if (player == null) {
+            return Response.ok(GameMessage.restError(GameErrorCode.PLAYER_NOT_FOUND).toString()).build();
+        }
+        var titles = titleService().getPlayerTitles(player.getId());
+        JsonArray arr = new JsonArray();
+        for (var t : titles) {
+            JsonObject o = new JsonObject();
+            for (var entry : t.entrySet()) {
+                Object val = entry.getValue();
+                if (val instanceof String) o.addProperty(entry.getKey(), (String) val);
+                else if (val instanceof Number) o.addProperty(entry.getKey(), (Number) val);
+                else if (val instanceof Boolean) o.addProperty(entry.getKey(), (Boolean) val);
+            }
+            arr.add(o);
+        }
+        JsonObject data = new JsonObject();
+        data.add("titles", arr);
+        return Response.ok(GameMessage.restOk("获取成功", data).toString()).build();
+    }
+
+    @GET
+    @Path("/title/active")
+    @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("game.title.view")
+    public Response getActiveTitle() {
+        Long userId = getCurrentUserId();
+        PlayerInfo player = playerService.getPlayerByUserId(userId);
+        if (player == null) {
+            return Response.ok(GameMessage.restError(GameErrorCode.PLAYER_NOT_FOUND).toString()).build();
+        }
+        Title title = titleService().getEquippedTitle(player.getId());
+        JsonObject data = new JsonObject();
+        if (title != null) {
+            data.add("title", toTitleJson(title));
+        }
+        data.addProperty("hasTitle", title != null);
+        return Response.ok(GameMessage.restOk("获取成功", data).toString()).build();
+    }
+
+    @POST
+    @Path("/title/equip")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("game.title.equip")
+    public Response equipTitle(String body) {
+        Long userId = getCurrentUserId();
+        PlayerInfo player = playerService.getPlayerByUserId(userId);
+        if (player == null) {
+            return Response.ok(GameMessage.restError(GameErrorCode.PLAYER_NOT_FOUND).toString()).build();
+        }
+        JsonObject req = gson.fromJson(body, JsonObject.class);
+        String titleKey = req.has("titleKey") ? req.get("titleKey").getAsString() : "";
+        var result = titleService().equipTitle(player.getId(), titleKey);
+        if (Boolean.TRUE.equals(result.get("success"))) {
+            return Response.ok(GameMessage.restOk((String) result.get("message"), gson.toJsonTree(result).getAsJsonObject()).toString()).build();
+        }
+        return Response.ok(GameMessage.restError(400, (String) result.get("message")).toString()).build();
+    }
+
+    @POST
+    @Path("/title/unequip")
+    @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("game.title.equip")
+    public Response unequipTitle() {
+        Long userId = getCurrentUserId();
+        PlayerInfo player = playerService.getPlayerByUserId(userId);
+        if (player == null) {
+            return Response.ok(GameMessage.restError(GameErrorCode.PLAYER_NOT_FOUND).toString()).build();
+        }
+        var result = titleService().unequipTitle(player.getId());
+        return Response.ok(GameMessage.restOk((String) result.get("message"), gson.toJsonTree(result).getAsJsonObject()).toString()).build();
+    }
+
+    private JsonObject toTitleJson(Title t) {
+        JsonObject o = new JsonObject();
+        o.addProperty("key", t.getKey());
+        o.addProperty("name", t.getName());
+        o.addProperty("description", t.getDescription());
+        o.addProperty("rarity", t.getRarity().name());
+        o.addProperty("rarityLabel", t.getRarityLabel());
+        o.addProperty("requiredRealm", t.getRequiredRealm());
+        o.addProperty("attackBonus", t.getAttackBonus());
+        o.addProperty("defenseBonus", t.getDefenseBonus());
+        o.addProperty("hpBonus", t.getHpBonus());
+        o.addProperty("mpBonus", t.getMpBonus());
+        o.addProperty("speedBonus", t.getSpeedBonus());
+        o.addProperty("spiritBonus", t.getSpiritBonus());
+        o.addProperty("cultivationSpeedBonus", t.getCultivationSpeedBonus());
+        o.addProperty("expBonus", t.getExpBonus());
+        o.addProperty("dropRateBonus", t.getDropRateBonus());
+        return o;
     }
 }

@@ -617,6 +617,17 @@ public class DatabaseManager {
                     (IS_SQLITE ? "" : ", FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE") +
                     ")";
             stmt.execute(playerEnergyTableSql);
+
+            String playerTitlesTableSql = "CREATE TABLE IF NOT EXISTS player_titles (" +
+                    "id " + pk + ", " +
+                    "player_id BIGINT NOT NULL, " +
+                    "title_key VARCHAR(64) NOT NULL, " +
+                    "is_equipped " + (IS_SQLITE ? "INTEGER DEFAULT 0" : "BOOLEAN DEFAULT FALSE") + ", " +
+                    "acquired_at " + tsDefault + ", " +
+                    (IS_SQLITE ? "" : "FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE, ") +
+                    "UNIQUE (player_id, title_key)" +
+                    ")";
+            stmt.execute(playerTitlesTableSql);
         } catch (SQLException e) {
             throw new RuntimeException("创建数据库表失败", e);
         }
