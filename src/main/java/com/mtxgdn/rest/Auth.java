@@ -16,7 +16,7 @@ public class Auth {
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     public Response register(String body) {
-        System.out.println("[Auth] >>> POST /register body=" + (body != null ? body.substring(0, Math.min(100, body.length())) : "null"));
+        System.out.println("[Auth] >>> POST /register");
         long start = System.currentTimeMillis();
 
         JsonObject json = com.google.gson.JsonParser.parseString(body).getAsJsonObject();
@@ -34,7 +34,7 @@ public class Auth {
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     public Response login(String body) {
-        System.out.println("[Auth] >>> POST /login body=" + (body != null ? body.substring(0, Math.min(100, body.length())) : "null"));
+        System.out.println("[Auth] >>> POST /login");
         long start = System.currentTimeMillis();
 
         JsonObject json = com.google.gson.JsonParser.parseString(body).getAsJsonObject();

@@ -22,6 +22,7 @@ import com.mtxgdn.plugin.PluginWebManager;
 import com.mtxgdn.service.UserService;
 import com.mtxgdn.util.JwtUtil;
 import com.mtxgdn.util.GameLogger;
+import com.mtxgdn.util.RateLimiter;
 import com.mtxgdn.util.StatsCollector;
 
 import jakarta.ws.rs.DELETE;
@@ -54,6 +55,13 @@ public class AdminResource {
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     public Response login(String body) {
+        // 管理后台登录频率限制：每分钟最多10次
+        if (!RateLimiter.allow("admin_login_global", 10, 60)) {
+            JsonObject err = new JsonObject();
+            err.addProperty("code", 429);
+            err.addProperty("message", "登录尝试过于频繁，请稍后再试");
+            return Response.status(429).entity(gson.toJson(err)).build();
+        }
         JsonObject req = com.google.gson.JsonParser.parseString(body).getAsJsonObject();
         String username = req.has("username") ? req.get("username").getAsString() : "";
         String password = req.has("password") ? req.get("password").getAsString() : "";
@@ -301,12 +309,21 @@ public class AdminResource {
     @POST
     @Path("/shutdown")
     @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("admin.database.reset_all")
     public Response shutdown() {
         new Thread(() -> {
             try {
                 Thread.sleep(500);
             } catch (InterruptedException ignored) {
             }
+            if (Main.oneBotWebSocketServer != null) Main.oneBotWebSocketServer.shutdown();
+            if (Main.screenshotBot != null) Main.screenshotBot.stop();
+            if (Main.minecraftAdapter != null) Main.minecraftAdapter.stop();
+            if (Main.gameWebSocketApp != null) {
+                try { Main.gameWebSocketApp.shutdownGracefully(); } catch (Exception ignored) {}
+            }
+            if (Main.oneBotServer != null) Main.oneBotServer.shutdownNow();
+            if (Main.mainServer != null) Main.mainServer.shutdownNow();
             System.exit(0);
         }).start();
 
@@ -1251,6 +1268,7 @@ public class AdminResource {
     @GET
     @Path("/db/tables/{tableName}/{id}")
     @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("admin.database.reset_all")
     public Response getTableRow(
             @PathParam("tableName") String tableName,
             @PathParam("id") long id) {
@@ -1389,6 +1407,7 @@ public class AdminResource {
     @DELETE
     @Path("/db/tables/{tableName}/{id}")
     @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("admin.database.reset_all")
     public Response deleteTableRow(
             @PathParam("tableName") String tableName,
             @PathParam("id") long id) {
@@ -1422,6 +1441,7 @@ public class AdminResource {
     @GET
     @Path("/backup")
     @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("admin.database.reset_all")
     public Response downloadBackup() {
         try {
             String json = DatabaseManager.exportAllData();
@@ -1500,6 +1520,7 @@ public class AdminResource {
     @Path("/redeem-codes")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("admin.redeem.code.manage")
     public Response createRedeemCode(String body) {
         try {
             JsonObject req = com.google.gson.JsonParser.parseString(body).getAsJsonObject();
@@ -1548,6 +1569,7 @@ public class AdminResource {
     @Path("/redeem-codes/{id}")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("admin.redeem.code.manage")
     public Response updateRedeemCode(@PathParam("id") long id, String body) {
         try {
             // 已兑换或已过期的码不允许编辑
@@ -1653,6 +1675,7 @@ public class AdminResource {
     @GET
     @Path("/stats/commands")
     @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("admin.status")
     public Response getCommandStats() {
         JsonObject stats = StatsCollector.getInstance().getCommandStats();
         JsonObject result = new JsonObject();
@@ -1666,6 +1689,7 @@ public class AdminResource {
     @GET
     @Path("/blacklist")
     @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("admin.blacklist.manage")
     public Response getBlacklist() {
         com.mtxgdn.onebot.BlacklistService blacklistService = new com.mtxgdn.onebot.BlacklistService();
         java.util.List<com.mtxgdn.onebot.Blacklist> list = blacklistService.getAllBlacklist();
@@ -1777,6 +1801,7 @@ public class AdminResource {
     @GET
     @Path("/onebot/groups")
     @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("admin.onebot.group.config")
     public Response getOneBotGroupConfigs() {
         com.mtxgdn.onebot.OneBotGroupConfigService configService = new com.mtxgdn.onebot.OneBotGroupConfigService();
         java.util.List<com.mtxgdn.onebot.OneBotGroupConfig> list = configService.getAllConfigs();
@@ -1803,6 +1828,7 @@ public class AdminResource {
     @Path("/onebot/groups/{groupId}/autoMute")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("admin.onebot.group.config")
     public Response setAutoMute(@PathParam("groupId") long groupId, String body) {
         JsonObject req = com.google.gson.JsonParser.parseString(body).getAsJsonObject();
         boolean enabled = req.has("enabled") ? req.get("enabled").getAsBoolean() : false;
@@ -1820,6 +1846,7 @@ public class AdminResource {
     @Path("/onebot/groups/{groupId}/muteDuration")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
+    @RequirePermission("admin.onebot.group.config")
     public Response setMuteDuration(@PathParam("groupId") long groupId, String body) {
         JsonObject req = com.google.gson.JsonParser.parseString(body).getAsJsonObject();
         int days = req.has("days") ? req.get("days").getAsInt() : 29;

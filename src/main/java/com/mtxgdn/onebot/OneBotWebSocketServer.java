@@ -106,18 +106,53 @@ public class OneBotWebSocketServer extends WebSocketApplication
         String jsonStr = gson.toJson(api);
         botLog.logSendToGroup(groupId, jsonStr);
         socket.send(jsonStr);
+
+        // 同时检查目标用户是否群管理（管理员/群主不能被禁言）
+        JsonObject api2 = new JsonObject();
+        api2.addProperty("action", "get_group_member_info");
+        JsonObject params2 = new JsonObject();
+        params2.addProperty("group_id", groupId);
+        params2.addProperty("user_id", targetQq);
+        api2.add("params", params2);
+        api2.addProperty("echo", "check_target_admin_" + groupId + "_" + targetQq + "_" + muteDays);
+        String jsonStr2 = gson.toJson(api2);
+        botLog.logSendToGroup(groupId, jsonStr2);
+        socket.send(jsonStr2);
     }
 
     private void handleRenewMuteResponse(WebSocket socket, JsonObject json) {
         String echo = json.has("echo") ? json.get("echo").getAsString() : "";
-        if (!echo.startsWith("renew_mute_")) return;
+        if (!echo.startsWith("renew_mute_") && !echo.startsWith("check_target_admin_")) return;
 
-        String[] parts = echo.substring("renew_mute_".length()).split("_");
+        String[] parts;
+        Long groupId;
+        String targetQq;
+        int muteDays;
+
+        if (echo.startsWith("check_target_admin_")) {
+            parts = echo.substring("check_target_admin_".length()).split("_");
+            if (parts.length < 3) return;
+            groupId = Long.parseLong(parts[0]);
+            targetQq = parts[1];
+            muteDays = Integer.parseInt(parts[2]);
+
+            // 检查目标用户是否为管理员/群主，如果是则不能禁言
+            if (json.has("data")) {
+                JsonObject data = json.getAsJsonObject("data");
+                String targetRole = data.has("role") ? data.get("role").getAsString() : "member";
+                if (!"admin".equals(targetRole) && !"owner".equals(targetRole)) {
+                    setGroupBan(socket, groupId, targetQq, muteDays);
+                }
+            }
+            return;
+        }
+
+        parts = echo.substring("renew_mute_".length()).split("_");
         if (parts.length < 3) return;
 
-        Long groupId = Long.parseLong(parts[0]);
-        String targetQq = parts[1];
-        int muteDays = Integer.parseInt(parts[2]);
+        groupId = Long.parseLong(parts[0]);
+        targetQq = parts[1];
+        muteDays = Integer.parseInt(parts[2]);
 
         if (json.has("data")) {
             JsonObject data = json.getAsJsonObject("data");
@@ -260,11 +295,9 @@ public class OneBotWebSocketServer extends WebSocketApplication
         StatsCollector.getInstance().recordMessage(senderQq, groupId);
 
         // 黑名单检查：如果在黑名单中且群组启用了自动禁言，则禁言
-        BlacklistService blacklistService = new BlacklistService();
         if (blacklistService.isBlacklisted(senderQq)) {
-            OneBotGroupConfigService configService = new OneBotGroupConfigService();
-            if (configService.isAutoMuteEnabled(groupId)) {
-                int muteDays = configService.getMuteDuration(groupId);
+            if (groupConfigService.isAutoMuteEnabled(groupId)) {
+                int muteDays = groupConfigService.getMuteDuration(groupId);
                 checkAndMuteBlacklistedUser(socket, selfId, groupId, senderQq, muteDays);
             }
             return;

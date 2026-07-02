@@ -27,13 +27,14 @@ public class RateLimiter {
             return old;
         });
 
-        if (now - window.windowStart >= window.windowSeconds) {
-            window.counter.set(0);
-            windows.put(key, new RateWindow(now, limit, windowSeconds));
-            return true;
+        synchronized (window) {
+            if (now - window.windowStart >= window.windowSeconds) {
+                window.counter.set(0);
+                windows.put(key, new RateWindow(now, limit, windowSeconds));
+                window = windows.get(key);
+            }
+            return window.counter.incrementAndGet() <= limit;
         }
-
-        return window.counter.incrementAndGet() <= limit;
     }
 
     public static long getRemaining(String key, int limit, int windowSeconds) {
