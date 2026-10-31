@@ -271,6 +271,41 @@ public class PlayerService {
         markDataDirty(playerId);
     }
 
+    /**
+     * 扣除经验，余额不足时拒绝并返回 {@code false}（不写库）。
+     *
+     * <p><b>为什么需要它</b>：{@link #addExperience} 底层是
+     * {@code experience = experience + ?}，<b>没有下限保护</b>。管理端
+     * 「发放」指令用负数表示扣除时，直接传 {@code -99999999} 会把经验扣成负值，
+     * 之后所有 {@code 当前经验 < 所需经验} 的比较全部失真。</p>
+     *
+     * <p><b>为什么扣除不经过 {@code experienceGain} 的倍率</b>：那套倍率是
+     * 「<b>获得</b>经验」的奖励（称号 + 功法 + 经验翻倍丹），语义上是发给玩家的
+     * 加成。管理端扣除是纠错操作，玩家不该因为身上挂着经验 Buff 就被多扣
+     * 1.5 倍 —— 那既不符合直觉，也会让"扣 100"这种指令产生不可预测的实际扣减。
+     * 所以这里<b>按传入值原样扣</b>，只做余额下限保护。</p>
+     *
+     * @param playerId 玩家 id
+     * @param amount   要扣除的经验（正数；传 {@code <= 0} 视为无事可做）
+     * @return {@code true} 表示扣成功；{@code false} 表示余额不足或玩家不存在
+     */
+    public boolean removeExperience(long playerId, long amount) {
+        if (amount <= 0) {
+            return true;
+        }
+        Player player = getPlayerById(playerId);
+        if (player == null) {
+            return false;
+        }
+        // 余额不足直接拒绝，绝不写库 —— 保证 experience 永远 >= 0
+        if (player.getExperience() < amount) {
+            return false;
+        }
+        PLAYER_DAO.addExperience(playerId, -amount);
+        markDataDirty(playerId);
+        return true;
+    }
+
     /** 经验加成结算（称号 + 功法 + 经验翻倍丹等 Buff），只算数、不落库。 */
     private long experienceGain(long playerId, long exp) {
         Player player = getPlayerById(playerId);

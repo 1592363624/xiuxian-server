@@ -41,6 +41,11 @@ public class LogsCommand extends Command {
             } catch (NumberFormatException ignored) {
             }
         }
+        // count 必须有下限：count=-1 时 subList(size-(-1), size) 即
+        // subList(size+1, size)，抛 IndexOutOfBoundsException。
+        if (count < 1) {
+            count = 10;
+        }
 
         List<GameLogger.LogEntry> allEntries = GameLogger.getRecentLogs(0);
         List<GameLogger.LogEntry> entries;

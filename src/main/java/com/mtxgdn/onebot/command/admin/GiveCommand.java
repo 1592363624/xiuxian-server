@@ -77,14 +77,41 @@ public class GiveCommand extends Command {
             switch (key) {
                 case "金币":
                 case "gold":
+                    // 负值表示"扣除"，但 addGold 走的是 gold = gold + ?，
+                    // 没有任何下限保护 —— 直接传 -999999999 会把金币扣成负数，
+                    // 之后所有"余额 < 价格"的比较全部失真。这里先校验余额。
+                    // 注意：不能用循环外读到的 p.getGold() —— 同一条指令里
+                    // 可能连着写多个"金币="项，快照值会过期。
+                    if (value < 0) {
+                        var fresh = playerService.getPlayerById(playerId);
+                        long balance = fresh != null ? fresh.getGold() : 0;
+                        if (balance + value < 0) {
+                            result.append("  金币扣除失败: 余额 ").append(balance)
+                                    .append(" 不足以扣除 ").append(-value).append("\n");
+                            break;
+                        }
+                    }
                     playerService.addGold(playerId, value);
                     result.append("  金币 ").append(value > 0 ? "+" : "").append(value).append("\n");
                     hasAny = true;
                     break;
                 case "灵力":
                 case "exp":
+                    // 灵力（经验）不允许扣成负数。走 removeExperience 而不是
+                    // addExperience(负值)：后者底层是 experience = experience + ?，
+                    // 没有下限保护，且会先过倍率加成，实际扣减量与传入值不一致。
+                    if (value < 0) {
+                        if (!playerService.removeExperience(playerId, -value)) {
+                            result.append("  灵力扣除失败: 余额不足，无法扣除 ")
+                                    .append(-value).append("\n");
+                            break;
+                        }
+                        result.append("  灵力 ").append(value).append("\n");
+                        hasAny = true;
+                        break;
+                    }
                     playerService.addExperience(playerId, value);
-                    result.append("  灵力 ").append(value > 0 ? "+" : "").append(value).append("\n");
+                    result.append("  灵力 +").append(value).append("\n");
                     hasAny = true;
                     break;
                 case "灵石":

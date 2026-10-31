@@ -13,6 +13,7 @@ import com.mtxgdn.game.service.EconomyService;
 import com.mtxgdn.game.service.TradeService;
 import com.mtxgdn.i18n.I18n;
 import com.mtxgdn.permission.RequirePermission;
+import com.mtxgdn.util.JsonBody;
 
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.container.ContainerRequestContext;
@@ -137,10 +138,21 @@ public class GameEconomyResource {
     public Response listItem(String body) {
         Long userId = getCurrentUserId();
         long playerId = getPlayerIdByUserId(userId);
-        JsonObject json = com.google.gson.JsonParser.parseString(body).getAsJsonObject();
-        String itemKey = json.get("itemKey").getAsString();
-        int quantity = json.has("quantity") ? json.get("quantity").getAsInt() : 1;
-        long price = json.get("priceSpiritStones").getAsLong();
+        JsonObject json = JsonBody.parse(body);
+        // itemKey 与 priceSpiritStones 是必填项：缺少时原本会在
+        // json.get(...).getAsString() 处 NPE，被兜底成 500 + 一整条堆栈日志。
+        // 这里显式识别为参数缺失，报错才指向真正的原因。
+        if (!JsonBody.hasAll(json, "itemKey", "priceSpiritStones")) {
+            return Response.ok(GameMessage.restError(GameErrorCode.PARAM_MISSING.getCode(),
+                    I18n.t("error.param_missing")).toString()).build();
+        }
+        String itemKey = JsonBody.getString(json, "itemKey", "");
+        int quantity = JsonBody.getInt(json, "quantity", 1);
+        long price = JsonBody.getLong(json, "priceSpiritStones", 0);
+        if (itemKey.isBlank()) {
+            return Response.ok(GameMessage.restError(GameErrorCode.PARAM_MISSING.getCode(),
+                    I18n.t("error.param_missing")).toString()).build();
+        }
         var result = tradeService.listItem(playerId, itemKey, quantity, price);
         return Response.ok(GameMessage.restOk(result.message(), gson.toJsonTree(result).getAsJsonObject()).toString()).build();
     }
@@ -153,8 +165,12 @@ public class GameEconomyResource {
     public Response buyItem(String body) {
         Long userId = getCurrentUserId();
         long playerId = getPlayerIdByUserId(userId);
-        JsonObject json = com.google.gson.JsonParser.parseString(body).getAsJsonObject();
-        long listingId = json.get("listingId").getAsLong();
+        JsonObject json = JsonBody.parse(body);
+        if (!JsonBody.hasAll(json, "listingId")) {
+            return Response.ok(GameMessage.restError(GameErrorCode.PARAM_MISSING.getCode(),
+                    I18n.t("error.param_missing")).toString()).build();
+        }
+        long listingId = JsonBody.getLong(json, "listingId", 0);
         var result = tradeService.buyItem(playerId, listingId);
         return Response.ok(GameMessage.restOk(result.message(), gson.toJsonTree(result).getAsJsonObject()).toString()).build();
     }
@@ -167,8 +183,12 @@ public class GameEconomyResource {
     public Response cancelListing(String body) {
         Long userId = getCurrentUserId();
         long playerId = getPlayerIdByUserId(userId);
-        JsonObject json = com.google.gson.JsonParser.parseString(body).getAsJsonObject();
-        long listingId = json.get("listingId").getAsLong();
+        JsonObject json = JsonBody.parse(body);
+        if (!JsonBody.hasAll(json, "listingId")) {
+            return Response.ok(GameMessage.restError(GameErrorCode.PARAM_MISSING.getCode(),
+                    I18n.t("error.param_missing")).toString()).build();
+        }
+        long listingId = JsonBody.getLong(json, "listingId", 0);
         var result = tradeService.cancelListing(playerId, listingId);
         return Response.ok(GameMessage.restOk(result.message(), gson.toJsonTree(result).getAsJsonObject()).toString()).build();
     }

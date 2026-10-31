@@ -140,6 +140,10 @@ class PlayerDaoExtractionTest extends TestBase {
             "public void updateBattleStrategy(long, java.lang.String)",
             "public void updateLastOfflineTime(long, long)",
             "public boolean claimOfflineTime(long, long)",
+            // 安全加固新增（非重构遗留）：经验扣除的下限保护。
+            // addExperience 底层是 experience = experience + ?，无下限，
+            // 管理端用负数扣经验会把余额扣穿。removeExperience 先校验余额再写库。
+            "public boolean removeExperience(long, long)",
             "public void incrementSecretRealmCount(long)",
             "public void incrementPvpWins(long)",
             "public void incrementCraftCount(long)",

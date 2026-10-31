@@ -7,6 +7,7 @@ import com.mtxgdn.game.entity.PlayerInfo;
 import com.mtxgdn.game.service.ItemService;
 import com.mtxgdn.game.service.PlayerService;
 import com.mtxgdn.permission.PermissionService;
+import com.mtxgdn.util.PageRequest;
 import com.mtxgdn.onebot.QqBinding;
 import com.mtxgdn.onebot.QqBindingService;
 
@@ -63,9 +64,23 @@ public class PlayersListCommand extends Command {
             }
         }
 
+        // 页码与每页条数都必须有下限：
+        //   · pageSize=0  → totalPages 计算时除零（ArithmeticException）
+        //   · pageSize<0  → SQLite 把负 LIMIT 当作"不限条数"，一次读出整表
+        //   · page<1      → offset 变负，且 (page-1)*pageSize 可能整数溢出
+        if (page < 1) {
+            page = 1;
+        }
+        if (pageSize < 1) {
+            pageSize = 10;
+        }
+
         int offset = (page - 1) * pageSize;
         int total = playerService.getPlayerCount();
-        List<PlayerInfo> players = playerService.getAllPlayers(pageSize, offset);
+        // 再走一次统一夹取：page 极大时 (page-1)*pageSize 可能已经溢出成负数，
+        // PageRequest 会把 limit 收进 (0,100]、offset 收到 >= 0。
+        List<PlayerInfo> players = playerService.getAllPlayers(
+                PageRequest.clampLimit(pageSize, 10, 50), PageRequest.clampOffset(offset));
         int totalPages = (total + pageSize - 1) / pageSize;
 
         StringBuilder sb = new StringBuilder();
