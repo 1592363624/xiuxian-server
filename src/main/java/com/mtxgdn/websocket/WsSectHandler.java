@@ -407,7 +407,7 @@ final class WsSectHandler extends WsHandler {
             socket.send(GameMessage.error(msgId, "sect_transfer", GameErrorCode.PLAYER_NOT_FOUND).toJson());
             return;
         }
-        if (!data.has("targetPlayerId") || data.get("targetPlayerId").getAsLong() == 0) {
+        if (data == null || !data.has("targetPlayerId") || data.get("targetPlayerId").getAsLong() == 0) {
             socket.send(GameMessage.error(msgId, "sect_transfer", GameErrorCode.PARAM_MISSING).toJson());
             return;
         }
@@ -426,7 +426,7 @@ final class WsSectHandler extends WsHandler {
             socket.send(GameMessage.error(msgId, "sect_war", GameErrorCode.PLAYER_NOT_FOUND).toJson());
             return;
         }
-        if (!data.has("targetSectId") || data.get("targetSectId").getAsLong() == 0) {
+        if (data == null || !data.has("targetSectId") || data.get("targetSectId").getAsLong() == 0) {
             socket.send(GameMessage.error(msgId, "sect_war", GameErrorCode.PARAM_MISSING).toJson());
             return;
         }

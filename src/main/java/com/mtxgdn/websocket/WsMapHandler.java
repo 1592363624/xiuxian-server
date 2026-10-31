@@ -90,7 +90,7 @@ final class WsMapHandler extends WsHandler {
             socket.send(GameMessage.error(msgId, "map_travel", GameErrorCode.PLAYER_NOT_FOUND).toJson());
             return;
         }
-        if (!data.has("locationId") || data.get("locationId").getAsLong() == 0) {
+        if (data == null || !data.has("locationId") || data.get("locationId").getAsLong() == 0) {
             socket.send(GameMessage.error(msgId, "map_travel", GameErrorCode.PARAM_MISSING).toJson());
             return;
         }
