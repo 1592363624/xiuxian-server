@@ -142,7 +142,7 @@ public class GameBattleResource {
     @RequirePermission("game.pvp.challenge")
     public Response pvpChallenge(String body) {
         Long userId = getCurrentUserId();
-        int challengerPlayerId = getPlayerIdByUserId(userId);
+        long challengerPlayerId = getPlayerIdByUserId(userId);
 
         JsonObject json = com.google.gson.JsonParser.parseString(body).getAsJsonObject();
         long targetPlayerId = json.has("targetPlayerId") ? json.get("targetPlayerId").getAsLong() : 0;

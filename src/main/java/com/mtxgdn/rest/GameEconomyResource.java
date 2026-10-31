@@ -136,7 +136,7 @@ public class GameEconomyResource {
     @RequirePermission("game.market.list")
     public Response listItem(String body) {
         Long userId = getCurrentUserId();
-        int playerId = getPlayerIdByUserId(userId);
+        long playerId = getPlayerIdByUserId(userId);
         JsonObject json = com.google.gson.JsonParser.parseString(body).getAsJsonObject();
         String itemKey = json.get("itemKey").getAsString();
         int quantity = json.has("quantity") ? json.get("quantity").getAsInt() : 1;
@@ -152,7 +152,7 @@ public class GameEconomyResource {
     @RequirePermission("game.market.buy")
     public Response buyItem(String body) {
         Long userId = getCurrentUserId();
-        int playerId = getPlayerIdByUserId(userId);
+        long playerId = getPlayerIdByUserId(userId);
         JsonObject json = com.google.gson.JsonParser.parseString(body).getAsJsonObject();
         long listingId = json.get("listingId").getAsLong();
         var result = tradeService.buyItem(playerId, listingId);
@@ -166,7 +166,7 @@ public class GameEconomyResource {
     @RequirePermission("game.market.cancel")
     public Response cancelListing(String body) {
         Long userId = getCurrentUserId();
-        int playerId = getPlayerIdByUserId(userId);
+        long playerId = getPlayerIdByUserId(userId);
         JsonObject json = com.google.gson.JsonParser.parseString(body).getAsJsonObject();
         long listingId = json.get("listingId").getAsLong();
         var result = tradeService.cancelListing(playerId, listingId);
@@ -179,7 +179,7 @@ public class GameEconomyResource {
     @RequirePermission("game.market.view")
     public Response getMyListings() {
         Long userId = getCurrentUserId();
-        int playerId = getPlayerIdByUserId(userId);
+        long playerId = getPlayerIdByUserId(userId);
         var listings = tradeService.getPlayerListings(playerId);
         JsonArray arr = new JsonArray();
         for (var l : listings) {

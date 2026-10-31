@@ -314,7 +314,7 @@ public class GamePlayerResource {
     @RequirePermission("game.daily")
     public Response morningCultivation() {
         Long userId = getCurrentUserId();
-        int playerId = getPlayerIdByUserId(userId);
+        long playerId = getPlayerIdByUserId(userId);
         var result = dailyService.doMorningCultivation(playerId);
         return Response.ok(GameMessage.restOk(result.message(), gson.toJsonTree(result).getAsJsonObject()).toString()).build();
     }
@@ -325,7 +325,7 @@ public class GamePlayerResource {
     @RequirePermission("game.daily")
     public Response getDailyInfo() {
         Long userId = getCurrentUserId();
-        int playerId = getPlayerIdByUserId(userId);
+        long playerId = getPlayerIdByUserId(userId);
         var result = dailyService.getDailyInfo(playerId);
         return Response.ok(GameMessage.restOk(I18n.t("common.rest.ok"), gson.toJsonTree(result).getAsJsonObject()).toString()).build();
     }
@@ -338,7 +338,7 @@ public class GamePlayerResource {
     @RequirePermission("game.player.info")
     public Response getPlayerBuffs() {
         Long userId = getCurrentUserId();
-        int playerId = getPlayerIdByUserId(userId);
+        long playerId = getPlayerIdByUserId(userId);
 
         BuffService buffService = ServiceRegistry.getBuffService();
         ActiveBuffsResult result = buffService.getActiveBuffs(playerId);

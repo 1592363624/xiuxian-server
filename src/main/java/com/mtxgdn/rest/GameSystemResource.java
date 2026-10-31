@@ -286,7 +286,7 @@ public class GameSystemResource {
     @RequirePermission("game.player.info")
     public Response getMapSurroundings() {
         Long userId = getCurrentUserId();
-        int playerId = getPlayerIdByUserId(userId);
+        long playerId = getPlayerIdByUserId(userId);
         PlayerSurroundings result = mapService.getPlayerSurroundings(playerId);
         return Response.ok(GameMessage.restOk(I18n.t("common.rest.ok"), gson.toJsonTree(result).getAsJsonObject()).toString()).build();
     }
@@ -297,7 +297,7 @@ public class GameSystemResource {
     @RequirePermission("game.player.info")
     public Response travelTo(@PathParam("locationId") long locationId) {
         Long userId = getCurrentUserId();
-        int playerId = getPlayerIdByUserId(userId);
+        long playerId = getPlayerIdByUserId(userId);
         TravelResult result = mapService.travel(playerId, locationId);
         if (result.success()) {
             return Response.ok(GameMessage.restOk(result.message(), null).toString()).build();

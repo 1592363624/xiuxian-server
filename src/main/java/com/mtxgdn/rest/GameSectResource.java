@@ -71,7 +71,7 @@ public class GameSectResource {
     @RequirePermission("game.sect.manage")
     public Response getSectMembers() {
         Long userId = getCurrentUserId();
-        int playerId = getPlayerIdByUserId(userId);
+        long playerId = getPlayerIdByUserId(userId);
         Sect sect = sectService.getPlayerSect(playerId);
         if (sect == null) {
             return Response.ok(GameMessage.restOk(I18n.t("sect.not_member"), null).toString()).build();
@@ -103,7 +103,7 @@ public class GameSectResource {
     @RequirePermission("game.sect.manage")
     public Response createSect(String body) {
         Long userId = getCurrentUserId();
-        int playerId = getPlayerIdByUserId(userId);
+        long playerId = getPlayerIdByUserId(userId);
         JsonObject json = com.google.gson.JsonParser.parseString(body).getAsJsonObject();
 
         String name = json.has("name") ? json.get("name").getAsString() : "";
@@ -124,7 +124,7 @@ public class GameSectResource {
     @RequirePermission("game.sect.manage")
     public Response joinSect(@PathParam("sectId") long sectId) {
         Long userId = getCurrentUserId();
-        int playerId = getPlayerIdByUserId(userId);
+        long playerId = getPlayerIdByUserId(userId);
         OperationResult result = sectService.applyToSect(playerId, sectId, "");
         if (result.success()) {
             return Response.ok(GameMessage.restOk(result.message(), null).toString()).build();
@@ -138,7 +138,7 @@ public class GameSectResource {
     @RequirePermission("game.sect.manage")
     public Response getSectApplications() {
         Long userId = getCurrentUserId();
-        int playerId = getPlayerIdByUserId(userId);
+        long playerId = getPlayerIdByUserId(userId);
         SectMember member = sectService.getPlayerMember(playerId);
         if (member == null) {
             return Response.ok(GameMessage.restError(400, I18n.t("sect.not_member")).toString()).build();
@@ -165,7 +165,7 @@ public class GameSectResource {
     @RequirePermission("game.sect.manage")
     public Response approveApplication(@PathParam("appId") long appId) {
         Long userId = getCurrentUserId();
-        int playerId = getPlayerIdByUserId(userId);
+        long playerId = getPlayerIdByUserId(userId);
         OperationResult result = sectService.approveApplication(playerId, appId, true);
         if (result.success()) {
             return Response.ok(GameMessage.restOk(result.message(), null).toString()).build();
@@ -179,7 +179,7 @@ public class GameSectResource {
     @RequirePermission("game.sect.manage")
     public Response rejectApplication(@PathParam("appId") long appId) {
         Long userId = getCurrentUserId();
-        int playerId = getPlayerIdByUserId(userId);
+        long playerId = getPlayerIdByUserId(userId);
         OperationResult result = sectService.approveApplication(playerId, appId, false);
         if (result.success()) {
             return Response.ok(GameMessage.restOk(result.message(), null).toString()).build();
@@ -193,7 +193,7 @@ public class GameSectResource {
     @RequirePermission("game.sect.manage")
     public Response leaveSect() {
         Long userId = getCurrentUserId();
-        int playerId = getPlayerIdByUserId(userId);
+        long playerId = getPlayerIdByUserId(userId);
         OperationResult result = sectService.leaveSect(playerId);
         if (result.success()) {
             return Response.ok(GameMessage.restOk(result.message(), null).toString()).build();
@@ -207,7 +207,7 @@ public class GameSectResource {
     @RequirePermission("game.sect.manage")
     public Response kickMember(@PathParam("targetPlayerId") long targetPlayerId) {
         Long userId = getCurrentUserId();
-        int playerId = getPlayerIdByUserId(userId);
+        long playerId = getPlayerIdByUserId(userId);
         OperationResult result = sectService.kickMember(playerId, targetPlayerId);
         if (result.success()) {
             return Response.ok(GameMessage.restOk(result.message(), null).toString()).build();
@@ -222,7 +222,7 @@ public class GameSectResource {
     @RequirePermission("game.sect.manage")
     public Response appointMember(String body) {
         Long userId = getCurrentUserId();
-        int playerId = getPlayerIdByUserId(userId);
+        long playerId = getPlayerIdByUserId(userId);
         JsonObject json = com.google.gson.JsonParser.parseString(body).getAsJsonObject();
         long targetId = json.has("targetPlayerId") ? json.get("targetPlayerId").getAsLong() : 0;
         String role = json.has("role") ? json.get("role").getAsString() : "";
@@ -242,7 +242,7 @@ public class GameSectResource {
     @RequirePermission("game.sect.manage")
     public Response getSectWarehouse() {
         Long userId = getCurrentUserId();
-        int playerId = getPlayerIdByUserId(userId);
+        long playerId = getPlayerIdByUserId(userId);
         SectMember member = sectService.getPlayerMember(playerId);
         if (member == null) {
             return Response.ok(GameMessage.restError(400, I18n.t("sect.not_member")).toString()).build();
@@ -273,7 +273,7 @@ public class GameSectResource {
     @RequirePermission("game.sect.donate")
     public Response donateToWarehouse(String body) {
         Long userId = getCurrentUserId();
-        int playerId = getPlayerIdByUserId(userId);
+        long playerId = getPlayerIdByUserId(userId);
         SectMember member = sectService.getPlayerMember(playerId);
         if (member == null) {
             return Response.ok(GameMessage.restError(400, I18n.t("sect.not_member")).toString()).build();
@@ -295,7 +295,7 @@ public class GameSectResource {
     @RequirePermission("game.sect.warehouse")
     public Response takeFromWarehouse(String body) {
         Long userId = getCurrentUserId();
-        int playerId = getPlayerIdByUserId(userId);
+        long playerId = getPlayerIdByUserId(userId);
         SectMember member = sectService.getPlayerMember(playerId);
         if (member == null) {
             return Response.ok(GameMessage.restError(400, I18n.t("sect.not_member")).toString()).build();
@@ -316,7 +316,7 @@ public class GameSectResource {
     @RequirePermission("game.sect.manage")
     public Response disbandSect() {
         Long userId = getCurrentUserId();
-        int playerId = getPlayerIdByUserId(userId);
+        long playerId = getPlayerIdByUserId(userId);
         SectActionResult result = sectService.disbandSect(playerId);
         if (result.success()) {
             return Response.ok(GameMessage.restOk(result.message(), null).toString()).build();
@@ -330,7 +330,7 @@ public class GameSectResource {
     @RequirePermission("game.sect.manage")
     public Response levelUpSect() {
         Long userId = getCurrentUserId();
-        int playerId = getPlayerIdByUserId(userId);
+        long playerId = getPlayerIdByUserId(userId);
         SectActionResult result = sectService.levelUp(playerId);
         if (result.success()) {
             return Response.ok(GameMessage.restOk(result.message(), null).toString()).build();
@@ -344,7 +344,7 @@ public class GameSectResource {
     @RequirePermission("game.sect.manage")
     public Response transferSect(@PathParam("targetPlayerId") long targetPlayerId) {
         Long userId = getCurrentUserId();
-        int playerId = getPlayerIdByUserId(userId);
+        long playerId = getPlayerIdByUserId(userId);
         SectActionResult result = sectService.transferLeader(playerId, targetPlayerId);
         if (result.success()) {
             return Response.ok(GameMessage.restOk(result.message(), null).toString()).build();
@@ -358,7 +358,7 @@ public class GameSectResource {
     @RequirePermission("game.sect.manage")
     public Response declareWar(@PathParam("targetSectId") long targetSectId) {
         Long userId = getCurrentUserId();
-        int playerId = getPlayerIdByUserId(userId);
+        long playerId = getPlayerIdByUserId(userId);
         WarResult result = sectService.declareWar(playerId, targetSectId);
         if (result.success()) {
             JsonObject data = new JsonObject();

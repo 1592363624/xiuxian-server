@@ -56,7 +56,7 @@ public class GameFarmResource {
     @RequirePermission("game.player.info")
     public Response getFarmPlots() {
         Long userId = getCurrentUserId();
-        int playerId = getPlayerIdByUserId(userId);
+        long playerId = getPlayerIdByUserId(userId);
 
         FarmService farmService = ServiceRegistry.getFarmService();
         List<FarmPlot> plots = farmService.getPlots(playerId);
@@ -104,7 +104,7 @@ public class GameFarmResource {
     @RequirePermission("game.player.info")
     public Response farmPlant(String body) {
         Long userId = getCurrentUserId();
-        int playerId = getPlayerIdByUserId(userId);
+        long playerId = getPlayerIdByUserId(userId);
 
         JsonObject json = gson.fromJson(body, JsonObject.class);
         int plotIndex = json.has("plotIndex") ? json.get("plotIndex").getAsInt() : -1;
@@ -130,7 +130,7 @@ public class GameFarmResource {
     @RequirePermission("game.player.info")
     public Response farmWater(String body) {
         Long userId = getCurrentUserId();
-        int playerId = getPlayerIdByUserId(userId);
+        long playerId = getPlayerIdByUserId(userId);
 
         JsonObject json = gson.fromJson(body, JsonObject.class);
         int plotIndex = json.has("plotIndex") ? json.get("plotIndex").getAsInt() : -1;
@@ -155,7 +155,7 @@ public class GameFarmResource {
     @RequirePermission("game.player.info")
     public Response farmFertilize(String body) {
         Long userId = getCurrentUserId();
-        int playerId = getPlayerIdByUserId(userId);
+        long playerId = getPlayerIdByUserId(userId);
 
         JsonObject json = gson.fromJson(body, JsonObject.class);
         int plotIndex = json.has("plotIndex") ? json.get("plotIndex").getAsInt() : -1;
@@ -180,7 +180,7 @@ public class GameFarmResource {
     @RequirePermission("game.player.info")
     public Response farmHarvest(String body) {
         Long userId = getCurrentUserId();
-        int playerId = getPlayerIdByUserId(userId);
+        long playerId = getPlayerIdByUserId(userId);
 
         JsonObject json = gson.fromJson(body, JsonObject.class);
         int plotIndex = json.has("plotIndex") ? json.get("plotIndex").getAsInt() : -1;
@@ -205,7 +205,7 @@ public class GameFarmResource {
     @RequirePermission("game.player.info")
     public Response farmClear(String body) {
         Long userId = getCurrentUserId();
-        int playerId = getPlayerIdByUserId(userId);
+        long playerId = getPlayerIdByUserId(userId);
 
         JsonObject json = gson.fromJson(body, JsonObject.class);
         int plotIndex = json.has("plotIndex") ? json.get("plotIndex").getAsInt() : -1;
@@ -229,7 +229,7 @@ public class GameFarmResource {
     @RequirePermission("game.player.info")
     public Response farmExpand() {
         Long userId = getCurrentUserId();
-        int playerId = getPlayerIdByUserId(userId);
+        long playerId = getPlayerIdByUserId(userId);
 
         FarmService farmService = ServiceRegistry.getFarmService();
         FarmResult result = farmService.expandPlot(playerId);
@@ -246,7 +246,7 @@ public class GameFarmResource {
     @RequirePermission("game.player.info")
     public Response farmWaterAll() {
         Long userId = getCurrentUserId();
-        int playerId = getPlayerIdByUserId(userId);
+        long playerId = getPlayerIdByUserId(userId);
 
         FarmService farmService = ServiceRegistry.getFarmService();
         FarmResult result = farmService.waterAll(playerId);
@@ -264,7 +264,7 @@ public class GameFarmResource {
     @RequirePermission("game.player.info")
     public Response farmFertilizeAll(String body) {
         Long userId = getCurrentUserId();
-        int playerId = getPlayerIdByUserId(userId);
+        long playerId = getPlayerIdByUserId(userId);
 
         JsonObject json = gson.fromJson(body, JsonObject.class);
         String fertilizerKey = json.has("fertilizerKey") ? json.get("fertilizerKey").getAsString() : "mtxgdn:low_grade_fertilizer";
@@ -284,7 +284,7 @@ public class GameFarmResource {
     @RequirePermission("game.player.info")
     public Response farmHarvestAll() {
         Long userId = getCurrentUserId();
-        int playerId = getPlayerIdByUserId(userId);
+        long playerId = getPlayerIdByUserId(userId);
 
         FarmService farmService = ServiceRegistry.getFarmService();
         FarmResult result = farmService.harvestAll(playerId);
@@ -302,7 +302,7 @@ public class GameFarmResource {
     @RequirePermission("game.player.info")
     public Response farmPesticide(String body) {
         Long userId = getCurrentUserId();
-        int playerId = getPlayerIdByUserId(userId);
+        long playerId = getPlayerIdByUserId(userId);
 
         JsonObject json = gson.fromJson(body, JsonObject.class);
         int plotIndex = json.has("plotIndex") ? json.get("plotIndex").getAsInt() : -1;

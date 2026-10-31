@@ -61,12 +61,22 @@ final class GameSupport {
      * <p>拆出来后由多个域共用（背包/坊市/宗门/地图/种田等），因此不能再留在某一个
      * 资源类里，否则其它类要么重复实现、要么跨类调用私有方法。</p>
      */
-    static int getPlayerIdByUserId(long userId) {
+    /**
+     * 取当前登录用户对应的玩家 id；未创建角色时抛 400。
+     *
+     * <p><b>返回 {@code long} 而不是 {@code int}</b>：{@code players.id} 是自增
+     * {@code BIGINT}（SQLite 下 {@code INTEGER PRIMARY KEY} 实际也是 64 位），
+     * 而下游所有 service 方法的 {@code playerId} 参数都是 {@code long}。
+     * 这里原本写的是 {@code (int) player.getId()}，等于在 REST 层把 64 位
+     * 收窄成 32 位再隐式扩宽回 {@code long} —— id 一旦超过 2^31-1，
+     * 截断后会变成负数或另一个玩家的 id，玩家就可能操作到别人的数据。</p>
+     */
+    static long getPlayerIdByUserId(long userId) {
         PlayerInfo player = playerService.getPlayerByUserId(userId);
         if (player == null) {
             throw new WebApplicationException("请先创建角色", 400);
         }
-        return (int) player.getId();
+        return player.getId();
     }
 
     /**

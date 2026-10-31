@@ -88,7 +88,7 @@ public class GameInventoryResource {
     @RequirePermission("game.inventory.view")
     public Response getInventory() {
         Long userId = getCurrentUserId();
-        int playerId = getPlayerIdByUserId(userId);
+        long playerId = getPlayerIdByUserId(userId);
 
         List<ItemService.InventoryEntry> inventory = itemService.getInventory(playerId);
 
@@ -113,7 +113,7 @@ public class GameInventoryResource {
     @RequirePermission("game.item.use")
     public Response useItem(String body) {
         Long userId = getCurrentUserId();
-        int playerId = getPlayerIdByUserId(userId);
+        long playerId = getPlayerIdByUserId(userId);
 
         JsonObject json = com.google.gson.JsonParser.parseString(body).getAsJsonObject();
         String itemKey = json.has("itemKey") ? json.get("itemKey").getAsString() : "";
@@ -140,7 +140,7 @@ public class GameInventoryResource {
     @RequirePermission("admin.items.give")
     public Response addItem(String body) {
         Long userId = getCurrentUserId();
-        int playerId = getPlayerIdByUserId(userId);
+        long playerId = getPlayerIdByUserId(userId);
 
         JsonObject json = com.google.gson.JsonParser.parseString(body).getAsJsonObject();
         String itemKey = json.has("itemKey") ? json.get("itemKey").getAsString() : "";
@@ -170,7 +170,7 @@ public class GameInventoryResource {
     @RequirePermission("game.inventory.view")
     public Response getEquipment() {
         Long userId = getCurrentUserId();
-        int playerId = getPlayerIdByUserId(userId);
+        long playerId = getPlayerIdByUserId(userId);
 
         Map<String, String> equipment = itemService.getEquipment(playerId);
         JsonObject data = new JsonObject();
@@ -204,7 +204,7 @@ public class GameInventoryResource {
     @RequirePermission("game.equipment.equip")
     public Response equipItem(String body) {
         Long userId = getCurrentUserId();
-        int playerId = getPlayerIdByUserId(userId);
+        long playerId = getPlayerIdByUserId(userId);
 
         JsonObject json = com.google.gson.JsonParser.parseString(body).getAsJsonObject();
         String itemKey = json.has("itemKey") ? json.get("itemKey").getAsString() : "";
@@ -225,7 +225,7 @@ public class GameInventoryResource {
     @RequirePermission("game.equipment.equip")
     public Response unequipItem(String body) {
         Long userId = getCurrentUserId();
-        int playerId = getPlayerIdByUserId(userId);
+        long playerId = getPlayerIdByUserId(userId);
 
         JsonObject json = com.google.gson.JsonParser.parseString(body).getAsJsonObject();
         String slot = json.has("slot") ? json.get("slot").getAsString() : "";
@@ -245,7 +245,7 @@ public class GameInventoryResource {
     @RequirePermission("game.equipment.enhance")
     public Response enhanceEquipment(String body) {
         Long userId = getCurrentUserId();
-        int playerId = getPlayerIdByUserId(userId);
+        long playerId = getPlayerIdByUserId(userId);
 
         JsonObject json = com.google.gson.JsonParser.parseString(body).getAsJsonObject();
         String slot = json.has("slot") ? json.get("slot").getAsString() : "";
@@ -288,7 +288,7 @@ public class GameInventoryResource {
     @RequirePermission("game.inventory.view")
     public Response getMySkills() {
         Long userId = getCurrentUserId();
-        int playerId = getPlayerIdByUserId(userId);
+        long playerId = getPlayerIdByUserId(userId);
 
         List<Skill> mySkills = skillService.getPlayerSkills(playerId);
 
@@ -312,7 +312,7 @@ public class GameInventoryResource {
     @RequirePermission("game.skill.learn")
     public Response learnSkill(String body) {
         Long userId = getCurrentUserId();
-        int playerId = getPlayerIdByUserId(userId);
+        long playerId = getPlayerIdByUserId(userId);
 
         JsonObject json = com.google.gson.JsonParser.parseString(body).getAsJsonObject();
         long skillId = json.has("skillId") ? json.get("skillId").getAsLong() : 0;
