@@ -28,7 +28,10 @@ public class ChatService {
         }
         content = TextSanitizer.sanitizeChatContent(content.trim());
         if (content.length() > MAX_CONTENT_LENGTH) {
-            content = content.substring(0, MAX_CONTENT_LENGTH);
+            // sanitizeChatContent 已按原文截断到 500 再转义；这里只处理
+            // "转义膨胀"（< → &lt; 等）造成的超出。再次走净化而不是裸 substring，
+            // 是为了避免把 &amp; 这类实体从中间切断成 &am。
+            content = TextSanitizer.sanitizeChatContent(content);
         }
 
         CHAT_DAO.insertWorldMessage(senderPlayerId, content);
@@ -52,7 +55,10 @@ public class ChatService {
         }
         content = TextSanitizer.sanitizeChatContent(content.trim());
         if (content.length() > MAX_CONTENT_LENGTH) {
-            content = content.substring(0, MAX_CONTENT_LENGTH);
+            // sanitizeChatContent 已按原文截断到 500 再转义；这里只处理
+            // "转义膨胀"（< → &lt; 等）造成的超出。再次走净化而不是裸 substring，
+            // 是为了避免把 &amp; 这类实体从中间切断成 &am。
+            content = TextSanitizer.sanitizeChatContent(content);
         }
 
         CHAT_DAO.insertPrivateMessage(senderPlayerId, receiverPlayerId, content);
