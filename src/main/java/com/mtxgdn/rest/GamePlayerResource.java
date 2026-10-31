@@ -18,6 +18,7 @@ import com.mtxgdn.game.service.DailyService;
 import com.mtxgdn.game.service.OfflineRewardService;
 import com.mtxgdn.i18n.I18n;
 import com.mtxgdn.permission.RequirePermission;
+import com.mtxgdn.util.PageRequest;
 import com.mtxgdn.util.RateLimiter;
 
 import jakarta.ws.rs.*;
@@ -222,7 +223,11 @@ public class GamePlayerResource {
     public Response getAllPlayers(
             @QueryParam("limit") @DefaultValue("20") int limit,
             @QueryParam("offset") @DefaultValue("0") int offset) {
-        List<PlayerInfo> players = playerService.getAllPlayers(limit, offset);
+        // 分页参数必须夹取：limit=2147483647 会一次拉走全表，
+        // 而 limit=-1 在 SQLite 里等价于"不限条数"（同样全表）。
+        int safeLimit = PageRequest.clampLimit(limit);
+        int safeOffset = PageRequest.clampOffset(offset);
+        List<PlayerInfo> players = playerService.getAllPlayers(safeLimit, safeOffset);
         int total = playerService.getPlayerCount();
 
         JsonArray playersArray = new JsonArray();
@@ -241,8 +246,8 @@ public class GamePlayerResource {
         data.add("players", playersArray);
         data.addProperty("count", playersArray.size());
         data.addProperty("total", total);
-        data.addProperty("limit", limit);
-        data.addProperty("offset", offset);
+        data.addProperty("limit", safeLimit);
+        data.addProperty("offset", safeOffset);
 
         return Response.ok(GameMessage.restOk(I18n.t("common.rest.ok"), data).toString()).build();
     }
@@ -259,7 +264,9 @@ public class GamePlayerResource {
                     I18n.t("error.param_missing_search_name")).toString()).build();
         }
 
-        List<PlayerInfo> players = playerService.searchPlayersByName(name.trim(), limit, offset);
+        // 与 /players 同样夹取分页参数（负数 limit 在 SQLite 下等价于全表）
+        List<PlayerInfo> players = playerService.searchPlayersByName(name.trim(),
+                PageRequest.clampLimit(limit), PageRequest.clampOffset(offset));
 
         JsonArray playersArray = new JsonArray();
         for (PlayerInfo player : players) {

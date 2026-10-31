@@ -17,6 +17,7 @@ import com.mtxgdn.i18n.I18nManager;
 import com.mtxgdn.i18n.LanguageResolver;
 import com.mtxgdn.Main;
 import com.mtxgdn.permission.RequirePermission;
+import com.mtxgdn.util.PageRequest;
 
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.container.ContainerRequestContext;
@@ -241,16 +242,19 @@ public class GameSystemResource {
     @RequirePermission("game.rank.view")
     public Response getRanking(@QueryParam("type") @DefaultValue("realm") String type,
                                 @QueryParam("limit") @DefaultValue("20") int limit) {
+        // 排行榜同样要夹 limit：WebSocket 侧的 rank 早就用 clampLimit 限制到 100，
+        // REST 侧一直原样透传，传负数或极大值都会变成全表查询。
+        int safeLimit = PageRequest.clampLimit(limit);
         List<PlayerInfo> players;
         switch (type) {
             case "power":
-                players = playerService.getTopByPower(limit);
+                players = playerService.getTopByPower(safeLimit);
                 break;
             case "wealth":
-                players = playerService.getTopByWealth(limit);
+                players = playerService.getTopByWealth(safeLimit);
                 break;
             default:
-                players = playerService.getTopByRealm(limit);
+                players = playerService.getTopByRealm(safeLimit);
                 break;
         }
 
