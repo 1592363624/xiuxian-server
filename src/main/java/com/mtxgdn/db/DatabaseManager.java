@@ -450,6 +450,13 @@ public class DatabaseManager {
             stmt.execute(DatabaseSchema.createPlayerTitlesTable(pk, tsDefault, boolType, DIALECT));
             // V4 修复：JWT 吊销名单持久化表（登出后重启不复活）
             stmt.execute(DatabaseSchema.createTokenBlacklistTable(pk, tsDefault));
+            // OAuth 第三方授权：授权记录落库。
+            // 注意这里<b>只</b>持久化"玩家授权过谁"，不持久化 access_token 的 jti ——
+            // jti 量随调用增长且很快过期，落库收益不抵成本；重启后 token 失效、
+            // 客户端用 refresh_token 换新的即可。
+            stmt.execute(DatabaseSchema.createOAuthGrantsTable(pk, tsDefault));
+            stmt.execute(DatabaseSchema.createOAuthGrantsUserIndex());
+            stmt.execute(DatabaseSchema.createOAuthGrantsExpiresIndex());
             // 坊市挂单时限 + 成交价格历史
             stmt.execute(DatabaseSchema.createTradePriceHistoryTable(pk, tsDefault));
             // 世界 Boss（B6）：共享血量 + 伤害台账
@@ -618,7 +625,10 @@ public class DatabaseManager {
         "world_bosses", "world_boss_damage",
         // 这两张同样是实测发现漏登记的：user_permissions 由权限模块直接建表
         // （单条权限授予），schema_migrations 由 DatabaseMigration 建表
-        "user_permissions", "schema_migrations"
+        "user_permissions", "schema_migrations",
+        // OAuth 第三方授权记录表。新增表的教训见上面那段注释 ——
+        // 建表语句和这份白名单必须同步，否则备份/还原会把它当"非法表名"拒掉。
+        "oauth_grants"
     );
 
     /** 表名白名单缓存（避免每次校验都查库） */

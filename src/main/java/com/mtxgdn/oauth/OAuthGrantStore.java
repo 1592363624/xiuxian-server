@@ -59,13 +59,30 @@ public final class OAuthGrantStore {
         private volatile long lastUsedAt;
 
         Grant(String grantId, long userId, String username, String clientId, Set<String> scopes) {
+            this(grantId, userId, username, clientId, scopes,
+                    System.currentTimeMillis(), System.currentTimeMillis());
+        }
+
+        /**
+         * 从持久化记录重建（保留原始授权时间，不能重置成 now）。
+         *
+         * <p>重启后如果 createdAt 变成 now，「已授权应用」页会显示
+         * "刚刚授权"，玩家会以为有陌生应用刚获取了权限。</p>
+         */
+        Grant(String grantId, long userId, String username, String clientId, Set<String> scopes,
+              long createdAt, long lastUsedAt) {
             this.grantId = grantId;
             this.userId = userId;
             this.username = username;
             this.clientId = clientId;
             this.scopes = new LinkedHashSet<>(scopes);
-            this.createdAt = System.currentTimeMillis();
-            this.lastUsedAt = this.createdAt;
+            this.createdAt = createdAt;
+            this.lastUsedAt = lastUsedAt;
+        }
+
+        /** 这条授权的最晚有效期（refresh_token 的期限），用于数据库清理 */
+        long expiresAt() {
+            return createdAt + REFRESH_TTL_MS;
         }
 
         public String grantId() {
@@ -109,6 +126,9 @@ public final class OAuthGrantStore {
     /** 已失效的 refresh_token 哈希 → 所属 grantId（用于检测重放） */
     private static final Map<String, String> USED_REFRESH = new ConcurrentHashMap<>();
 
+    /** 持久化入口。DAO 内部已做异常降级，这里不用再包 try/catch。 */
+    private static final com.mtxgdn.db.OAuthGrantsDAO DAO = new com.mtxgdn.db.OAuthGrantsDAO();
+
     private record RefreshEntry(String grantId, long expiresAt) {
         boolean expired(long now) {
             return now > expiresAt;
@@ -118,13 +138,58 @@ public final class OAuthGrantStore {
     private OAuthGrantStore() {
     }
 
+    // ==================== 启动加载 ====================
+
+    /**
+     * 从数据库载入全部有效授权。
+     *
+     * <p>不载入任何 access_token —— 它们是无状态 JWT，重启后仍需重新校验。
+     * 但授权<b>记录</b>要保住：否则玩家每次重启服务器都得把每个第三方应用
+     * 重新授权一遍。</p>
+     *
+     * <p>载入后 {@code ACTIVE_TOKEN_JTI} 是空的，意味着重启前签发的 token
+     * 会因为 {@link #isTokenActive} 查不到 jti 而失效。这是刻意的：
+     * 我们不持久化 token 的 jti（量太大且很快过期），重启后要求客户端
+     * 用 refresh_token 换新的即可。refresh_token 同样是内存态、重启失效，
+     * 所以实际效果是「重启后需要重新走一次授权码流程」。</p>
+     *
+     * <p><b>这个取舍需要明确记录</b>：持久化的是"玩家授权过谁"这件事，
+     * 不是会话本身。好处是「已授权应用」页在重启后仍然正确，
+     * 玩家能撤销；坏处是第三方需要重新拿一次 token。</p>
+     *
+     * @return 载入的授权条数；数据库不可用时返回 0
+     */
+    public static int loadFromDatabase() {
+        GRANTS.clear();
+        ACTIVE_TOKEN_JTI.clear();
+        REFRESH.clear();
+        USED_REFRESH.clear();
+
+        java.util.List<com.mtxgdn.db.OAuthGrantsDAO.Row> rows = DAO.findAllActive();
+        for (com.mtxgdn.db.OAuthGrantsDAO.Row row : rows) {
+            Set<String> scopes = OAuthScope.parse(row.scopes());
+            GRANTS.put(row.grantId(), new Grant(
+                    row.grantId(), row.userId(), row.username(), row.clientId(),
+                    scopes, row.createdAt(), row.lastUsedAt()));
+        }
+        return GRANTS.size();
+    }
+
     // ==================== 授权 ====================
 
-    /** 建立或更新一条授权。同一玩家对同一应用只保留一条（scope 以最新同意的为准）。 */
+    /**
+     * 建立或更新一条授权。同一玩家对同一应用只保留一条（scope 以最新同意的为准）。
+     *
+     * <p>同时写入内存与数据库。数据库写失败不影响本次授权（内存已生效），
+     * 只是重启后需要重新授权 —— 这个降级方向是安全的。</p>
+     */
     public static Grant authorize(long userId, String username, String clientId, Set<String> scopes) {
         String grantId = grantId(userId, clientId);
         Grant grant = new Grant(grantId, userId, username, clientId, scopes);
         GRANTS.put(grantId, grant);
+
+        DAO.upsert(grantId, userId, username, clientId,
+                OAuthScope.join(scopes), grant.createdAt(), grant.lastUsedAt(), grant.expiresAt());
         return grant;
     }
 
@@ -163,6 +228,10 @@ public final class OAuthGrantStore {
         }
         ACTIVE_TOKEN_JTI.entrySet().removeIf(e -> e.getValue().equals(grantId));
         REFRESH.entrySet().removeIf(e -> e.getValue().grantId().equals(grantId));
+
+        // 落库用标记而不是删行：保留"曾经授权过"的事实便于追溯。
+        // 真删由 purgeExpired 在 refresh_token 都过期之后做。
+        DAO.markRevoked(grantId);
         return true;
     }
 
@@ -214,8 +283,26 @@ public final class OAuthGrantStore {
             ACTIVE_TOKEN_JTI.remove(jti);
             return false;
         }
-        grant.lastUsedAt = System.currentTimeMillis();
+        touchLastUsed(grant);
         return true;
+    }
+
+    /** lastUsedAt 落库的最小间隔 —— 这个字段只用于展示，不值得每个请求都写一次库 */
+    private static final long TOUCH_INTERVAL_MS = 60_000L;
+
+    /**
+     * 更新最近使用时间。
+     *
+     * <p>内存每次都更新（列表排序用），数据库按 {@link #TOUCH_INTERVAL_MS} 节流 ——
+     * 否则一个活跃的第三方应用会把每次 API 调用都变成一次 UPDATE。</p>
+     */
+    private static void touchLastUsed(Grant grant) {
+        long now = System.currentTimeMillis();
+        long previous = grant.lastUsedAt;
+        grant.lastUsedAt = now;
+        if (now - previous >= TOUCH_INTERVAL_MS) {
+            DAO.touch(grant.grantId(), now);
+        }
     }
 
     // ==================== refresh_token ====================
@@ -280,20 +367,32 @@ public final class OAuthGrantStore {
 
     // ==================== 维护 ====================
 
-    /** 清理过期 refresh_token，避免长跑积累 */
+    /**
+     * 清理过期数据。
+     *
+     * <p>内存里清过期 refresh_token；数据库里删掉「已撤销且早已过期」的记录
+     * （撤销记录要留一段时间便于追溯，不能撤销即删）。</p>
+     */
     public static void purgeExpired() {
         long now = System.currentTimeMillis();
         REFRESH.entrySet().removeIf(e -> e.getValue().expired(now));
-        // USED_REFRESH 只用于重放检测，保留 2 倍 TTL 足够
+        // USED_REFRESH 只用于重放检测，超过阈值直接清空即可
         if (USED_REFRESH.size() > 10_000) {
             USED_REFRESH.clear();
         }
+        DAO.purgeExpired(now);
     }
 
     public static int grantCount() {
         return GRANTS.size();
     }
 
+    /**
+     * 清空内存状态。
+     *
+     * <p>只清内存、<b>不</b>删数据库 —— 测试用它保证用例之间互不影响，
+     * 而生产代码没有"清空所有玩家授权"的场景。真要清库请显式调 DAO。</p>
+     */
     public static void clear() {
         GRANTS.clear();
         ACTIVE_TOKEN_JTI.clear();

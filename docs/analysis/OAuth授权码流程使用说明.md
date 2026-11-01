@@ -220,9 +220,18 @@ curl -X POST https://你的服务器/api/auth/oauth/token \
 
 ## 七、已知限制
 
-1. **授权记录存内存**，重启后玩家需要重新授权。
-   这对个人服务器通常可接受；如需持久化，应把 `OAuthGrantStore`
-   落到数据库表。
+1. **授权记录已持久化，但会话不持久化。**
+
+   落库的是「玩家授权过谁」这件事（`oauth_grants` 表）。
+   access_token 的 jti 与 refresh_token 都在内存里，重启即失效。
+
+   所以服务器重启后的实际表现是：
+
+   - ✅ 「已授权应用」页面仍然正确，玩家能看到并撤销
+   - ⚠️ 第三方持有的 token 失效，需要重新走一次授权码流程
+
+   这个取舍是刻意的：持久化 refresh_token 意味着数据库一旦泄露就能长期冒用，
+   代价大于收益。
 
 2. **写权限尚未实际开放业务验证**。scope 映射和拦截已实现并有测试，
    但没有真实第三方用写权限跑过。首次开放前建议先在测试环境验证。
@@ -242,5 +251,14 @@ curl -X POST https://你的服务器/api/auth/oauth/token \
 | `OAuthEndpointTest` | 26 | 全部端点行为，含授权码全流程 |
 | `OAuthAuthorizationFlowTest` | 14 | 授权码攻击面 |
 | `OAuthScopeEnforcementTest` | 23 | 细粒度 scope 是否真的拦住 |
+| `OAuthGrantPersistenceTest` | 10 | 落库/重启恢复/撤销不复活 |
 
-合计 86 个。
+合计 96 个。
+
+### 关于持久化的两个易错点（已被测试锁定）
+
+- **恢复时必须保留原始 `created_at`**：重置成 now 会让「已授权应用」页显示
+  "刚刚授权"，玩家会以为有陌生应用刚拿到权限。
+- **撤销用 `revoked` 标记而非删行**：删行会丢失"曾经授权过"的事实，
+  排查"玩家说没授权但应用拿到了 token"时无从追溯。真删由 `purgeExpired`
+  在 refresh_token 过期后执行。

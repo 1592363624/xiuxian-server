@@ -1050,4 +1050,41 @@ public class DatabaseSchema {
                 "created_at " + tsDefault +
                 ")";
     }
+    /**
+     * OAuth 授权记录持久化表。
+     *
+     * <p>原来 OAuthGrantStore 把授权全放内存，进程重启后玩家需要重新给每个
+     * 第三方应用授权一遍。对重启频繁的场景体验很差，所以落库。</p>
+     *
+     * <p>字段说明：
+     * grant_id 唯一（形如 userId:clientId，同一玩家对同一应用只保留一条，
+     * 重新授权时覆盖 scope）；scopes 存空格分隔串（与 JWT 表示一致）；
+     * revoked 用 0/1 而不是删行 —— 删行会丢失"曾经授权过"的事实，
+     * 排查"玩家说没授权但这应用拿到了 token"时无从追溯；
+     * expires_at 是这条授权的最晚有效期，用于清理历史记录。</p>
+     */
+    public static String createOAuthGrantsTable(String pk, String tsDefault) {
+        return "CREATE TABLE IF NOT EXISTS oauth_grants (" +
+                "id " + pk + ", " +
+                "grant_id VARCHAR(160) NOT NULL UNIQUE, " +
+                "user_id BIGINT NOT NULL, " +
+                "username VARCHAR(64) NOT NULL DEFAULT '', " +
+                "client_id VARCHAR(120) NOT NULL, " +
+                "scopes VARCHAR(512) NOT NULL DEFAULT '', " +
+                "revoked INTEGER NOT NULL DEFAULT 0, " +
+                "created_at BIGINT NOT NULL, " +
+                "last_used_at BIGINT NOT NULL DEFAULT 0, " +
+                "expires_at BIGINT NOT NULL DEFAULT 0" +
+                ")";
+    }
+
+    /** 按玩家查授权（「已授权应用」页与 token 校验都按 user_id 过滤） */
+    public static String createOAuthGrantsUserIndex() {
+        return "CREATE INDEX IF NOT EXISTS idx_oauth_grants_user ON oauth_grants (user_id)";
+    }
+
+    /** 清理过期记录时按 expires_at 扫 */
+    public static String createOAuthGrantsExpiresIndex() {
+        return "CREATE INDEX IF NOT EXISTS idx_oauth_grants_expires ON oauth_grants (expires_at)";
+    }
 }

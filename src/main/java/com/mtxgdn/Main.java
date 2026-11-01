@@ -673,6 +673,19 @@ public class Main {
         } catch (Exception e) {
             LOG.warn("载入 JWT 吊销名单失败（登出记录在本次启动内可能不生效）: " + e.getMessage());
         }
+
+        // 载入 OAuth 第三方授权记录：不载入的话每次重启玩家都要重新授权一遍，
+        // 「已授权应用」页也会变成空的。
+        // 注意这里只恢复"玩家授权过谁"，不恢复会话 —— 重启前签发的 access_token
+        // 仍需重新获取（详见 OAuthGrantStore.loadFromDatabase 的说明）。
+        try {
+            int grants = com.mtxgdn.oauth.OAuthGrantStore.loadFromDatabase();
+            if (grants > 0) {
+                LOG.info("载入 OAuth 授权记录 " + grants + " 条");
+            }
+        } catch (Exception e) {
+            LOG.warn("载入 OAuth 授权记录失败（玩家可能需要重新授权第三方应用）: " + e.getMessage());
+        }
     }
 
     private static void releaseConfigs() {
