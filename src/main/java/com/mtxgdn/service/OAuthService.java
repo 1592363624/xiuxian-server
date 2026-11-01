@@ -14,7 +14,6 @@ import java.util.Date;
 import com.mtxgdn.i18n.I18n;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * OAuth 2.0 支持（client_credentials）。
@@ -33,9 +32,6 @@ public class OAuthService {
     private static volatile long tokenTtlMs = Math.max(60, AppConfig.getInt("oauth2.token_ttl_seconds", 3600)) * 1000L;
 
     private static volatile SecretKey secretKey = buildKey(clientSecret);
-
-    /** 已签发的 token（仅用于统计/演示，无业务含义） */
-    private static final Map<String, Long> issuedTokens = new ConcurrentHashMap<>();
 
     private OAuthService() {
     }
@@ -160,21 +156,33 @@ public class OAuthService {
         return clientId.equals(id) && clientSecret.equals(secret);
     }
 
-    /** 签发 access_token */
+    /**
+     * 签发 access_token。
+     *
+     * <p><b>{@code scope} 为 null 与空串要区别对待</b>：</p>
+     * <ul>
+     *   <li>{@code null} —— 调用方没指定，给配置的全部 scopes（"不指定即全部"）；</li>
+     *   <li>{@code ""} —— 调用方指定的 scope 全都不在配置白名单里，
+     *       收窄后就是空。这时<b>必须保持为空</b>：如果回落成配置的全部，
+     *       恰好把"请求了非法 scope"变成"拿到全部权限"，方向正好相反。</li>
+     * </ul>
+     */
     public static String issueAccessToken(String clientId, String scope) {
         Date now = new Date();
         Date expiration = new Date(now.getTime() + tokenTtlMs);
+        String effectiveScope = scope == null ? scopes : scope;
 
         String token = Jwts.builder()
                 .setSubject("oauth2:" + clientId)
                 .claim("token_type", "oauth2")
                 .claim("client_id", clientId)
-                .claim("scope", scope == null || scope.isBlank() ? scopes : scope)
+                .claim("scope", effectiveScope)
                 .setIssuedAt(now)
                 .setExpiration(expiration)
                 .signWith(secretKey, SignatureAlgorithm.HS256)
                 .compact();
-        issuedTokens.put(token, System.currentTimeMillis());
+        // issuedTokens 只写不读，且从不清理 —— 每签发一个 token 就永久占一条，
+        // 长跑的服务会缓慢吃内存。这里不再往里塞。
         return token;
     }
 
@@ -230,15 +238,59 @@ public class OAuthService {
         return info;
     }
 
-    /** 组装标准 token 响应体 */
-    public static Map<String, Object> buildTokenResponse(String clientId, String scope) {
-        String effectiveScope = scope == null || scope.isBlank() ? scopes : scope;
+    /**
+     * 组装标准 token 响应体。
+     *
+     * <p><b>为什么要把请求的 scope 与配置求交集</b>：{@code scope} 是客户端自己填的，
+     * 不校验就等于让调用方自选权限 —— 请求
+     * {@code {"scope":"read write admin delete"}} 时，签出的 token 里就真的
+     * 写着 {@code read write admin delete}，{@code /introspect} 还会原样回报。</p>
+     *
+     * <p>当前受保护端点只认 {@code read} / {@code write} 两个具体值，
+     * 多出来的名字暂时没有端点响应，所以还无法直接提权。但这留下两处隐患：
+     * 将来任何按 scope 名授权的新端点都会默认信任这个自填字段；下游系统读到
+     * 内省结果也可能据此放行。RFC 6749 §3.3 要求的就是"签发方按自身策略收窄"。</p>
+     *
+     * <p>因此这里做白名单收窄：只保留配置里出现过的 scope。请求留空则给配置的全部；
+     * 请求全是未授权项则签出一个不含任何权限的 token（调用方后续会拿到 401，
+     * 这比悄悄给他一个默认 full 权限要安全）。</p>
+     */
+    public static Map<String, Object> buildTokenResponse(String clientId, String requestedScope) {
+        String effectiveScope = narrowToConfiguredScopes(requestedScope);
         Map<String, Object> resp = new LinkedHashMap<>();
         resp.put("access_token", issueAccessToken(clientId, effectiveScope));
         resp.put("token_type", "Bearer");
         resp.put("expires_in", tokenTtlMs / 1000);
         resp.put("scope", effectiveScope);
         return resp;
+    }
+
+    /**
+     * 把请求的 scope 收窄到配置允许的范围。
+     *
+     * <p>请求为空（null / 空白）时返回配置的全部 scopes —— 与"不指定即全部"的
+     * 既有语义保持一致。否则逐项比对配置，只保留命中项。</p>
+     */
+    static String narrowToConfiguredScopes(String requested) {
+        if (requested == null || requested.isBlank()) {
+            return scopes;
+        }
+        java.util.Set<String> allowed = new java.util.LinkedHashSet<>();
+        for (String s : scopes.split("\\s+")) {
+            if (!s.isBlank()) {
+                allowed.add(s);
+            }
+        }
+        StringBuilder narrowed = new StringBuilder();
+        for (String s : requested.split("\\s+")) {
+            if (allowed.contains(s)) {
+                if (narrowed.length() > 0) {
+                    narrowed.append(' ');
+                }
+                narrowed.append(s);
+            }
+        }
+        return narrowed.toString();
     }
 
     /** 是否包含指定 scope（"read write" 包含 "read"） */

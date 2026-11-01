@@ -76,19 +76,70 @@ public class OAuthResource {
         return Response.ok(gson.toJson(OAuthService.buildTokenResponse(clientId, scope))).build();
     }
 
+    /**
+     * RFC 7662 风格的 token 内省。
+     *
+     * <p><b>必须带客户端凭据</b>：内省返回的是"这个 token 是否有效、属于谁、
+     * 有什么 scope"。如果不鉴权，任何人都能拿一个 token 来问它是否有效 ——
+     * 这等于给了一个免费的 token 有效性探针，也让内省结果可以被随意解析。
+     * RFC 7662 §2.1 明确要求内省端点受保护（通常用 client 凭据认证）。</p>
+     *
+     * <p>这里支持三处取值：请求体里的 {@code client_id}/{@code client_secret}，
+     * 或 HTTP Basic 认证（标准做法）。校验不通过一律 401，不区分
+     * "凭据错"与"token 不存在"，避免成为枚举工具。</p>
+     */
     @POST
     @Path("/introspect")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     public Response introspect(String body) {
+        if (!OAuthService.isEnabled()) {
+            return error(503, "oauth2_not_enabled", "OAuth 2.0 支持未启用（oauth2.enabled=false）");
+        }
+
         JsonObject json;
         try {
             json = com.google.gson.JsonParser.parseString(body).getAsJsonObject();
         } catch (Exception e) {
             return error(400, "invalid_request", "请求体不是合法的 JSON");
         }
+
+        // 凭据来源：请求体字段优先，其次 HTTP Basic
+        String clientId = json.has("client_id") ? json.get("client_id").getAsString() : "";
+        String clientSecret = json.has("client_secret") ? json.get("client_secret").getAsString() : "";
+        if (clientId.isBlank() || clientSecret.isBlank()) {
+            String[] basic = parseBasicAuth(httpHeaders.getHeaderString("Authorization"));
+            if (basic != null) {
+                clientId = basic[0];
+                clientSecret = basic[1];
+            }
+        }
+
+        if (!OAuthService.validateClient(clientId, clientSecret)) {
+            // 不区分"凭据错"和"token 不存在"：否则这个端点就成了 token 有效性探针
+            return error(401, "invalid_client", "需要有效的客户端凭据才能内省 token");
+        }
+
         String token = json.has("token") ? json.get("token").getAsString() : "";
         return Response.ok(gson.toJson(OAuthService.introspect(token))).build();
+    }
+
+    /** 解析 {@code Authorization: Basic base64(id:secret)}；不适应返回 {@code null}。 */
+    private static String[] parseBasicAuth(String header) {
+        if (header == null || !header.regionMatches(true, 0, "Basic ", 0, 6)) {
+            return null;
+        }
+        try {
+            String decoded = new String(java.util.Base64.getDecoder().decode(header.substring(6).trim()),
+                    java.nio.charset.StandardCharsets.UTF_8);
+            int colon = decoded.indexOf(':');
+            if (colon < 0) {
+                return null;
+            }
+            return new String[]{decoded.substring(0, colon), decoded.substring(colon + 1)};
+        } catch (RuntimeException e) {
+            return null;
+        }
     }
 
     // ==================== 受保护资源端点（OAuth token 真正可用之处）====================
