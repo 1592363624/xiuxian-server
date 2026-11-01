@@ -72,12 +72,60 @@ jwt:
 # ┌──────────────────────────────────────────────────────────────┐
 # │ 6. OAuth2 支持（独立鉴权端点，不与其他业务系统集成）           │
 # └──────────────────────────────────────────────────────────────┘
+#
+# 支持两种流程，用途完全不同，不要混用：
+#
+#  1) client_credentials —— 机器对机器。只证明「是哪个应用」，
+#     拿不到任何玩家身份。只能访问登记为公共只读的端点。
+#     用下面的 client_id / client_secret。
+#
+#  2) authorization_code —— 第三方代表「某个玩家」访问。
+#     玩家在同意页明确点了同意，token 才带 uid。
+#     需要在 clients 里登记应用（含回调地址）。
+#
 oauth2:
   enabled: true                # 是否启用 OAuth2 授权端点
-  client_id: xiuxian_oauth_client        # 客户端 ID
+  client_id: xiuxian_oauth_client        # 机器对机器用的客户端 ID
   client_secret: xiuxian_oauth_secret_please_change   # 客户端密钥（务必修改）
-  scopes: read write           # 授权作用域（空格分隔）
+  scopes: read write           # 机器对机器的作用域（空格分隔）
   token_ttl_seconds: 3600      # Access Token 有效时长（秒）
+
+  # ── 第三方应用登记表（authorization_code 流程）────────────────
+  #
+  # 只有登记在这里的应用才能发起授权请求。没有自助注册 ——
+  # redirect_uri 一旦可被应用自己指定，授权码就能被骗到攻击者服务器。
+  #
+  # redirect_uris 必须写完整地址，校验时做「完全相等」比较：
+  #   · 不会接受 https://你的域名.evil.com（虽然它以你的域名开头）
+  #   · 不会接受多加参数或末尾斜杠的变体
+  #
+  # scopes 是该应用最多能申请的权限，玩家实际授予时可以更少。
+  # 可选 scope（按资源域分读写，见 OAuthScope.java）：
+  #   public:read        公共数据（排行榜、物品图鉴、地图）
+  #   player:read        角色信息           cultivation:read   修炼进度
+  #   inventory:read     背包装备           inventory:write    装备/使用/强化
+  #   economy:read       坊市行情           economy:write      上架/购买/撤单
+  #   sect:read          宗门信息           sect:write         入宗/退宗/捐献
+  #   social:read        好友/队伍          social:write       私信/组队
+  #
+  # 注意：以下操作永远不对第三方开放（即使 scope 拉满）：
+  #   存档覆盖/导出、凭空发物品、踢人/任命/审批/转让/解散宗门
+  #
+  # 示例（去掉注释即可启用）：
+  #
+  # clients:
+  #   - client_id: my_web_app
+  #     client_secret: 换成随机长字符串，至少 32 位
+  #     name: 修仙助手                     # 同意页上给玩家看的名字
+  #     redirect_uris:
+  #       - https://app.example.com/oauth/callback
+  #     scopes:
+  #       - public:read
+  #       - player:read
+  #       - inventory:read
+  #     enabled: true
+  #
+  clients: []
 
 # ┌──────────────────────────────────────────────────────────────┐
 # │ 7. 玩家数据文件化（一用户一个 JSON 文件）                      │

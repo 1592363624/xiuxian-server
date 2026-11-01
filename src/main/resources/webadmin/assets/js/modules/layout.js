@@ -14,13 +14,24 @@ const TAB_TITLES = {
   statsMessages: '💬 消息统计',
   statsCommands: '⚡ 指令统计',
   myProfile: '👤 我的信息',
+  authorizedApps: '🔗 已授权应用',
+  oauthConsent: '🔐 授权确认',
   adapters: '🔌 适配器管理',
   plugins: '🧩 插件管理',
   oauth: '🔐 OAuth2 管理'
 };
 
 const ADMIN_TABS = ['overview', 'players', 'map', 'database', 'users', 'logs', 'traces', 'redeemCodes', 'titles', 'market', 'statsMessages', 'statsCommands', 'adapters', 'plugins', 'oauth'];
-const PLAYER_TABS = ['myProfile'];
+const PLAYER_TABS = ['myProfile', 'authorizedApps'];
+
+/**
+ * 仅在带授权请求参数进入时显示的标签页。
+ *
+ * <p>同意页不能放在侧边栏里 —— 它是一个"正在进行中的授权流程"，
+ * 玩家点导航离开就等于放弃了这次授权，留在菜单里只会让人困惑。
+ * 只能由 {@code app.init()} 在检测到 URL 带参数时切进来。</p>
+ */
+const HIDDEN_TABS = ['oauthConsent'];
 
 /** 标签页 → 加载函数（统一分发，替代重复的 switch） */
 const TAB_LOADERS = {
@@ -36,6 +47,8 @@ const TAB_LOADERS = {
   statsMessages: () => window.app.modules.stats.loadMessageStats(),
   statsCommands: () => window.app.modules.stats.loadCommandStats(),
   myProfile: () => window.app.modules.myProfile.load(),
+  authorizedApps: () => window.app.modules.authorizedApps.load(),
+  oauthConsent: () => window.app.modules.oauthConsent.load(),
   adapters: () => window.app.modules.adapters.load(),
   plugins: () => window.app.modules.plugins.load(),
   oauth: () => window.app.modules.oauth.load()
@@ -156,10 +169,11 @@ export async function fetchStatus() {
 
 export function updateSidebarForRole() {
   const allowedTabs = api.isAdmin() ? ADMIN_TABS : PLAYER_TABS;
-  
+
   document.querySelectorAll('.nav-item').forEach(item => {
     const tabName = item.getAttribute('data-tab');
-    if (!allowedTabs.includes(tabName)) {
+    // HIDDEN_TABS 里的页面永远不出现在侧边栏（见常量注释）
+    if (!allowedTabs.includes(tabName) || HIDDEN_TABS.includes(tabName)) {
       item.style.display = 'none';
     } else {
       item.style.display = 'block';

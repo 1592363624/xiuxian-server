@@ -14,6 +14,8 @@ import * as titles from './modules/titles.js';
 import * as market from './modules/market.js';
 import * as stats from './modules/stats.js';
 import * as myProfile from './modules/myProfile.js';
+import * as authorizedApps from './modules/authorizedApps.js';
+import * as oauthConsent from './modules/oauthConsent.js';
 import * as adapters from './modules/adapters.js';
 import * as plugins from './modules/plugins.js';
 import * as oauth from './modules/oauth.js';
@@ -36,6 +38,8 @@ window.app = {
     market,
     stats,
     myProfile,
+    authorizedApps,
+    oauthConsent,
     adapters,
     plugins,
     oauth
@@ -47,6 +51,14 @@ window.app = {
     layout.stopTimers();
     layout.initLayout();
     layout.updateSidebarForRole();
+
+    // 第三方应用的授权请求优先：URL 上带着 client_id/redirect_uri 说明
+    // 玩家是被重定向过来同意授权的，必须先处理它，不能先落到默认页
+    if (oauthConsent.hasAuthorizeRequest()) {
+      layout.switchTab('oauthConsent');
+      return;
+    }
+
     if (api.isPlayer()) {
       layout.switchTab('myProfile');
     } else {

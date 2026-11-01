@@ -33,6 +33,39 @@ public class OAuthService {
 
     private static volatile SecretKey secretKey = buildKey(clientSecret);
 
+    static {
+        // 加载第三方应用登记表（授权码流程用）。
+        // 读不到就保持空表 —— 空表意味着没人能走授权码流程，
+        // 这是安全的失败方向：宁可第三方用不了，不可放行未登记的回调地址。
+        try {
+            reloadClientRegistry();
+        } catch (RuntimeException e) {
+            System.err.println("[OAuth] 第三方应用登记表加载失败，授权码流程将不可用: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 从配置重新加载第三方应用登记表。
+     *
+     * <p>配置形如 {@code oauth2.clients} 下的数组，每项含
+     * {@code client_id / client_secret / name / redirect_uris / scopes}。
+     * 结构见 docs/analysis/OAuth授权码流程设计方案.md。</p>
+     */
+    public static synchronized int reloadClientRegistry() {
+        java.util.List<java.util.Map<String, Object>> clients = new java.util.ArrayList<>();
+        Object raw = AppConfig.getRaw("oauth2.clients");
+        if (raw instanceof java.util.List<?> list) {
+            for (Object item : list) {
+                if (item instanceof java.util.Map<?, ?> map) {
+                    java.util.Map<String, Object> entry = new LinkedHashMap<>();
+                    map.forEach((k, v) -> entry.put(String.valueOf(k), v));
+                    clients.add(entry);
+                }
+            }
+        }
+        return com.mtxgdn.oauth.OAuthClientRegistry.loadFromConfig(clients);
+    }
+
     private OAuthService() {
     }
 
@@ -209,6 +242,91 @@ public class OAuthService {
     /** 校验 token 是否有效（仅对本服务签发的 OAuth token 有效） */
     public static boolean isValidToken(String token) {
         return parseToken(token) != null;
+    }
+
+    // ==================== 用户授权型 token（授权码流程）====================
+
+    /**
+     * 签发一个<b>代表某个玩家</b>的 access_token。
+     *
+     * <h3>与 client_credentials token 的区别</h3>
+     * <p>{@link #issueAccessToken} 签的 token，{@code sub} 是
+     * {@code oauth2:<clientId>}，只证明"哪个应用"。
+     * 这里签的 token 额外带一个 {@code uid} claim，证明"哪个玩家同意了"。</p>
+     *
+     * <p><b>这个区别是整套安全的支点</b>：能读用户数据的只有带 {@code uid} 的 token。
+     * 所以 {@link #extractUserId} 必须只认 {@code uid}，
+     * 绝不能从 {@code sub} 里解析用户 id —— 否则客户端凭证型 token 就有了用户身份。</p>
+     *
+     * @param userId   授权的玩家
+     * @param username 玩家名
+     * @param clientId 申请的应用
+     * @param scopes   玩家同意的权限
+     * @param grantId  所属授权（撤销时据此失效）
+     * @param jti      token 唯一标识（撤销时用）
+     */
+    public static String issueUserAccessToken(long userId, String username, String clientId,
+                                              java.util.Set<String> scopes, String grantId, String jti) {
+        Date now = new Date();
+        Date expiration = new Date(now.getTime() + tokenTtlMs);
+
+        return Jwts.builder()
+                .setSubject("user:" + userId)
+                .setId(jti)
+                .claim("token_type", "oauth2")
+                .claim("client_id", clientId)
+                .claim("scope", com.mtxgdn.oauth.OAuthScope.join(scopes))
+                .claim("uid", userId)
+                .claim("username", username)
+                .claim("grant_id", grantId)
+                .setIssuedAt(now)
+                .setExpiration(expiration)
+                .signWith(secretKey, SignatureAlgorithm.HS256)
+                .compact();
+    }
+
+    /**
+     * 从 token 中取出被授权的玩家 id。
+     *
+     * <p>只认 {@code uid} claim。客户端凭证型 token 没有这个字段，返回 {@code null} ——
+     * <b>这是"应用身份不能当人用"这条红线在代码里的落点。</b></p>
+     */
+    public static Long extractUserId(io.jsonwebtoken.Claims claims) {
+        if (claims == null) {
+            return null;
+        }
+        Object uid = claims.get("uid");
+        if (uid instanceof Number n) {
+            return n.longValue();
+        }
+        return null;
+    }
+
+    /** 是否为用户授权型 token */
+    public static boolean isUserToken(io.jsonwebtoken.Claims claims) {
+        return extractUserId(claims) != null;
+    }
+
+    /**
+     * 校验用户型 token 是否仍然有效。
+     *
+     * <p>除了签名与过期，还要检查授权是否已被玩家撤销 ——
+     * access_token 是无状态 JWT，只靠过期时间的话，
+     * 玩家撤销后攻击者还能继续用一个小时。</p>
+     *
+     * @return 有效的 claims；无效返回 {@code null}
+     */
+    public static io.jsonwebtoken.Claims parseUserToken(String token) {
+        io.jsonwebtoken.Claims claims = parseToken(token);
+        if (claims == null || !isUserToken(claims)) {
+            return null;
+        }
+        String jti = claims.getId();
+        if (!com.mtxgdn.oauth.OAuthGrantStore.isTokenActive(jti)) {
+            // 授权被撤销，或 token 不是本系统走授权流程签发的
+            return null;
+        }
+        return claims;
     }
 
     /** 从 Bearer 头中提取 token；无有效 Bearer 返回 null */

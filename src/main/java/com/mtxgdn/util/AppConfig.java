@@ -180,6 +180,25 @@ public class AppConfig {
     }
 
     /**
+     * 取配置的<b>原始对象</b>，不做字符串化。
+     *
+     * <p>{@link #get} 会把任何值变成字符串，这对标量没问题，但读不了
+     * YAML 里的列表与嵌套结构（例如 {@code oauth2.clients} 那种应用登记表）。
+     * 这类配置需要保留原始类型，所以单开一个入口。</p>
+     *
+     * <p>注意：{@code -D} 系统属性覆盖只能给字符串，所以列表类配置不吃覆盖，
+     * 返回的仍是文件里的结构。</p>
+     *
+     * @return 原始对象（可能是 {@code List}、{@code Map} 或标量）；不存在返回 {@code null}
+     */
+    public static Object getRaw(String path) {
+        if (path == null) {
+            return null;
+        }
+        return config.get(path);
+    }
+
+    /**
      * 从插件独立配置文件里取值；不属于任何插件、或该插件没配这一项时返回 null。
      *
      * <p>刻意用反射之外的软依赖方式调用：{@code com.mtxgdn.plugin.PluginConfigFiles}

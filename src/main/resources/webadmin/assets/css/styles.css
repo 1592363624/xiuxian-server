@@ -756,3 +756,67 @@ input:checked+.slider:before { transform:translateX(20px) }
 /* ===== 文本工具类 ===== */
 .text-muted { color:var(--t3) }
 
+/* ===== 已授权应用（OAuth 授权管理） ===== */
+.app-grant-card {
+  border:1px solid var(--brd); border-radius:var(--r);
+  padding:14px 16px; margin-bottom:12px; background:var(--bg);
+  transition:border-color .15s;
+}
+.app-grant-card:hover { border-color:var(--brd2) }
+.app-grant-head {
+  display:flex; align-items:center; justify-content:space-between;
+  gap:12px; margin-bottom:10px;
+}
+.app-grant-name { font-weight:600; font-size:15px; color:var(--t) }
+.app-grant-scopes { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px }
+.app-grant-meta { font-size:12px; color:var(--t3); margin-top:8px }
+
+.btn-danger {
+  border-color:var(--rd) !important; color:var(--rd) !important;
+  background:var(--rd-bg) !important;
+}
+.btn-danger:hover { background:var(--rd) !important; color:#fff !important }
+
+/* scope 风险标签：用颜色让玩家一眼看出哪些是只读、哪些会改数据 */
+.scope-chip {
+  display:inline-block; padding:2px 9px; border-radius:999px;
+  font-size:12px; line-height:1.7; border:1px solid transparent; white-space:nowrap;
+}
+.scope-chip.low    { color:var(--gn); background:var(--gn-bg); border-color:rgba(43,138,62,.2) }
+.scope-chip.medium { color:var(--bl); background:var(--bl-bg); border-color:rgba(28,126,214,.2) }
+.scope-chip.high   { color:var(--rd); background:var(--rd-bg); border-color:rgba(224,49,49,.25) }
+.scope-warn { font-size:13px; color:var(--rd); margin-bottom:6px }
+
+/* ===== 授权同意页 ===== */
+.consent-head { margin-bottom:18px }
+.consent-app { font-size:20px; font-weight:700; color:var(--t) }
+.consent-sub { font-size:13px; color:var(--t3); margin-top:4px }
+
+.consent-list { list-style:none; padding:0; margin:0 0 16px }
+.consent-scope {
+  display:flex; gap:12px; align-items:flex-start;
+  padding:12px 0; border-bottom:1px solid var(--brd);
+}
+.consent-scope:last-child { border-bottom:none }
+.consent-icon { font-size:20px; line-height:1.2; flex:0 0 auto }
+.consent-scope-text { flex:1 1 auto; min-width:0 }
+.consent-scope-title {
+  font-weight:600; font-size:14px; color:var(--t);
+  display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+}
+.consent-scope-desc { font-size:13px; color:var(--t2); margin-top:3px; line-height:1.5 }
+
+.consent-warn {
+  background:var(--rd-bg); border:1px solid rgba(224,49,49,.25);
+  border-radius:var(--r); padding:11px 14px; font-size:13px;
+  color:var(--t2); margin-bottom:14px; line-height:1.6;
+}
+.consent-tip {
+  background:var(--s); border-radius:var(--r); padding:10px 14px;
+  font-size:12px; color:var(--t3); margin-bottom:18px; line-height:1.6;
+}
+.consent-actions {
+  display:flex; gap:12px; justify-content:flex-end;
+  padding-top:6px;
+}
+

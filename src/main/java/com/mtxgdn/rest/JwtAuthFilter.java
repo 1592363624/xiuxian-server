@@ -68,6 +68,31 @@ public class JwtAuthFilter implements ContainerRequestFilter {
 
         String token = authorizationHeader.substring("Bearer ".length()).trim();
 
+        // ---------- 先判断是不是 OAuth 用户型 token ----------
+        // 第三方应用拿着玩家授权过的 token 访问游戏端点时走这条分支。
+        // 必须是"用户授权型"（带 uid claim）—— 客户端凭证型的 token
+        // 永远拿不到用户身份，否则任何拿到 client_secret 的应用
+        // 都能冒充任意玩家（见 OAuthService.extractUserId 的注释）。
+        com.mtxgdn.oauth.OAuthAccess access = com.mtxgdn.oauth.OAuthAccess.resolve(token, path,
+                requestContext.getMethod());
+        if (access.handled()) {
+            if (!access.allowed()) {
+                requestContext.abortWith(Response.status(Response.Status.FORBIDDEN)
+                        .entity("{\"code\":403,\"message\":\"" + escape(access.reason()) + "\"}")
+                        .build());
+                return;
+            }
+            requestContext.setProperty("token", token);
+            requestContext.setProperty("userId", access.userId());
+            // 标记本次请求来自第三方授权 —— 下游可据此收紧行为
+            requestContext.setProperty("oauthGrantId", access.grantId());
+            requestContext.setProperty("oauthScopes", access.scopes());
+            if (access.username() != null) {
+                requestContext.setProperty("username", access.username());
+            }
+            return;
+        }
+
         if (TokenBlacklist.isBlacklisted(token)) {
             requestContext.abortWith(Response.status(Response.Status.UNAUTHORIZED)
                     .entity("{\"code\":401,\"message\":\"Token已失效，请重新登录\"}")
@@ -87,6 +112,8 @@ public class JwtAuthFilter implements ContainerRequestFilter {
 
         requestContext.setProperty("token", token);
         requestContext.setProperty("userId", JwtUtil.extractUserId(token));
+        // 授权同意页要显示"以谁的身份授权"，所以用户名也放进上下文
+        requestContext.setProperty("username", JwtUtil.extractUsername(token));
     }
 
     /**
@@ -100,5 +127,37 @@ public class JwtAuthFilter implements ContainerRequestFilter {
             return false;
         }
         return path.equals(segment) || path.startsWith(segment + "/");
+    }
+
+    /**
+     * 转义要拼进 JSON 的文本。
+     *
+     * <p>拒绝原因是固定文案，理论上不含特殊字符；但这行代码会拼字符串造 JSON，
+     * 万一将来有人把用户输入拼进 reason，没转义就是 JSON 注入。
+     * 这里挡住双引号、反斜杠与控制字符，成本极低。</p>
+     */
+    private static String escape(String text) {
+        if (text == null) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder(text.length() + 8);
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            switch (c) {
+                case '"' -> sb.append("\\\"");
+                case '\\' -> sb.append("\\\\");
+                case '\n' -> sb.append("\\n");
+                case '\r' -> sb.append("\\r");
+                case '\t' -> sb.append("\\t");
+                default -> {
+                    if (c < 0x20) {
+                        sb.append(String.format("\\u%04x", (int) c));
+                    } else {
+                        sb.append(c);
+                    }
+                }
+            }
+        }
+        return sb.toString();
     }
 }

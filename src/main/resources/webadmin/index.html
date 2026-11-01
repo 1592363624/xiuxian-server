@@ -90,6 +90,13 @@
       <div class="nav-item" data-tab="myProfile" style="display:none">
         <span class="nav-icon">👤</span><span>我的信息</span>
       </div>
+      <div class="nav-item" data-tab="authorizedApps" style="display:none">
+        <span class="nav-icon">🔗</span><span>已授权应用</span>
+      </div>
+      <!-- 同意页只在带授权参数进入时显示，正常情况下不进导航 -->
+      <div class="nav-item" data-tab="oauthConsent" style="display:none">
+        <span class="nav-icon">🔐</span><span>授权确认</span>
+      </div>
     </div>
     <div class="sidebar-footer">
       <div style="display:flex;align-items:center;justify-content:space-between">
@@ -379,6 +386,38 @@
 
       <div class="tab" id="tab-myProfile">
         <div class="empty-state">加载中...</div>
+      </div>
+
+      <!--
+        OAuth 授权同意页。
+        第三方把玩家重定向到 /api/auth/oauth/authorize?client_id=...&scope=...
+        登录后前端调用该接口拿到应用名与 scope 描述，在这里渲染让玩家确认。
+        默认隐藏，只有带 ?oauth_authorize=1 之类标记时才显示（见 oauthConsent.js）。
+      -->
+      <div class="tab" id="tab-oauthConsent">
+        <div class="card">
+          <div class="card-title" id="consentTitle">🔐 第三方应用授权</div>
+          <div id="consentBody">
+            <div class="empty">正在加载授权请求...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 已授权应用：玩家自助查看并撤销第三方授权 -->
+      <div class="tab" id="tab-authorizedApps">
+        <div class="card">
+          <div class="card-title">🔗 已授权应用</div>
+          <p class="hint" style="margin:0 0 12px;color:#888;font-size:13px;">
+            这些应用可以在你授予的范围内读取（或操作）你的游戏数据。
+            不再使用时请及时撤销 —— 撤销后它们持有的访问凭证立即失效。
+          </p>
+          <div class="row" style="margin-bottom:12px;">
+            <button class="btn-sm" onclick="window.app.modules.authorizedApps.load()">🔄 刷新</button>
+          </div>
+          <div id="authorizedAppsList">
+            <div class="empty">加载中...</div>
+          </div>
+        </div>
       </div>
 
       <div class="tab" id="tab-adapters">

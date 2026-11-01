@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -35,6 +36,7 @@ class OAuthEndpointTest extends TestBase {
 
     private OAuthResource resource;
     private HttpHeaders headers;
+    private jakarta.ws.rs.container.ContainerRequestContext requestContext;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -52,6 +54,18 @@ class OAuthEndpointTest extends TestBase {
         Field f = OAuthResource.class.getDeclaredField("httpHeaders");
         f.setAccessible(true);
         f.set(resource, headers);
+
+        // 授权码相关端点要从请求上下文取 userId / username
+        requestContext = mock(jakarta.ws.rs.container.ContainerRequestContext.class);
+        Field ctxField = OAuthResource.class.getDeclaredField("requestContext");
+        ctxField.setAccessible(true);
+        ctxField.set(resource, requestContext);
+    }
+
+    /** 让后续调用认为是指定玩家在操作 */
+    private void loginAs(long userId, String username) {
+        when(requestContext.getProperty("userId")).thenReturn(userId);
+        when(requestContext.getProperty("username")).thenReturn(username);
     }
 
     @AfterEach
@@ -92,9 +106,11 @@ class OAuthEndpointTest extends TestBase {
     }
 
     @Test
-    @DisplayName("只支持 client_credentials，其它 grant_type 返回 400")
+    @DisplayName("不认识的 grant_type 返回 400")
     void unsupportedGrantTypeRejected() {
-        String body = "{\"grant_type\":\"authorization_code\",\"client_id\":\"" + CLIENT_ID
+        // 注意：authorization_code 与 refresh_token 现在是支持的，
+        // 所以这里必须用一个真正不存在的类型 —— 否则测的是别的分支
+        String body = "{\"grant_type\":\"password\",\"client_id\":\"" + CLIENT_ID
                 + "\",\"client_secret\":\"" + CLIENT_SECRET + "\"}";
         Response resp = resource.token(body);
         assertEquals(400, resp.getStatus());
@@ -213,6 +229,236 @@ class OAuthEndpointTest extends TestBase {
         String body = "{\"client_id\":\"" + CLIENT_ID + "\",\"client_secret\":\"wrong\",\"token\":\""
                 + token + "\"}";
         assertEquals(401, resource.introspect(body).getStatus());
+    }
+
+    // ==================== 授权码流程端点 ====================
+
+    private static final String APP_ID = "third_party_app";
+    private static final String APP_SECRET = "app_secret_0123456789abcdef";
+    private static final String APP_REDIRECT = "https://app.example.com/oauth/callback";
+
+    /** 登记一个第三方应用并重置授权状态 */
+    private void registerApp() {
+        com.mtxgdn.oauth.OAuthCodeStore.clear();
+        com.mtxgdn.oauth.OAuthGrantStore.clear();
+        com.mtxgdn.oauth.OAuthClientRegistry.clear();
+
+        Map<String, Object> app = new LinkedHashMap<>();
+        app.put("client_id", APP_ID);
+        app.put("client_secret", APP_SECRET);
+        app.put("name", "修仙助手");
+        app.put("redirect_uris", List.of(APP_REDIRECT));
+        app.put("scopes", List.of("player:read", "inventory:read"));
+        com.mtxgdn.oauth.OAuthClientRegistry.loadFromConfig(List.of(app));
+    }
+
+    @Test
+    @DisplayName("授权请求：未登录时要求先登录")
+    void authorizeRequiresLogin() {
+        registerApp();
+        Response resp = resource.authorize("code", APP_ID, APP_REDIRECT, "player:read", "xyz");
+        assertEquals(401, resp.getStatus());
+    }
+
+    @Test
+    @DisplayName("授权请求：返回同意页所需的 scope 描述")
+    void authorizeReturnsConsentData() {
+        registerApp();
+        loginAs(42L, "张三");
+
+        Response resp = resource.authorize("code", APP_ID, APP_REDIRECT, "player:read inventory:read", "xyz");
+        assertEquals(200, resp.getStatus());
+
+        String body = String.valueOf(resp.getEntity());
+        assertTrue(body.contains("修仙助手"), "应带上应用名，玩家才知道是谁在申请");
+        assertTrue(body.contains("player:read"), "应列出申请的权限");
+        assertTrue(body.contains("xyz"), "state 必须原样带回，第三方靠它防 CSRF");
+    }
+
+    @Test
+    @DisplayName("攻击：伪造回调地址的授权请求被拒（防开放重定向）")
+    void authorizeRejectsForeignRedirect() {
+        registerApp();
+        loginAs(42L, "张三");
+
+        Response resp = resource.authorize("code", APP_ID, "https://evil.com/cb", "player:read", "");
+        assertEquals(400, resp.getStatus(),
+                "回调地址不符必须拒绝，且不能往那个地址重定向");
+    }
+
+    @Test
+    @DisplayName("攻击：申请应用未被允许的 scope 被拒")
+    void authorizeRejectsUnallowedScope() {
+        registerApp();
+        loginAs(42L, "张三");
+
+        // 该应用只被允许 player:read / inventory:read
+        Response resp = resource.authorize("code", APP_ID, APP_REDIRECT, "economy:write", "");
+        assertEquals(400, resp.getStatus());
+        assertTrue(String.valueOf(resp.getEntity()).contains("invalid_scope"));
+    }
+
+    @Test
+    @DisplayName("攻击：未登记的 client_id 被拒")
+    void authorizeRejectsUnknownClient() {
+        registerApp();
+        loginAs(42L, "张三");
+
+        Response resp = resource.authorize("code", "not_registered", APP_REDIRECT, "player:read", "");
+        assertEquals(400, resp.getStatus());
+    }
+
+    @Test
+    @DisplayName("同意后拿到带 code 的回调地址，code 可换 token")
+    void consentThenExchangeCode() {
+        registerApp();
+        loginAs(42L, "张三");
+
+        Response confirm = resource.authorizeConfirm(confirmRequest(true, "state123"));
+        assertEquals(200, confirm.getStatus());
+        String callback = String.valueOf(confirm.getEntity());
+        assertTrue(callback.contains("code="), "应返回带 code 的回调地址: " + callback);
+        assertTrue(callback.contains("state123"), "state 应原样带回");
+
+        String code = extractCode(callback);
+        assertNotNull(code);
+
+        // 用 code 换 token
+        String tokenBody = "{\"grant_type\":\"authorization_code\",\"code\":\"" + code
+                + "\",\"client_id\":\"" + APP_ID + "\",\"client_secret\":\"" + APP_SECRET
+                + "\",\"redirect_uri\":\"" + APP_REDIRECT + "\"}";
+        Response tokenResp = resource.token(tokenBody);
+        assertEquals(200, tokenResp.getStatus(), "换 token 应成功: " + tokenResp.getEntity());
+
+        String body = String.valueOf(tokenResp.getEntity());
+        assertTrue(body.contains("access_token"));
+        assertTrue(body.contains("refresh_token"), "应同时下发 refresh_token");
+    }
+
+    @Test
+    @DisplayName("拒绝授权时不发 code，而是回 access_denied")
+    void denyReturnsAccessDenied() {
+        registerApp();
+        loginAs(42L, "张三");
+
+        Response resp = resource.authorizeConfirm(confirmRequest(false, ""));
+        assertEquals(200, resp.getStatus());
+        String body = String.valueOf(resp.getEntity());
+        assertTrue(body.contains("access_denied"), "拒绝应回 access_denied: " + body);
+        assertFalse(body.contains("code="), "拒绝时绝不能发授权码");
+    }
+
+    @Test
+    @DisplayName("授权码只能换一次")
+    void codeCannotBeExchangedTwice() {
+        registerApp();
+        loginAs(42L, "张三");
+        String code = extractCode(String.valueOf(resource.authorizeConfirm(confirmRequest(true, "")).getEntity()));
+
+        String tokenBody = "{\"grant_type\":\"authorization_code\",\"code\":\"" + code
+                + "\",\"client_id\":\"" + APP_ID + "\",\"client_secret\":\"" + APP_SECRET
+                + "\",\"redirect_uri\":\"" + APP_REDIRECT + "\"}";
+
+        assertEquals(200, resource.token(tokenBody).getStatus());
+        assertEquals(400, resource.token(tokenBody).getStatus(), "第二次必须失败");
+    }
+
+    @Test
+    @DisplayName("已授权应用列表只返回自己的授权")
+    void grantsListIsOwnerScoped() {
+        registerApp();
+        loginAs(42L, "张三");
+        String code = extractCode(String.valueOf(resource.authorizeConfirm(confirmRequest(true, "")).getEntity()));
+        resource.token("{\"grant_type\":\"authorization_code\",\"code\":\"" + code
+                + "\",\"client_id\":\"" + APP_ID + "\",\"client_secret\":\"" + APP_SECRET
+                + "\",\"redirect_uri\":\"" + APP_REDIRECT + "\"}");
+
+        Response mine = resource.listGrants();
+        assertEquals(200, mine.getStatus());
+        assertTrue(String.valueOf(mine.getEntity()).contains("修仙助手"), "应能看到授权的应用");
+
+        // 换个人登录，看不到
+        loginAs(99L, "李四");
+        Response others = resource.listGrants();
+        assertFalse(String.valueOf(others.getEntity()).contains("修仙助手"),
+                "不能看到别人的授权");
+    }
+
+    @Test
+    @DisplayName("攻击：用别人的 grant_id 撤销 → 404")
+    void cannotRevokeOthersGrant() {
+        registerApp();
+        loginAs(42L, "张三");
+        String code = extractCode(String.valueOf(resource.authorizeConfirm(confirmRequest(true, "")).getEntity()));
+        resource.token("{\"grant_type\":\"authorization_code\",\"code\":\"" + code
+                + "\",\"client_id\":\"" + APP_ID + "\",\"client_secret\":\"" + APP_SECRET
+                + "\",\"redirect_uri\":\"" + APP_REDIRECT + "\"}");
+
+        var grants = com.mtxgdn.oauth.OAuthGrantStore.grantsOf(42L);
+        assertFalse(grants.isEmpty());
+        String grantId = grants.get(0).grantId();
+
+        // 李四尝试撤销张三的授权
+        loginAs(99L, "李四");
+        Response resp = resource.revoke("{\"grant_id\":\"" + grantId + "\"}");
+        assertEquals(404, resp.getStatus(), "不能用别人的 grant_id 撤销 —— 否则成了越权踢人");
+    }
+
+    @Test
+    @DisplayName("撤销后 token 立即失效")
+    void revokeEndpointInvalidatesToken() {
+        registerApp();
+        loginAs(42L, "张三");
+        String code = extractCode(String.valueOf(resource.authorizeConfirm(confirmRequest(true, "")).getEntity()));
+        String tokenBody = String.valueOf(resource.token("{\"grant_type\":\"authorization_code\",\"code\":\""
+                + code + "\",\"client_id\":\"" + APP_ID + "\",\"client_secret\":\"" + APP_SECRET
+                + "\",\"redirect_uri\":\"" + APP_REDIRECT + "\"}").getEntity());
+
+        String accessToken = extractJsonField(tokenBody, "access_token");
+        assertNotNull(OAuthService.parseUserToken(accessToken), "撤销前应有效");
+
+        assertEquals(200, resource.revoke("{\"client_id\":\"" + APP_ID + "\"}").getStatus());
+
+        assertNull(OAuthService.parseUserToken(accessToken),
+                "撤销后必须立刻失效");
+    }
+
+    private String confirmRequest(boolean approved, String state) {
+        return "{\"client_id\":\"" + APP_ID + "\",\"redirect_uri\":\"" + APP_REDIRECT
+                + "\",\"scope\":\"player:read\",\"state\":\"" + state
+                + "\",\"approved\":" + approved + "}";
+    }
+
+    /**
+     * 从 confirm 的响应里取出授权码。
+     *
+     * <p>响应的 {@code code} 字段是状态码（数字 0），授权码在
+     * {@code redirect_uri} 里 —— 形如 {@code ...callback?code=xxx&state=yyy}。
+     * 别把它们搞混：按 {@code "code":"} 去找会扑空。</p>
+     */
+    private static String extractCode(String json) {
+        String callback = extractJsonField(json, "redirect_uri");
+        if (callback == null) {
+            return null;
+        }
+        int i = callback.indexOf("code=");
+        if (i < 0) {
+            return null;
+        }
+        int start = i + 5;
+        int end = callback.indexOf('&', start);
+        return end < 0 ? callback.substring(start) : callback.substring(start, end);
+    }
+
+    /** 从 JSON 串里粗取字段值（这些响应都是扁平的，不值得为测试引一个解析器） */
+    private static String extractJsonField(String json, String field) {
+        int i = json.indexOf("\"" + field + "\":\"");
+        if (i < 0) {
+            return null;
+        }
+        int start = i + field.length() + 4;
+        int end = json.indexOf('"', start);
+        return end < 0 ? null : json.substring(start, end);
     }
 
     // ==================== 工具 ====================
