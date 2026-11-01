@@ -314,9 +314,13 @@ public class OneBotWebSocketServer extends WebSocketApplication
 
     @Override
     public void onMessage(WebSocket socket, String text) {
-        botLog.logRecv(com.mtxgdn.util.LogMasker.mask(text));
         try {
             JsonObject json = gson.fromJson(text, JsonObject.class);
+            // 原始上报日志里带着 raw_message，而注册/改密的密码是单独一条消息发来的
+            // （机器人先回"请发送你的密码"，玩家再发 mySecret123）。
+            // 那种消息没有任何关键词，LogMasker.mask 看不出来，
+            // 必须结合会话状态整条打码 —— 所以先解析再记录。
+            botLog.logRecv(maskInboundFrame(json, text));
             if (json.has("post_type")) {
                 handleEvent(socket, json);
             } else if (json.has("echo") && json.has("status")) {
@@ -467,9 +471,86 @@ public class OneBotWebSocketServer extends WebSocketApplication
         }
     }
 
+    /**
+     * 原始上报帧写日志前的脱敏。
+     *
+     * <p>整帧 JSON 里含 {@code raw_message}。常规情况走关键词脱敏；
+     * 但如果该发送者正处于"等待输入凭据"的会话状态，整帧打码 ——
+     * 因为那时 {@code raw_message} 就是密码本身，看不出任何关键词。</p>
+     *
+     * @param json 已解析的上报帧（可能为 {@code null}，解析失败时）
+     * @param text 原始文本
+     */
+    private String maskInboundFrame(JsonObject json, String text) {
+        String senderQq = extractSenderId(json);
+        if (senderQq != null) {
+            PendingSession session = pendingSessions.get(senderQq);
+            if (session != null && isCredentialPromptState(session.state)) {
+                return com.mtxgdn.util.LogMasker.maskWhole(text);
+            }
+        }
+        return com.mtxgdn.util.LogMasker.mask(text);
+    }
+
+    /** 从上报帧里取发送者 QQ 号；取不到返回 null。 */
+    private static String extractSenderId(JsonObject json) {
+        if (json == null || !json.has("sender") || !json.get("sender").isJsonObject()) {
+            return null;
+        }
+        JsonObject sender = json.getAsJsonObject("sender");
+        if (!sender.has("user_id")) {
+            return null;
+        }
+        try {
+            return sender.get("user_id").getAsString();
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
+    /**
+     * 入站消息写日志前统一脱敏。
+     *
+     * <p><b>为什么要额外判断会话状态</b>：{@code LogMasker.mask} 靠关键词识别凭据，
+     * 只能挡住 {@code /注册 密码}、{@code password=xxx} 这种"看得出来"的形态。
+     * 但账号流程是分两步的 —— 先 {@code /注册 张三}，机器人回一句
+     * "请发送你的密码"，玩家再单独发一条 {@code mySecret123}。
+     * 那一条是<b>纯密码、不含任何关键词</b>，关键词脱敏对它完全无效，
+     * 于是明文口令就进了日志。</p>
+     *
+     * <p>所以这里先看该用户是否正处于"等待输入凭据"的状态：是则整条打码，
+     * 否则走常规的关键词脱敏。改密（旧密码/新密码）、解绑确认（要输密码）
+     * 这些状态同理。</p>
+     */
+    private String maskInbound(String senderQq, String rawMessage) {
+        if (senderQq != null) {
+            PendingSession session = pendingSessions.get(senderQq);
+            if (session != null && isCredentialPromptState(session.state)) {
+                return com.mtxgdn.util.LogMasker.maskWhole(rawMessage);
+            }
+        }
+        return com.mtxgdn.util.LogMasker.mask(rawMessage);
+    }
+
+    /** 这些会话状态下，玩家下一条输入的就是凭据本身。 */
+    private static boolean isCredentialPromptState(String state) {
+        if (state == null) {
+            return false;
+        }
+        return switch (state) {
+            case "WAITING_PASSWORD",       // 注册 / 绑定：输入密码
+                 "WAITING_OLD_PASSWORD",   // 改密：输入旧密码
+                 "WAITING_NEW_PASSWORD",   // 改密：输入新密码
+                 "WAITING_DELETE_CONFIRM", // 注销账号：输入密码确认
+                 "WAITING_CODE"            // 邮箱验证流程：输入验证码
+                    -> true;
+            default -> false;
+        };
+    }
+
     private void handlePrivateMessage(WebSocket socket, String selfId, String senderQq,
                                        String senderNickname, String rawMessage) {
-        log.info("[私聊:" + senderQq + "] " + senderNickname + ": " + com.mtxgdn.util.LogMasker.mask(rawMessage));
+        log.info("[私聊:" + senderQq + "] " + senderNickname + ": " + maskInbound(senderQq, rawMessage));
         String trimmed = rawMessage.trim();
         StatsCollector.getInstance().recordMessage(senderQq, null);
 
@@ -494,7 +575,7 @@ public class OneBotWebSocketServer extends WebSocketApplication
 
     private void handleGroupMessage(WebSocket socket, String selfId, Long groupId,
                                      String senderQq, String senderNickname, String rawMessage) {
-        log.info("[群聊:" + groupId + "] [QQ:" + senderQq + "] " + senderNickname + ": " + com.mtxgdn.util.LogMasker.mask(rawMessage));
+        log.info("[群聊:" + groupId + "] [QQ:" + senderQq + "] " + senderNickname + ": " + maskInbound(senderQq, rawMessage));
         String trimmed = rawMessage.trim();
         StatsCollector.getInstance().recordMessage(senderQq, groupId);
 

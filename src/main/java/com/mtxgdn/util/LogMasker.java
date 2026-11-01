@@ -87,6 +87,35 @@ public final class LogMasker {
         return maskKeywordArguments(masked);
     }
 
+    /**
+     * 整条消息打码，用于"这一条本身就是凭据"的场景。
+     *
+     * <p><b>为什么需要它</b>：{@link #mask(String)} 靠关键词识别 —— 只有文本里出现
+     * {@code /注册}、{@code password=} 这类线索时才会打码。但账号流程是<b>分两步</b>的：</p>
+     *
+     * <pre>
+     *   玩家: /注册 张三
+     *   机器人: 角色名【张三】可用！请在私聊中发送你的密码（不少于6位）
+     *   玩家: mySecret123          ← 这一条是纯密码，没有任何关键词
+     * </pre>
+     *
+     * <p>第二步行是一条<b>只含密码本身</b>的普通消息。{@link #mask(String)} 对它
+     * 完全不起作用（看不出哪儿是凭据），于是明文口令直接写进日志。
+     * 改密、解绑确认（要输入旧密码/验证码）同理。</p>
+     *
+     * <p>所以调用方在"已知该用户正处于等待输入凭据的状态"时，不该再靠猜，
+     * 而应该<b>整条打码</b>。日志会因此少一条可用信息，但比泄露口令划算得多。</p>
+     *
+     * @param text 原始文本（可为 {@code null}）
+     * @return 非空文本一律返回 {@code ***}；{@code null} / 空串原样返回
+     */
+    public static String maskWhole(String text) {
+        if (text == null || text.isEmpty()) {
+            return text;
+        }
+        return MASK;
+    }
+
     /** 处理 {@code password=xxx} / {@code access_token: xxx} 这类键值对。 */
     private static String maskKeyValuePairs(String text) {
         Matcher m = KEY_VALUE.matcher(text);

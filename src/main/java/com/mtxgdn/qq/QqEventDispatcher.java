@@ -118,7 +118,11 @@ final class QqEventDispatcher {
         // 新消息 = 新的被动回复上下文（msg_seq 从 1 重新计数）
         sender.trackGroupInbound(groupOpenid, msgId);
 
-        log.info("[QQ群:" + groupOpenid + "] [openid:" + senderOpenid + "] " + nickname + ": " + trimmed);
+        // 群消息同样要脱敏：玩家会在群里直接打 "/注册 我的密码123"、
+        // "/绑定 账号 密码"，不脱敏就等于把明文口令写进日志。
+        // 私聊分支一直有 mask，群聊这行漏了 —— 两条通道必须一视同仁。
+        log.info("[QQ群:" + groupOpenid + "] [openid:" + senderOpenid + "] " + nickname + ": "
+                + maskInbound(senderOpenid, trimmed));
         router.handleGroupMessage(groupId, senderOpenid, nickname, trimmed);
     }
 
@@ -135,8 +139,44 @@ final class QqEventDispatcher {
         if (openid.isEmpty()) return;
 
         sender.trackC2cInbound(openid, msgId);
-        log.info("[QQ私聊:" + openid + "] " + nickname + ": " + com.mtxgdn.util.LogMasker.mask(content));
+        log.info("[QQ私聊:" + openid + "] " + nickname + ": " + maskInbound(openid, content));
         router.handlePrivateMessage(openid, nickname, content);
+    }
+
+    /**
+     * 入站消息写日志前统一脱敏。
+     *
+     * <p>{@code LogMasker.mask} 靠关键词识别，只能挡住 {@code /注册 密码}
+     * 这种"看得出来"的形态。但账号流程是分两步的：机器人先回
+     * "请发送你的密码"，玩家再单独发一条纯密码 —— 那一条不含任何关键词，
+     * 关键词脱敏对它完全无效，明文口令直接进日志。</p>
+     *
+     * <p>所以先看该用户是否正处于等待输入凭据的状态，是则整条打码。</p>
+     */
+    private String maskInbound(String openId, String content) {
+        if (openId != null) {
+            QqPendingSession session = ctx.pendingSessions.get(openId);
+            if (session != null && isCredentialPromptState(session.state)) {
+                return com.mtxgdn.util.LogMasker.maskWhole(content);
+            }
+        }
+        return com.mtxgdn.util.LogMasker.mask(content);
+    }
+
+    /** 这些会话状态下，玩家下一条输入的就是凭据本身。 */
+    private static boolean isCredentialPromptState(String state) {
+        if (state == null) {
+            return false;
+        }
+        return switch (state) {
+            case "WAITING_PASSWORD",       // 注册 / 绑定：输入密码
+                 "WAITING_OLD_PASSWORD",   // 改密：输入旧密码
+                 "WAITING_NEW_PASSWORD",   // 改密：输入新密码
+                 "WAITING_DELETE_CONFIRM", // 注销账号：输入密码确认
+                 "WAITING_CODE"            // 邮箱验证流程：输入验证码
+                    -> true;
+            default -> false;
+        };
     }
 
     /**

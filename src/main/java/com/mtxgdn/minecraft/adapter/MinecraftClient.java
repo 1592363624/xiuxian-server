@@ -469,8 +469,10 @@ public class MinecraftClient implements Runnable {
     public void sendChatMessage(String message) {
         if (!running.get()) return;
         if (!playReady) {
-            // 配置阶段发 PLAY 阶段的包会被服务端按配置阶段的包号解析，直接断连
-            log.warn((inConfigPhase ? "仍在配置阶段" : "尚未进入 PLAY 状态") + "，聊天消息被丢弃: " + message);
+            // 配置阶段发 PLAY 阶段的包会被服务端按配置阶段的包号解析，直接断连。
+            // 丢弃时要脱敏：这条路径同样会承载 "/reg 密码" 这类指令。
+            log.warn((inConfigPhase ? "仍在配置阶段" : "尚未进入 PLAY 状态")
+                    + "，聊天消息被丢弃: " + com.mtxgdn.util.LogMasker.mask(message));
             return;
         }
         try {
