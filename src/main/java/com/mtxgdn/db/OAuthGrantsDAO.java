@@ -68,21 +68,31 @@ public class OAuthGrantsDAO {
         }
     }
 
-    /** 事务内版本：只用调用方连接。 */
+    /**
+     * 事务内版本：只用调用方连接。
+     *
+     * <p><b>{@code created_at} 也要一起更新</b>，不能只更新别的列。
+     * 原因是内存里每次授权都新建一个 Grant（createdAt = 现在），
+     * 若库里保留旧值，两边就不一致 —— 重启后页面上的授权时间会
+     * "跳回"很久以前，玩家会困惑「我刚刚重新授权的怎么显示三个月前」，
+     * 而且 {@code expires_at} 的清理期限也会漂移。</p>
+     *
+     * <p>语义上「重新授权」就是新的一次授权：玩家又看了一眼权限并再次同意，
+     * 把时间刷新才符合直觉。</p>
+     */
     public void upsert(Connection conn, String grantId, long userId, String username, String clientId,
                        String scopes, long createdAt, long lastUsedAt, long expiresAt) throws SQLException {
-        // SQLite 与 MySQL 都支持 ON CONFLICT/ON DUPLICATE KEY；
-        // 这里按方言分开写，避免依赖某一家的语法
         String sql = DatabaseManager.isSqlite()
                 ? "INSERT INTO oauth_grants (grant_id, user_id, username, client_id, scopes, revoked,"
                 + " created_at, last_used_at, expires_at) VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?)"
                 + " ON CONFLICT(grant_id) DO UPDATE SET scopes = excluded.scopes,"
-                + " username = excluded.username, revoked = 0, last_used_at = excluded.last_used_at,"
-                + " expires_at = excluded.expires_at"
+                + " username = excluded.username, revoked = 0, created_at = excluded.created_at,"
+                + " last_used_at = excluded.last_used_at, expires_at = excluded.expires_at"
                 : "INSERT INTO oauth_grants (grant_id, user_id, username, client_id, scopes, revoked,"
                 + " created_at, last_used_at, expires_at) VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?)"
                 + " ON DUPLICATE KEY UPDATE scopes = VALUES(scopes), username = VALUES(username),"
-                + " revoked = 0, last_used_at = VALUES(last_used_at), expires_at = VALUES(expires_at)";
+                + " revoked = 0, created_at = VALUES(created_at), last_used_at = VALUES(last_used_at),"
+                + " expires_at = VALUES(expires_at)";
 
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, grantId);
