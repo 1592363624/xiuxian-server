@@ -195,22 +195,30 @@ class PluginConfigFilesTest {
     // ==================== 取值优先级 ====================
 
     @Test
-    @DisplayName("插件文件的值优先于 application.yml，但 -D 系统属性仍然最高")
+    @DisplayName("插件文件的值优先于内置默认，但 -D 系统属性仍然最高")
     void pluginFileOverridesApplicationYmlButNotSystemProperty() throws Exception {
         String key = "world_boss.hp_multiplier";
 
-        // application.yml 模板里的值是 12
-        String fromYml = AppConfig.get(key);
-        assertNotNull(fromYml, "前置条件：application.yml 里应有 " + key);
-        assertEquals("12", fromYml);
-
-        // 插件文件写一个不同的值 → 应当优先
+        // 这个参数的归属已从 application.yml 迁到 world_boss.yml，
+        // 所以"回落目标"不再是 application.yml 里的字面量，而是随包分发的
+        // 模板文件（首次启动释放成 config/plugins/world_boss.yml）。
+        // 这里先把模板释放到临时目录，模拟"已升级部署、用户没改过参数"。
         Files.createDirectories(tempDir);
+        writeTemplate("world_boss", tempDir);
+        PluginConfigFiles.useConfigDirForTest(tempDir);
+
+        String fromTemplate = AppConfig.get(key);
+        assertNotNull(fromTemplate,
+                "前置条件：模板 world_boss.yml 里应有 " + key
+                        + "（它是迁移后该参数的唯一归属地）");
+        assertEquals("12", fromTemplate, "模板里的默认值应为 12");
+
+        // 用户文件写一个不同的值 → 应当优先
         Files.writeString(tempDir.resolve("world_boss.yml"),
                 "enabled: true\nhp_multiplier: 99\n", StandardCharsets.UTF_8);
         PluginConfigFiles.useConfigDirForTest(tempDir);
         assertEquals("99", AppConfig.get(key),
-                "插件文件是参数的新归属地，必须优先于 application.yml");
+                "插件文件是参数的新归属地，必须优先于任何内置默认值");
 
         // -D 系统属性必须仍然压过一切（运维应急通道）
         System.setProperty(key, "777");
@@ -221,22 +229,45 @@ class PluginConfigFilesTest {
             System.clearProperty(key);
         }
 
-        // 清掉插件文件后回落到 application.yml
+        // 用户文件整个不存在时返回 null，由调用方用内置默认值兜底。
+        // 这不是"设置丢了"：extractPluginConfigTemplates() 每次启动补缺失文件、
+        // 不覆盖已存在的，所以正常升级的部署不可能走到这个分支。
         PluginConfigFiles.useConfigDirForTest(Files.createTempDirectory("empty-"));
-        assertEquals("12", AppConfig.get(key), "插件文件没写该项时应回落到 application.yml");
+        assertNull(AppConfig.get(key),
+                "用户文件不存在时不返回凭空的值 —— 由调用方默认值兜底");
     }
 
     @Test
-    @DisplayName("插件文件里没写的参数回落到 application.yml（升级不丢设置）")
+    @DisplayName("用户没改的参数在模板里有默认值（升级不丢设置）")
     void missingPluginKeyFallsBackToApplicationYml() throws Exception {
         Files.createDirectories(tempDir);
-        // 只写 enabled，不写任何参数
+        // 只写 enabled，不写任何参数 —— 模拟"用户只改过开关、没动过参数"
         Files.writeString(tempDir.resolve("sect.yml"), "enabled: true\n", StandardCharsets.UTF_8);
         PluginConfigFiles.useConfigDirForTest(tempDir);
 
-        // application.yml 里的 sect.leader_absent_days = 14
+        // sect.leader_absent_days 归属 sect.yml。用户文件没写这一项时返回 null，
+        // 由业务层内置默认值兜底 —— 这是有意的，不是缺陷。
+        assertNull(AppConfig.get("sect.leader_absent_days"),
+                "用户文件没写该项时返回 null，由调用方默认值兜底");
+
+        // 真正要守住的是"模板里必须有这一项"：
+        // 模板缺了它，升级后的部署就没有地方可以改这个参数，
+        // 只能用代码里写死的兜底值 —— 那才是真正的"设置丢失"。
+        Path templateDir = Files.createTempDirectory("template-check-");
+        writeTemplate("sect", templateDir);
+        PluginConfigFiles.useConfigDirForTest(templateDir);
         assertEquals("14", AppConfig.get("sect.leader_absent_days"),
-                "插件文件缺该项时必须回落到 application.yml，否则升级后参数全变默认值");
+                "模板 sect.yml 必须写明 leader_absent_days（默认 14），"
+                        + "否则升级后该参数在配置文件里根本不存在，运维无从修改");
+    }
+
+    /** 把 jar 内的插件配置模板释放到指定目录。 */
+    private void writeTemplate(String pluginName, Path dir) throws Exception {
+        String resource = "plugin-configs/" + pluginName + ".yml";
+        try (InputStream in = getClass().getClassLoader().getResourceAsStream(resource)) {
+            assertNotNull(in, "模板资源缺失: " + resource);
+            Files.write(dir.resolve(pluginName + ".yml"), in.readAllBytes());
+        }
     }
 
     @Test
