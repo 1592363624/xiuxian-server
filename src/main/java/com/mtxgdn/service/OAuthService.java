@@ -37,6 +37,12 @@ public class OAuthService {
         // 加载第三方应用登记表（授权码流程用）。
         // 读不到就保持空表 —— 空表意味着没人能走授权码流程，
         // 这是安全的失败方向：宁可第三方用不了，不可放行未登记的回调地址。
+        //
+        // 注意这是一次性覆盖（CLIENTS.clear() + putAll）：本类被首次引用时
+        // 会用配置里的 oauth2.clients 整个替换掉注册表。所以任何"先登记客户端、
+        // 后又触发本类初始化"的顺序都会丢失登记 —— 测试里踩过这个坑，
+        // 表现为 find() 查得到、authorize() 却报"应用未登记"。
+        // 需要在运行时增删客户端时，务必在之后显式调 reloadClientRegistry()。
         try {
             reloadClientRegistry();
         } catch (RuntimeException e) {

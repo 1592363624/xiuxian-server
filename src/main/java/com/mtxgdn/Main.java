@@ -686,6 +686,17 @@ public class Main {
         } catch (Exception e) {
             LOG.warn("载入 OAuth 授权记录失败（玩家可能需要重新授权第三方应用）: " + e.getMessage());
         }
+
+        // OIDC 签名密钥：必须持久化。否则每次重启都换密钥，所有客户端的
+        // id_token 验签会集体失败，表现为"登录时好时坏"，极难排查。
+        // 初始化失败不阻断启动 —— OIDC 没配好不该让整个服务器起不来，
+        // 相关端点会返回 503，配置正确后重启即可。
+        try {
+            java.nio.file.Path configDir = AppConfig.getJarDir().resolve("config");
+            com.mtxgdn.oauth.OidcKeyManager.init(configDir);
+        } catch (Exception e) {
+            LOG.warn("OIDC 签名密钥初始化失败（OIDC 登录暂不可用）: " + e.getMessage());
+        }
     }
 
     private static void releaseConfigs() {

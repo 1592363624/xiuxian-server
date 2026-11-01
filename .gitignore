@@ -85,3 +85,6 @@ build/
 # docs/analysis/tools/ 下的探针与复现脚本只服务于本地分析，已移出版本控制，
 # 这里补上忽略规则，免得下次 git add -A 又把它加回来
 docs/analysis/tools/
+# OIDC 签名私钥 —— 泄露等同于任何人可以伪造登录身份，绝不能入库
+oidc-key.pem
+*.pem

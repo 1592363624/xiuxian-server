@@ -55,7 +55,8 @@ public final class OAuthCodeStore {
                         long userId,
                         String username,
                         Set<String> scopes,
-                        long expiresAt) {
+                        long expiresAt,
+                        String nonce) {
 
         boolean expired(long now) {
             return now > expiresAt;
@@ -74,12 +75,24 @@ public final class OAuthCodeStore {
      */
     public static String issue(String clientId, String redirectUri, long userId,
                                String username, Set<String> scopes) {
+        return issue(clientId, redirectUri, userId, username, scopes, null);
+    }
+
+    /**
+     * 签发授权码（带 OIDC nonce）。
+     *
+     * <p>{@code nonce} 只能在这里存下 —— 它由客户端在授权请求里给出，
+     * 到换 token 那一步已经无从得知，而 id_token 里又必须原样带上。
+     * 所以它跟着授权码走一趟。</p>
+     */
+    public static String issue(String clientId, String redirectUri, long userId,
+                               String username, Set<String> scopes, String nonce) {
         purgeExpired();
 
         String code = randomToken();
         String hash = sha256(code);
         CODES.put(hash, new Entry(hash, clientId, redirectUri, userId, username,
-                Set.copyOf(scopes), System.currentTimeMillis() + CODE_TTL_MS));
+                Set.copyOf(scopes), System.currentTimeMillis() + CODE_TTL_MS, nonce));
         return code;
     }
 

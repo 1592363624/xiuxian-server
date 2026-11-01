@@ -73,6 +73,22 @@ public final class OAuthScope {
     /** 读游戏公共数据（排行榜、物品表、地图），不含任何玩家私有数据 */
     public static final String PUBLIC_READ = "public:read";
 
+    // ==================== OIDC 标准 scope ====================
+    //
+    // 这三个是 OIDC 规范定义的，标准客户端（New API、Grafana、GitLab…）
+    // 发起登录时必带 openid。它们不映射任何游戏数据，只决定 id_token
+    // 与 /userinfo 返回哪些身份字段。
+    //
+    // 名字必须原样是 openid / profile / email —— 客户端硬编码认这几个词，
+    // 改成 oidc:openid 之类它就不认了。
+
+    /** OIDC 必需：声明这是登录请求，响应里才会带 id_token */
+    public static final String OPENID = "openid";
+    /** 返回昵称等信息（preferred_username / name） */
+    public static final String PROFILE = "profile";
+    /** 返回邮箱 */
+    public static final String EMAIL = "email";
+
     /**
      * 全部合法 scope。
      *
@@ -97,6 +113,12 @@ public final class OAuthScope {
         define(ECONOMY_WRITE, "进行坊市交易", "上架、购买、撤单 —— 会消耗或获得灵石", Risk.HIGH, "🏪");
         define(SECT_WRITE, "执行宗门操作", "申请入宗、退出宗门、捐献（不能踢人、不能任命）", Risk.HIGH, "🏯");
         define(SOCIAL_WRITE, "进行社交操作", "发送私信、组队邀请", Risk.HIGH, "💬");
+
+        // OIDC 标准 scope 排在最后：它们不是"游戏数据权限"，而是"身份信息"，
+        // 混在数据权限中间会让同意页看起来很奇怪。
+        define(OPENID, "登录身份", "让第三方确认你是谁，用于免注册登录", Risk.LOW, "🔑");
+        define(PROFILE, "基本资料", "用户名等公开资料", Risk.LOW, "📛");
+        define(EMAIL, "邮箱地址", "你留给服务器的邮箱", Risk.MEDIUM, "📧");
     }
 
     private static void define(String name, String title, String description, Risk risk, String icon) {

@@ -125,7 +125,8 @@ public class OAuthResource {
             return error(400, "invalid_grant", "授权码无效、已过期、已被使用，或与客户端不匹配");
         }
 
-        return issueUserTokenResponse(entry.clientId(), entry.userId(), entry.username(), entry.scopes());
+        return issueUserTokenResponse(entry.clientId(), entry.userId(), entry.username(),
+                entry.scopes(), entry.nonce());
     }
 
     /** 用 refresh_token 换新的一对 token（轮换：旧码立即作废） */
@@ -165,22 +166,37 @@ public class OAuthResource {
      */
     private Response issueUserTokenResponse(String clientId, long userId, String username,
                                             java.util.Set<String> scopes) {
+        return issueUserTokenResponse(clientId, userId, username, scopes, null);
+    }
+
+    /**
+     * 签发用户型 token 的响应体（首次授权）。
+     *
+     * <p>{@code grantId} 由 {@link com.mtxgdn.oauth.OAuthGrantStore#authorize} 生成 ——
+     * 玩家在同意页点"同意"时就已经建立了授权记录，这里只是签发凭证。</p>
+     *
+     * @param nonce OIDC 的 nonce，非 OIDC 请求时为 null
+     */
+    private Response issueUserTokenResponse(String clientId, long userId, String username,
+                                            java.util.Set<String> scopes, String nonce) {
         com.mtxgdn.oauth.OAuthGrantStore.Grant grant =
                 com.mtxgdn.oauth.OAuthGrantStore.authorize(userId, username, clientId, scopes);
         String refreshToken = com.mtxgdn.oauth.OAuthGrantStore.issueRefreshToken(grant.grantId());
-        return buildUserTokenResponse(grant, refreshToken);
+        return buildUserTokenResponse(grant, refreshToken, nonce);
     }
 
     private Response issueUserTokenResponseWithRefresh(String clientId, long userId, String username,
                                                        java.util.Set<String> scopes, String refreshToken) {
         com.mtxgdn.oauth.OAuthGrantStore.Grant grant =
                 com.mtxgdn.oauth.OAuthGrantStore.authorize(userId, username, clientId, scopes);
-        return buildUserTokenResponse(grant, refreshToken);
+        // 刷新流程不带 nonce —— OIDC 规范只要求首次 id_token 回填它，
+        // 客户端在刷新时也不会再拿它做比对
+        return buildUserTokenResponse(grant, refreshToken, null);
     }
 
     /** 组装用户型 token 的响应体 */
     private Response buildUserTokenResponse(com.mtxgdn.oauth.OAuthGrantStore.Grant grant,
-                                            String refreshToken) {
+                                            String refreshToken, String nonce) {
         String jti = java.util.UUID.randomUUID().toString();
         com.mtxgdn.oauth.OAuthGrantStore.registerToken(jti, grant.grantId());
 
@@ -194,7 +210,26 @@ public class OAuthResource {
         resp.put("expires_in", OAuthService.getTokenTtlSeconds());
         resp.put("scope", com.mtxgdn.oauth.OAuthScope.join(grant.scopes()));
         resp.put("refresh_token", refreshToken);
+
+        // 只有申请了 openid 才签发 id_token —— 这是 OIDC 规范的分界线：
+        // 没有 openid 的请求是普通 OAuth，不应拿到身份凭证
+        if (grant.scopes().contains(com.mtxgdn.oauth.OAuthScope.OPENID)) {
+            String issuer = new OidcResource().issuerForToken();
+            String email = grant.scopes().contains(com.mtxgdn.oauth.OAuthScope.EMAIL)
+                    ? lookupEmailQuietly(grant.userId()) : null;
+            resp.put("id_token", com.mtxgdn.oauth.OidcIdToken.sign(
+                    issuer, grant.clientId(), grant.username(), nonce, grant.scopes(), email));
+        }
         return Response.ok(gson.toJson(resp)).build();
+    }
+
+    /** 查邮箱，失败返回 null（邮箱是可选字段，不该让发 token 失败） */
+    private static String lookupEmailQuietly(long userId) {
+        try {
+            return new com.mtxgdn.db.UserServiceDAO().findEmailById(userId);
+        } catch (Throwable t) {
+            return null;
+        }
     }
 
     /**
@@ -516,8 +551,12 @@ public class OAuthResource {
         }
 
         String username = currentUsername();
+        // nonce 由 OIDC 客户端在授权请求里给出，必须一路带到 id_token 里。
+        // 它不是机密，但客户端会拿原值比对 —— 丢了会导致登录被拒。
+        String nonce = json.has("nonce") && !json.get("nonce").isJsonNull()
+                ? json.get("nonce").getAsString() : null;
         String code = com.mtxgdn.oauth.OAuthCodeStore.issue(
-                clientId, redirectUri, userId, username, scopes);
+                clientId, redirectUri, userId, username, scopes, nonce);
 
         // state 原样带回 —— 服务端不解释它的内容，但绝不能丢，
         // 第三方靠它防 CSRF

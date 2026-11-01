@@ -127,6 +127,26 @@ oauth2:
   #
   clients: []
 
+  # ── OIDC 身份提供者（让第三方把本服当登录方式）────────────────
+  #
+  # 与上面的「本服当客户端去访问别人」是反方向：这里本服是 IdP，
+  # 第三方（New API、Grafana、GitLab 等）是客户端。
+  #
+  # 客户端配置时只需要填一个 Well-Known URL：
+  #   https://你的域名/api/auth/oidc/.well-known/openid-configuration
+  # 其余端点会自动发现。
+  #
+  # 注意 issuer 与对外地址必须写玩家浏览器能访问到的地址 ——
+  # 服务端不知道自己在反代后面的域名，所以必须显式配置。
+  # 填错了表现为客户端「自动发现」成功但跳转地址 404。
+  oidc:
+    enabled: false               # 默认关闭，需要时打开
+    issuer: ""                   # 例：https://game.example.com —— 留空则用 public-base-url
+    public-base-url: ""          # 例：https://game.example.com —— 对外根地址（不含 /api）
+    display-name: 修仙服务器     # 登录页上显示的名称
+    # id_token 有效期（秒）。客户端用它判断登录态，短一点更安全
+    id_token_ttl_seconds: 3600
+
 # ┌──────────────────────────────────────────────────────────────┐
 # │ 7. 玩家数据文件化（一用户一个 JSON 文件）                      │
 # └──────────────────────────────────────────────────────────────┘

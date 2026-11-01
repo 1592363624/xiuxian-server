@@ -22,7 +22,7 @@ import * as api from '../api.js';
  * 但必须原样带回 —— 丢掉它会让第三方的防护失效。</p>
  */
 
-const PARAMS = ['response_type', 'client_id', 'redirect_uri', 'scope', 'state'];
+const PARAMS = ['response_type', 'client_id', 'redirect_uri', 'scope', 'state', 'nonce'];
 
 let currentRequest = null;
 
@@ -160,6 +160,9 @@ async function confirmConsent(approved) {
       redirect_uri: currentRequest.redirect_uri || req.redirect_uri,
       scope: req.scope,
       state: req.state,
+      // nonce 必须原样回传：OIDC 客户端拿它比对 id_token 里的值，
+      // 丢了会导致对方验不过、登录直接失败
+      nonce: req.nonce,
       approved: approved
     });
 
