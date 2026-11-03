@@ -111,6 +111,7 @@ public class DatabaseMigration {
         steps.add(new Step("022_sects_treasury", "宗门金库与工资列", this::addSectTreasuryColumns));
         steps.add(new Step("023_players_breakthrough_pity", "突破失败增益与凝实层数", this::addBreakthroughPityColumns));
         steps.add(new Step("024_players_language", "玩家界面语言列", this::addPlayersLanguageColumn));
+        steps.add(new Step("025_techniques_player_made", "自创功法归属与词条列", this::addTechniquePlayerMadeColumns));
         return steps;
     }
 
@@ -542,5 +543,28 @@ public class DatabaseMigration {
     /** player_daily 表添加 pvp_count 列：每日PVP切磋次数持久化（重启不丢失） */
     private void addPlayerDailyPvpCountColumn(Statement stmt) throws SQLException {
         tryAlter(stmt, "ALTER TABLE player_daily ADD COLUMN pvp_count INT DEFAULT 0");
+    }
+
+    /**
+     * 自创功法归属列：techniques 补 creator_user_id / player_made / effect_spec。
+     *
+     * <p>为什么加在 techniques 而不是单独建表：自创功法要让玩家像官方功法一样
+     * <b>学习、装备、升级</b>，走的是同一套 {@code TechniqueService} 通路。
+     * 单独建表意味着要复制一整套学习/装备/加成聚合逻辑，两条路早晚会不一致 ——
+     * 而且现在的能力（数值加成）完全能表达在既有 19 列里。</p>
+     *
+     * <p>三个列的含义与默认值：</p>
+     * <ul>
+     *   <li>{@code creator_user_id}：创建者。0 表示官方内容（出厂功法都是 0，
+     *       所以老库不需要回填）；</li>
+     *   <li>{@code player_made}：是否玩家自创。用 0/1 而不是布尔，兼容两种库；</li>
+     *   <li>{@code effect_spec}：L2 词条规格（JSON）。空串表示没有词条 ——
+     *       和"没有配置"等价，老库因此无需回填。</li>
+     * </ul>
+     */
+    private void addTechniquePlayerMadeColumns(Statement stmt) throws SQLException {
+        tryAlter(stmt, "ALTER TABLE techniques ADD COLUMN creator_user_id BIGINT DEFAULT 0");
+        tryAlter(stmt, "ALTER TABLE techniques ADD COLUMN player_made INT DEFAULT 0");
+        tryAlter(stmt, "ALTER TABLE techniques ADD COLUMN effect_spec VARCHAR(1024) DEFAULT ''");
     }
 }
