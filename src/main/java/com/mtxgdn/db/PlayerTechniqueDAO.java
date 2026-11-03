@@ -158,4 +158,37 @@ public class PlayerTechniqueDAO {
             return ps.executeUpdate() > 0;
         }
     }
+
+    /**
+     * 某玩家**已装备**功法的词条规格。
+     *
+     * <p>只取 {@code is_equipped} 为真的行：词条和面板加成一样，
+     * 应该只在装备时生效。否则玩家会「造一门带词条的功法，学完就卸下」，
+     * 白拿机制 —— 那等于绕过装备位限制。</p>
+     *
+     * <p>用 INNER JOIN 而不是两次查询：这不是热路径（有 30 秒缓存兜底），
+     * 但一次查询拿完能少一次往返。</p>
+     */
+    public List<String> listEquippedEffectSpecs(long playerId) throws SQLException {
+        String sql = """
+                SELECT t.effect_spec FROM techniques t
+                INNER JOIN players_techniques pt ON t.id = pt.technique_id
+                WHERE pt.player_id = ? AND pt.is_equipped = ?
+                """;
+        List<String> specs = new ArrayList<>();
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, playerId);
+            ps.setBoolean(2, true);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    String s = rs.getString(1);
+                    if (s != null && !s.isEmpty()) {
+                        specs.add(s);
+                    }
+                }
+            }
+        }
+        return specs;
+    }
 }

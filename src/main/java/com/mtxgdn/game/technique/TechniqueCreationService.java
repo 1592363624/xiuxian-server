@@ -55,7 +55,13 @@ public class TechniqueCreationService {
      * <p>只含<b>玩家能决定的东西</b>：名字、描述、类型、以及属性分配。
      * 消耗、造出的实际数值、是否合法，一概不接受客户端输入。</p>
      */
-    public record Request(String name, String description, String type, TechniqueBudget.Plan plan) {
+    public record Request(String name, String description, String type,
+                          TechniqueBudget.Plan plan, String effects) {
+
+        /** 不带词条的简写 —— L1 阶段只有数值分配 */
+        public Request(String name, String description, String type, TechniqueBudget.Plan plan) {
+            this(name, description, type, plan, "");
+        }
     }
 
     /**
@@ -129,8 +135,16 @@ public class TechniqueCreationService {
                 return fail("已有同名功法，换个名字吧");
             }
 
-            // ── 预算裁决（唯一可信的判断）
-            TechniqueBudget.Result check = TechniqueBudget.evaluate(realm, req.plan());
+            // ── 词条解析：看不懂的一律拒绝，不静默忽略
+            TechniqueEffectSpec.ParseResult effectParse = TechniqueEffectSpec.parse(req.effects());
+            if (!effectParse.ok()) {
+                return fail(effectParse.problems().get(0));
+            }
+            TechniqueEffectSpec effects = effectParse.spec();
+
+            // ── 预算裁决（唯一可信的判断）。词条与数值抢同一个池子。
+            TechniqueBudget.Result check =
+                    TechniqueBudget.evaluate(realm, req.plan(), effects.cost());
             if (!check.ok()) {
                 return new CreationResult(false, check.problems().get(0), 0L,
                         check.cost(), check.budget());
@@ -152,7 +166,7 @@ public class TechniqueCreationService {
                     req.plan().doubleOf(TechniqueBudget.Stat.EXP),
                     req.plan().doubleOf(TechniqueBudget.Stat.COMBAT_DAMAGE),
                     req.plan().doubleOf(TechniqueBudget.Stat.DAMAGE_REDUCTION),
-                    "");
+                    effects.toStorageString());
 
             if (id <= 0) {
                 return fail("功法创造失败，请稍后再试");

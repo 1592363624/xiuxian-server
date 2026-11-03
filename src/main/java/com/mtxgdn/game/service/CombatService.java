@@ -513,12 +513,20 @@ public class CombatService {
 
         baseDamage = applyDamageBoosts(baseDamage, attackerRoot);
 
-        int defense = playerService.getFinalDefense(defender);
+        // 词条修正。官方功法没有词条，下式全为 0，
+        // 战斗结果与原实现逐位相同 —— 这是"加功能不改现有平衡"的保证。
+        com.mtxgdn.game.technique.TechniqueEffectResolver.Aggregate atkFx =
+                com.mtxgdn.game.technique.TechniqueEffectResolver.forPlayer(attacker.getId());
+
+        int defense = (int) (playerService.getFinalDefense(defender) * (1 - atkFx.armorPen()));
         // 暴击率随速度收益递减，上限 60%（原 speed/200 后期必暴击）
         double critChance = Math.min(0.6, playerService.getFinalSpeed(attacker) / 400.0);
         if (attackerRoot != null && attackerRoot.hasEffect(SpiritualRoot.SpecialEffect.CRIT_CHANCE)) {
             critChance += attackerRoot.getEffectValue();
         }
+        // 「锐意」在此之上加成。上限单独放到 85%：
+        // 若仍卡 60%，高速玩家的词条会被原有的速度暴击顶掉，白花预算。
+        critChance = Math.min(0.85, critChance + atkFx.critBonus());
         boolean isCrit = random.nextDouble() < critChance;
 
         if (isCrit) {
@@ -535,6 +543,11 @@ public class CombatService {
         if (defenderRoot != null && defenderRoot.hasEffect(SpiritualRoot.SpecialEffect.DAMAGE_REDUCTION)) {
             finalDamage = (int)(finalDamage * (1 - defenderRoot.getEffectValue()));
         }
+
+        // 词条：战意/背水 增伤，护体 减伤
+        var defFx = com.mtxgdn.game.technique.TechniqueEffectResolver.forPlayer(defender.getId());
+        finalDamage = (int)(finalDamage * atkFx.attackMultiplier(hpRatioOf(attacker)));
+        finalDamage = (int)(finalDamage * defFx.incomingMultiplier());
 
         return Math.max(1, finalDamage);
     }
@@ -588,6 +601,19 @@ public class CombatService {
             baseDamage = (int)(baseDamage * (1 + attackerRoot.getEffectValue()));
         }
         return baseDamage;
+    }
+
+    /**
+     * 气血比例，用于「背水」这类按血量生效的词条。
+     *
+     * <p>取不到最大气血时返回 1.0（满血）—— <b>宁可少给加成，也不能凭空多给</b>。
+     * 数据异常不该变成战斗优势。</p>
+     */
+    private static double hpRatioOf(com.mtxgdn.entity.Player p) {
+        if (p == null || p.getMaxHp() <= 0) {
+            return 1.0;
+        }
+        return Math.max(0, Math.min(1, p.getHp() / (double) p.getMaxHp()));
     }
 
     private int applyDamageBoosts(int baseDamage, SpiritualRoot attackerRoot) {
@@ -928,11 +954,16 @@ public class CombatService {
 
         baseDamage = applyDamageBoosts(baseDamage, attackerRoot);
 
+        // 词条修正（官方功法无词条，全为 0）
+        com.mtxgdn.game.technique.TechniqueEffectResolver.Aggregate atkFx =
+                com.mtxgdn.game.technique.TechniqueEffectResolver.forPlayer(attacker.getId());
+
         // 暴击率随速度收益递减，上限 60%
         double critChance = Math.min(0.6, playerService.getFinalSpeed(attacker) / 400.0);
         if (attackerRoot != null && attackerRoot.hasEffect(SpiritualRoot.SpecialEffect.CRIT_CHANCE)) {
             critChance += attackerRoot.getEffectValue();
         }
+        critChance = Math.min(0.85, critChance + atkFx.critBonus());
         boolean isCrit = random.nextDouble() < critChance;
         if (isCrit) {
             double critMult = 1.5;
@@ -944,7 +975,10 @@ public class CombatService {
         }
 
         int variance = random.nextInt(-5, 6);
-        return Math.max(1, baseDamage + variance - defender.getDefense() / 3);
+        int monsterDefense = (int) (defender.getDefense() * (1 - atkFx.armorPen()));
+        int finalDamage = Math.max(1, baseDamage + variance - monsterDefense / 3);
+        finalDamage = (int)(finalDamage * atkFx.attackMultiplier(hpRatioOf(attacker)));
+        return Math.max(1, finalDamage);
     }
 
     private int calculateMonsterDamageToPlayer(Monster attacker, Player defender, BattleLogGenerator logGenerator,
@@ -964,6 +998,10 @@ public class CombatService {
         if (defenderRoot != null && defenderRoot.hasEffect(SpiritualRoot.SpecialEffect.DAMAGE_REDUCTION)) {
             finalDamage = (int)(finalDamage * (1 - defenderRoot.getEffectValue()));
         }
+
+        // 词条「护体」：只有玩家当防御方时才可能有，怪物没有词条
+        var defFx = com.mtxgdn.game.technique.TechniqueEffectResolver.forPlayer(defender.getId());
+        finalDamage = (int)(finalDamage * defFx.incomingMultiplier());
 
         return Math.max(1, finalDamage);
     }

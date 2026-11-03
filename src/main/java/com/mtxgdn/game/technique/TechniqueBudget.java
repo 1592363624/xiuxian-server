@@ -226,28 +226,43 @@ public final class TechniqueBudget {
      * 但最终必须由这里裁决，绝不能相信客户端算好的结果。</p>
      */
     public static Result evaluate(int realm, Plan plan) {
+        return evaluate(realm, plan, 0);
+    }
+
+    /**
+     * 校验方案，并把词条消耗一起算进同一个预算池。
+     *
+     * <p>词条和数值抢同一笔预算 —— 如果分开给两笔，最优解永远是两边都点满，
+     * 「用面板换机制」的取舍就不存在了。</p>
+     *
+     * @param extraCost 词条部分的总消耗（由 {@code TechniqueEffectSpec.cost()} 给出）
+     */
+    public static Result evaluate(int realm, Plan plan, double extraCost) {
         List<String> problems = new ArrayList<>();
         double budget = budgetForRealm(realm);
-        double total = 0;
+        double total = Math.max(0, extraCost);
 
-        if (plan == null || plan.isEmpty()) {
-            problems.add("至少要分配一项属性");
+        boolean planEmpty = plan == null || plan.isEmpty();
+        if (planEmpty && extraCost <= 0) {
+            problems.add("至少要分配一项属性或选择一个词条");
             return new Result(false, 0, budget, problems);
         }
 
-        for (Map.Entry<Stat, Integer> e : plan.asMap().entrySet()) {
-            Stat stat = e.getKey();
-            int units = e.getValue();
+        if (!planEmpty) {
+            for (Map.Entry<Stat, Integer> e : plan.asMap().entrySet()) {
+                Stat stat = e.getKey();
+                int units = e.getValue();
 
-            if (units < 0) {
-                problems.add(stat.key() + " 的分配量不能为负");
-                continue;
+                if (units < 0) {
+                    problems.add(stat.key() + " 的分配量不能为负");
+                    continue;
+                }
+                if (units > stat.maxUnits()) {
+                    problems.add(String.format("%s 最多 %s，你填了 %s",
+                            stat.key(), formatValue(stat, stat.maxUnits()), formatValue(stat, units)));
+                }
+                total += costOf(stat, units);
             }
-            if (units > stat.maxUnits()) {
-                problems.add(String.format("%s 最多 %s，你填了 %s",
-                        stat.key(), formatValue(stat, stat.maxUnits()), formatValue(stat, units)));
-            }
-            total += costOf(stat, units);
         }
 
         if (total > budget) {
