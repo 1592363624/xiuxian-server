@@ -1,5 +1,9 @@
 package com.mtxgdn.onebot;
 
+import com.mtxgdn.identity.QqBindingService;
+
+import com.mtxgdn.identity.QqBinding;
+
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;

@@ -9,8 +9,8 @@ import com.mtxgdn.game.item.ItemRegistry;
 import com.mtxgdn.game.service.ItemService;
 import com.mtxgdn.game.service.PlayerService;
 import com.mtxgdn.permission.PermissionService;
-import com.mtxgdn.onebot.QqBinding;
-import com.mtxgdn.onebot.QqBindingService;
+import com.mtxgdn.identity.QqBinding;
+import com.mtxgdn.identity.QqBindingService;
 import com.mtxgdn.i18n.I18n;
 
 public class GiveCommand extends Command {

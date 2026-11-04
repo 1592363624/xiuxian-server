@@ -1,6 +1,6 @@
 package com.mtxgdn.db;
 
-import com.mtxgdn.onebot.QqBinding;
+import com.mtxgdn.identity.QqBinding;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;

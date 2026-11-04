@@ -6,8 +6,8 @@ import com.mtxgdn.common.command.CommandUtils;
 import com.mtxgdn.game.entity.PlayerInfo;
 import com.mtxgdn.game.service.CombatService;
 import com.mtxgdn.common.service.ServiceRegistry;
-import com.mtxgdn.onebot.QqBindingService;
-import com.mtxgdn.onebot.QqBinding;
+import com.mtxgdn.identity.QqBindingService;
+import com.mtxgdn.identity.QqBinding;
 import com.mtxgdn.onebot.command.OneBotCommandContext;
 
 import java.util.List;
@@ -86,7 +86,7 @@ public class PvpCommand extends Command {
 
     private void notifyTarget(CommandContext ctx, PlayerInfo target, String challengerName) {
         try {
-            QqBinding official = new com.mtxgdn.onebot.QqOfficialBindingService().findByUserId(target.getUserId());
+            QqBinding official = new com.mtxgdn.identity.QqOfficialBindingService().findByUserId(target.getUserId());
             QqBinding onebot = new QqBindingService().findByUserId(target.getUserId());
             if (official == null && onebot == null) return;
 
@@ -103,7 +103,7 @@ public class PvpCommand extends Command {
             // openid 是按 AppID 隔离的，拿别的机器人的 openid 通过本适配器发送必然失败
             if (ctx instanceof com.mtxgdn.onebot.command.OneBotClientCommandContext occ
                     && occ.getSession() instanceof com.mtxgdn.qq.QqOfficialAdapter qq) {
-                QqBinding scoped = new com.mtxgdn.onebot.QqOfficialBindingService(qq.getAppId())
+                QqBinding scoped = new com.mtxgdn.identity.QqOfficialBindingService(qq.getAppId())
                         .findByUserId(target.getUserId());
                 if (scoped == null) return;
                 qq.sendPrivateMsg(qq, qq.getSelfId(), scoped.getQqNumber(), msg);

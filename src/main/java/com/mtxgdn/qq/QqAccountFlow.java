@@ -8,7 +8,7 @@ import com.mtxgdn.entity.User;
 import com.mtxgdn.game.entity.PlayerInfo;
 import com.mtxgdn.game.service.NewbieGuideService;
 import com.mtxgdn.onebot.OneBotSession;
-import com.mtxgdn.onebot.QqBinding;
+import com.mtxgdn.identity.QqBinding;
 import com.mtxgdn.permission.PermissionService;
 import com.mtxgdn.service.VerificationCodeService;
 import com.mtxgdn.util.EmailService;

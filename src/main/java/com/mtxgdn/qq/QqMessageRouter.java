@@ -4,7 +4,7 @@ import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandRegistry;
 import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.game.service.OfflineRewardService;
-import com.mtxgdn.onebot.QqBinding;
+import com.mtxgdn.identity.QqBinding;
 import com.mtxgdn.onebot.command.OneBotClientCommandContext;
 import com.mtxgdn.permission.PermissionService;
 import com.mtxgdn.util.RateLimiter;

@@ -4,8 +4,8 @@ import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandContext;
 import com.mtxgdn.db.DatabaseManager;
 import com.mtxgdn.permission.PermissionService;
-import com.mtxgdn.onebot.QqBinding;
-import com.mtxgdn.onebot.QqBindingService;
+import com.mtxgdn.identity.QqBinding;
+import com.mtxgdn.identity.QqBindingService;
 
 import java.util.List;
 import java.util.Map;

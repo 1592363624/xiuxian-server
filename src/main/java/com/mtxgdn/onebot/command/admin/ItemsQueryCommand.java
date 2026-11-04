@@ -5,8 +5,8 @@ import com.mtxgdn.common.command.CommandContext;
 import com.mtxgdn.game.item.Item;
 import com.mtxgdn.game.item.ItemRegistry;
 import com.mtxgdn.permission.PermissionService;
-import com.mtxgdn.onebot.QqBinding;
-import com.mtxgdn.onebot.QqBindingService;
+import com.mtxgdn.identity.QqBinding;
+import com.mtxgdn.identity.QqBindingService;
 
 import java.util.ArrayList;
 import java.util.List;

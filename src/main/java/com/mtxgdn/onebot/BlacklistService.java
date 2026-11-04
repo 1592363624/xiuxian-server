@@ -1,5 +1,9 @@
 package com.mtxgdn.onebot;
 
+import com.mtxgdn.identity.QqBindingService;
+
+import com.mtxgdn.identity.QqBinding;
+
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.representer.Representer;

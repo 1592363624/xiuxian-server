@@ -8,8 +8,8 @@ import com.mtxgdn.common.command.CommandRegistry;
 import com.mtxgdn.common.command.RouteDefinition;
 import com.mtxgdn.game.entity.PlayerInfo;
 import com.mtxgdn.permission.PermissionService;
-import com.mtxgdn.onebot.QqBinding;
-import com.mtxgdn.onebot.QqBindingService;
+import com.mtxgdn.identity.QqBinding;
+import com.mtxgdn.identity.QqBindingService;
 
 import java.util.List;
 import com.mtxgdn.i18n.GameLanguage;

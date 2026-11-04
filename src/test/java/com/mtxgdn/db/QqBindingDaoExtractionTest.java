@@ -27,7 +27,7 @@ class QqBindingDaoExtractionTest extends DaoExtractionAssertions {
 
     @Override
     protected String servicePath() {
-        return "src/main/java/com/mtxgdn/onebot/QqBindingService.java";
+        return "src/main/java/com/mtxgdn/identity/QqBindingService.java";
     }
 
     @Override

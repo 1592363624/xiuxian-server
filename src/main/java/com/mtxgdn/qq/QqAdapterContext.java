@@ -2,7 +2,7 @@ package com.mtxgdn.qq;
 
 import com.mtxgdn.adapter.AdapterConfig;
 import com.mtxgdn.onebot.OneBotSession;
-import com.mtxgdn.onebot.QqOfficialBindingService;
+import com.mtxgdn.identity.QqOfficialBindingService;
 
 import java.net.http.HttpClient;
 import java.util.Map;

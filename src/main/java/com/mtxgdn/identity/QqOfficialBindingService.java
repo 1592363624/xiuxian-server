@@ -1,4 +1,6 @@
-package com.mtxgdn.onebot;
+package com.mtxgdn.identity;
+
+import com.mtxgdn.identity.QqBinding;
 
 import com.mtxgdn.db.QqOfficialBindingDAO;
 
