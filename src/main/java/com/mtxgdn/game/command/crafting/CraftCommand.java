@@ -1,0 +1,246 @@
+package com.mtxgdn.game.command.crafting;
+
+import com.mtxgdn.game.crafting.CraftProficiencyInfo;
+import com.mtxgdn.game.crafting.CraftResult;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import com.mtxgdn.common.command.Command;
+import com.mtxgdn.common.command.CommandContext;
+import com.mtxgdn.common.command.RouteDefinition;
+import com.mtxgdn.game.entity.PlayerInfo;
+import com.mtxgdn.game.entity.Recipe;
+import com.mtxgdn.game.item.Item;
+import com.mtxgdn.game.item.ItemRegistry;
+import com.mtxgdn.common.service.ServiceRegistry;
+
+import java.util.List;
+import java.util.Map;
+import com.mtxgdn.i18n.I18n;
+
+public class CraftCommand extends Command {
+    public CraftCommand() {
+        super(new String[]{"合成", "炼制", "craft"}, "合成系统 — 查看配方/合成物品",
+                "/合成 [列表|配方 <分类>|制造 <配方ID>]", "实用功能", null);
+        
+        setI18nKeys("cmd.craft.desc", "cmd.craft.usage");
+    setModule("crafting");
+
+        registerSub(new String[]{"列表", "list"}, this::listRecipes);
+        registerSub(new String[]{"配方", "recipes"}, this::listRecipesWithCategory);
+        registerSub(new String[]{"制造", "craft", "make"}, this::doCraft);
+        registerSub(new String[]{"熟练度", "proficiency"}, this::showProficiency);
+
+        addRoute(RouteDefinition.get("crafting/recipes", this::handleListHttp));
+        addRoute(RouteDefinition.post("crafting/craft", this::handleCraftHttp));
+    }
+
+    @Override
+    public void execute(CommandContext ctx) {
+        String arg = ctx.getArg();
+        if (arg != null && !arg.trim().isEmpty()) {
+            super.execute(ctx);
+            return;
+        }
+        Long userId = ctx.requireBinding();
+        if (userId == null) return;
+        PlayerInfo p = ctx.requirePlayer(userId);
+        if (p == null) return;
+
+        showDefault(ctx, p);
+    }
+
+    private void showDefault(CommandContext ctx, PlayerInfo p) {
+        var service = ServiceRegistry.getCraftingService();
+        List<Recipe> recipes = service.getAllRecipes();
+        StringBuilder sb = new StringBuilder();
+        sb.append("=== 合成系统 ===\n");
+        sb.append("可用配方: ").append(recipes.size()).append(" 种\n\n");
+        sb.append("分类: 丹药PILL | 装备EQUIPMENT | 消耗品CONSUMABLE | 种子SEED\n\n");
+        sb.append("查看配方: /合成 列表\n");
+        sb.append("按分类查看: /合成 配方 <分类>\n");
+        sb.append("制造: /合成 制造 <配方ID>");
+        ctx.reply(sb.toString());
+    }
+
+    private void listRecipes(CommandContext ctx, PlayerInfo p, String[] parts) {
+        var service = ServiceRegistry.getCraftingService();
+        List<Recipe> recipes = service.getAllRecipes();
+        StringBuilder sb = new StringBuilder();
+        sb.append("=== 合成配方 (共").append(recipes.size()).append("种) ===\n\n");
+        for (Recipe r : recipes) {
+            sb.append("[").append(r.getId()).append("] ").append(r.getName())
+              .append(" (").append(categoryLabel(r.getCategory())).append(")")
+              .append(" 成功率:").append((int)(r.getSuccessRate() * 100)).append("%\n");
+            sb.append("  产物: ").append(itemDisplayName(r.getResultItemKey())).append(" x").append(r.getResultQuantity()).append("\n");
+
+            StringBuilder mats = new StringBuilder();
+            if (r.getMaterial1Key() != null && !r.getMaterial1Key().isEmpty())
+                mats.append("  ").append(itemDisplayName(r.getMaterial1Key())).append(" x").append(r.getMaterial1Count());
+            if (r.getMaterial2Key() != null && !r.getMaterial2Key().isEmpty())
+                mats.append("、").append(itemDisplayName(r.getMaterial2Key())).append(" x").append(r.getMaterial2Count());
+            if (r.getMaterial3Key() != null && !r.getMaterial3Key().isEmpty())
+                mats.append("、").append(itemDisplayName(r.getMaterial3Key())).append(" x").append(r.getMaterial3Count());
+            if (!mats.isEmpty()) sb.append("  材料:").append(mats).append("\n");
+
+            sb.append("  费用:").append(r.getCostGold()).append("金").append(r.getCostSpiritStones()).append("灵石");
+            if (r.getRequiredRealm() > 0) sb.append(" | 需境界Lv").append(r.getRequiredRealm());
+            if (r.getCategory() == Recipe.Category.PILL) {
+                sb.append(" | 品质:");
+                if (r.getMaxQualityRate() > 0) sb.append("极品").append((int)(r.getMaxQualityRate() * 100)).append("%");
+                if (r.getHighQualityRate() > 0) sb.append("/上品").append((int)(r.getHighQualityRate() * 100)).append("%");
+            }
+            sb.append("\n\n");
+        }
+        sb.append("制造: /合成 制造 <配方ID>");
+        ctx.reply(sb.toString());
+    }
+
+    private void listRecipesWithCategory(CommandContext ctx, PlayerInfo p, String[] parts) {
+        if (parts.length < 2) { ctx.reply(I18n.t("crafting.usage")); return; }
+        String cat = parts[1].toUpperCase();
+        Recipe.Category category;
+        try {
+            category = Recipe.Category.valueOf(cat);
+        } catch (IllegalArgumentException e) {
+            ctx.reply(I18n.t("crafting.invalid_category", cat));
+            return;
+        }
+
+        var service = ServiceRegistry.getCraftingService();
+        List<Recipe> recipes = service.getRecipesByCategory(category);
+        StringBuilder sb = new StringBuilder();
+        sb.append("=== ").append(categoryLabel(category)).append("配方 ===\n");
+        if (recipes.isEmpty()) {
+            sb.append("暂无此类配方。");
+        } else {
+            for (Recipe r : recipes) {
+                sb.append("[").append(r.getId()).append("] ").append(r.getName())
+                  .append(" 成功率:").append((int)(r.getSuccessRate() * 100)).append("%")
+                  .append(" 费用:").append(r.getCostGold()).append("金").append(r.getCostSpiritStones()).append("灵石\n");
+            }
+            sb.append("\n制造: /合成 制造 <配方ID>");
+        }
+        ctx.reply(sb.toString());
+    }
+
+    private void doCraft(CommandContext ctx, PlayerInfo p, String[] parts) {
+        if (parts.length < 2) { ctx.reply(I18n.t("crafting.usage_2")); return; }
+        long recipeId;
+        try { recipeId = Long.parseLong(parts[1]); } catch (NumberFormatException e) { ctx.reply(I18n.t("crafting.invalid_recipe_id")); return; }
+
+        var service = ServiceRegistry.getCraftingService();
+        CraftResult result = service.craft(p.getId(), recipeId);
+        ctx.reply(result.message());
+    }
+
+    private void showProficiency(CommandContext ctx, PlayerInfo p, String[] parts) {
+        var service = ServiceRegistry.getCraftingService();
+        CraftProficiencyInfo info = service.getProficiencyInfo(p.getId());
+        StringBuilder sb = new StringBuilder();
+        sb.append("=== 合成熟练度 ===\n");
+        int level = info.level();
+        int maxLevel = info.maxLevel();
+        long count = info.craftCount();
+        long nextAt = info.nextLevelAt();
+        double bonus = info.successBonus();
+        sb.append("熟练度等级: Lv.").append(level).append("/").append(maxLevel).append("\n");
+        sb.append("累计制造成功: ").append(count).append(" 次\n");
+        if (nextAt > 0) {
+            sb.append("距离下一级: 还需成功 ").append(nextAt).append(" 次（每 20 次 +1 级）\n");
+        } else {
+            sb.append("已满级（每 20 次 +1 级）\n");
+        }
+        sb.append("成功率加成: +").append(String.format("%.1f", bonus * 100)).append("%（每级 +0.5%，封顶 95%）");
+        ctx.reply(sb.toString());
+    }
+
+    private String categoryLabel(Recipe.Category cat) {
+        return switch (cat) {
+            case PILL -> "丹药";
+            case EQUIPMENT -> "装备";
+            case CONSUMABLE -> "消耗品";
+            case SEED -> "种子";
+        };
+    }
+
+    private String itemDisplayName(String itemKey) {
+        Item item = ItemRegistry.get(itemKey);
+        return item != null ? item.getName() : itemKey;
+    }
+
+    // ==================== REST API ====================
+
+    private JsonObject handleListHttp(RouteDefinition.RestContext ctx) {
+        JsonObject result = new JsonObject();
+        try {
+            var service = ServiceRegistry.getCraftingService();
+            String category = ctx.queryParam("category");
+            List<Recipe> recipes;
+            if (category != null && !category.isEmpty()) {
+                try {
+                    Recipe.Category cat = Recipe.Category.valueOf(category.toUpperCase());
+                    recipes = service.getRecipesByCategory(cat);
+                } catch (IllegalArgumentException e) {
+                    result.addProperty("code", 400);
+                    result.addProperty("message", I18n.t("crafting.invalid_recipe_category", category));
+                    return result;
+                }
+            } else {
+                recipes = service.getAllRecipes();
+            }
+            JsonArray arr = new JsonArray();
+            for (Recipe r : recipes) {
+                JsonObject o = new JsonObject();
+                o.addProperty("id", r.getId());
+                o.addProperty("name", r.getName());
+                o.addProperty("description", r.getDescription());
+                o.addProperty("category", r.getCategory().name());
+                o.addProperty("requiredRealm", r.getRequiredRealm());
+                o.addProperty("resultItemKey", r.getResultItemKey());
+                o.addProperty("resultQuantity", r.getResultQuantity());
+                if (r.getMaterial1Key() != null) o.addProperty("material1Key", r.getMaterial1Key());
+                if (r.getMaterial1Key() != null) o.addProperty("material1Count", r.getMaterial1Count());
+                if (r.getMaterial2Key() != null) o.addProperty("material2Key", r.getMaterial2Key());
+                if (r.getMaterial2Key() != null) o.addProperty("material2Count", r.getMaterial2Count());
+                if (r.getMaterial3Key() != null) o.addProperty("material3Key", r.getMaterial3Key());
+                if (r.getMaterial3Key() != null) o.addProperty("material3Count", r.getMaterial3Count());
+                o.addProperty("costGold", r.getCostGold());
+                o.addProperty("costSpiritStones", r.getCostSpiritStones());
+                o.addProperty("successRate", r.getSuccessRate());
+                arr.add(o);
+            }
+            result.addProperty("code", 200);
+            result.add("recipes", arr);
+        } catch (Exception e) {
+            result.addProperty("code", 500);
+            result.addProperty("message", I18n.t("crafting.server_error", e.getMessage()));
+        }
+        return result;
+    }
+
+    private JsonObject handleCraftHttp(RouteDefinition.RestContext ctx) {
+        JsonObject result = new JsonObject();
+        try {
+            JsonObject req = ctx.bodyJson();
+            long recipeId = req.has("recipeId") ? req.get("recipeId").getAsLong() : 0;
+            if (recipeId <= 0) {
+                result.addProperty("code", 400);
+                result.addProperty("message", I18n.t("crafting.please_provide_a_valid_recipe"));
+                return result;
+            }
+            var service = ServiceRegistry.getCraftingService();
+            CraftResult data = service.craft(ctx.playerId(), recipeId);
+            result.addProperty("code", 200);
+            result.addProperty("success", data.success());
+            result.addProperty("message", data.message());
+            if (data.craftSuccess() != null) result.addProperty("craftSuccess", data.craftSuccess());
+            if (data.expGained() != null) result.addProperty("expGained", data.expGained());
+            if (data.itemGained() != null) result.addProperty("itemGained", data.itemGained());
+            if (data.itemQuantity() != null) result.addProperty("itemQuantity", data.itemQuantity());
+        } catch (Exception e) {
+            result.addProperty("code", 500);
+            result.addProperty("message", I18n.t("crafting.server_error", e.getMessage()));
+        }
+        return result;
+    }
+}

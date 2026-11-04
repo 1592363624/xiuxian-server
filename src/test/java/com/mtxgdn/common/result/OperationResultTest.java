@@ -118,7 +118,7 @@ class OperationResultTest {
         Pattern call = Pattern.compile(
                 "sectService\\.(applyToSect|approveApplication|leaveSect|kickMember|appointMember|addContribution)\\(");
         for (Path file : List.of(
-                Paths.get("src/main/java/com/mtxgdn/onebot/command/sect/SectCommand.java"),
+                Paths.get("src/main/java/com/mtxgdn/game/command/sect/SectCommand.java"),
                 Paths.get("src/main/java/com/mtxgdn/rest/GameSectResource.java"),
                 Paths.get("src/main/java/com/mtxgdn/websocket/WsSectHandler.java"))) {
             String code = stripComments(Files.readString(file, StandardCharsets.UTF_8));

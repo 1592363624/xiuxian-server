@@ -36,6 +36,9 @@ class EndpointAlignmentTest {
     static void scanCommands() {
         // 命令通过构造函数自注册，发现依赖包扫描（与 Main.initializeCommands 一致）。
         // 同 JVM 内其它测试可能已扫描过，重复扫描只会重复注册同一实例，无副作用。
+        // 命令分两处：玩法命令已搬到 game.command（端无关），
+        // 账号流程命令仍在 onebot.command。
+        CommandScanner.scanAndRegister("com.mtxgdn.game.command");
         CommandScanner.scanAndRegister("com.mtxgdn.onebot.command");
         assertTrue(CommandRegistry.count() > 0, "命令扫描失败：未注册任何命令");
     }

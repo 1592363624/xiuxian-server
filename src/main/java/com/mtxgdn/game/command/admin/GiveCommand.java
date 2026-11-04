@@ -1,0 +1,142 @@
+package com.mtxgdn.game.command.admin;
+
+import com.mtxgdn.common.command.Command;
+import com.mtxgdn.common.command.CommandContext;
+import com.mtxgdn.common.command.CommandUtils;
+import com.mtxgdn.common.service.ServiceRegistry;
+import com.mtxgdn.game.item.Item;
+import com.mtxgdn.game.item.ItemRegistry;
+import com.mtxgdn.game.service.ItemService;
+import com.mtxgdn.game.service.PlayerService;
+import com.mtxgdn.permission.PermissionService;
+import com.mtxgdn.identity.QqBinding;
+import com.mtxgdn.identity.QqBindingService;
+import com.mtxgdn.i18n.I18n;
+
+public class GiveCommand extends Command {
+    public GiveCommand() {
+        super(new String[]{"发放", "give"},
+                "给玩家发放金币/灵力/灵石/物品（仅私聊，按玩家ID）",
+                "/发放 <玩家ID> <金币|灵力|灵石>=<数量> [物品key]=<数量> ...",
+                "管理", "admin.items.give", true);
+    
+        setI18nKeys("cmd.give.desc", "cmd.give.usage");
+    }
+
+    @Override
+    public void execute(CommandContext ctx) {
+        QqBinding b = ctx.resolveBoundBinding();
+        if (b == null) {
+            ctx.reply(I18n.t("admin.please_bind_your_account_first_2"));
+            return;
+        }
+        if (!PermissionService.hasPermission(b.getUserId(), "admin.items.give")) {
+            ctx.reply(I18n.t("admin.insufficient_permission_3"));
+            return;
+        }
+
+        String arg = ctx.getArg();
+        if (CommandUtils.isBlank(arg)) {
+            ctx.reply(I18n.t("admin.usage"));
+            return;
+        }
+
+        String[] parts = CommandUtils.split(arg);
+        if (!CommandUtils.hasEnoughArgs(parts, 2)) {
+            ctx.reply(I18n.t("admin.missing_arguments_3"));
+            return;
+        }
+
+        Long playerId = CommandUtils.parseLong(parts[0], null);
+        if (playerId == null) {
+            ctx.reply(I18n.t("admin.player_id_must"));
+            return;
+        }
+
+        PlayerService playerService = ServiceRegistry.getPlayerService();
+        ItemService itemService = ServiceRegistry.getItemService();
+        var p = playerService.getPlayerById(playerId);
+        if (p == null) {
+            ctx.reply(I18n.t("admin.player_not_found_id", playerId));
+            return;
+        }
+
+        StringBuilder result = new StringBuilder();
+        result.append("发放给 ").append(p.getName()).append(" (ID:").append(playerId).append("):\n");
+        boolean hasAny = false;
+
+        for (int i = 1; i < parts.length; i++) {
+            String part = parts[i];
+            int eqIdx = part.indexOf('=');
+            if (eqIdx <= 0) continue;
+            String key = part.substring(0, eqIdx);
+            String valStr = part.substring(eqIdx + 1);
+            Long value = CommandUtils.parseLong(valStr, null);
+            if (value == null) continue;
+
+            switch (key) {
+                case "金币":
+                case "gold":
+                    // 负值表示"扣除"，但 addGold 走的是 gold = gold + ?，
+                    // 没有任何下限保护 —— 直接传 -999999999 会把金币扣成负数，
+                    // 之后所有"余额 < 价格"的比较全部失真。这里先校验余额。
+                    // 注意：不能用循环外读到的 p.getGold() —— 同一条指令里
+                    // 可能连着写多个"金币="项，快照值会过期。
+                    if (value < 0) {
+                        var fresh = playerService.getPlayerById(playerId);
+                        long balance = fresh != null ? fresh.getGold() : 0;
+                        if (balance + value < 0) {
+                            result.append("  金币扣除失败: 余额 ").append(balance)
+                                    .append(" 不足以扣除 ").append(-value).append("\n");
+                            break;
+                        }
+                    }
+                    playerService.addGold(playerId, value);
+                    result.append("  金币 ").append(value > 0 ? "+" : "").append(value).append("\n");
+                    hasAny = true;
+                    break;
+                case "灵力":
+                case "exp":
+                    // 灵力（经验）不允许扣成负数。走 removeExperience 而不是
+                    // addExperience(负值)：后者底层是 experience = experience + ?，
+                    // 没有下限保护，且会先过倍率加成，实际扣减量与传入值不一致。
+                    if (value < 0) {
+                        if (!playerService.removeExperience(playerId, -value)) {
+                            result.append("  灵力扣除失败: 余额不足，无法扣除 ")
+                                    .append(-value).append("\n");
+                            break;
+                        }
+                        result.append("  灵力 ").append(value).append("\n");
+                        hasAny = true;
+                        break;
+                    }
+                    playerService.addExperience(playerId, value);
+                    result.append("  灵力 +").append(value).append("\n");
+                    hasAny = true;
+                    break;
+                case "灵石":
+                case "spiritStones":
+                case "spirit_stones":
+                    if (value > 0) itemService.addSpiritStones(playerId, value);
+                    else if (value < 0) itemService.removeSpiritStones(playerId, -value);
+                    result.append("  灵石 ").append(value > 0 ? "+" : "").append(value).append("\n");
+                    hasAny = true;
+                    break;
+                default:
+                    Item item = ItemRegistry.get(key);
+                    int qty = (int) Math.min(value, Integer.MAX_VALUE);
+                    if (qty > 0) {
+                        itemService.addItem(playerId, key, qty);
+                        result.append("  ").append(item != null ? item.getName() : key).append(" x").append(qty).append("\n");
+                        hasAny = true;
+                    }
+                    break;
+            }
+        }
+
+        if (!hasAny) {
+            result.append("  没有可发放的内容。");
+        }
+        ctx.reply(result.toString());
+    }
+}

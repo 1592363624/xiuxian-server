@@ -101,4 +101,10 @@ public class OneBotClientCommandContext extends CommandContext {
     public void sendGroupMsg(Long group, String message) {
         sender.sendGroupMsg(session, selfId, group, message);
     }
+
+    /** 端无关的「给任意收件人发私聊」。QQ 官方端收件人标识是 openid（按 AppID 隔离） */
+    @Override
+    public void sendPrivateTo(String recipientId, String message) {
+        sender.sendPrivateMsg(session, selfId, recipientId, message);
+    }
 }

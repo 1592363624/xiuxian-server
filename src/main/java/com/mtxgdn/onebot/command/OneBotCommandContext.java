@@ -88,4 +88,10 @@ public class OneBotCommandContext extends CommandContext {
     public void sendGroupMsg(Long group, String message) {
         sender.sendGroupMsg(socket, selfId, group, message);
     }
+
+    /** 端无关的「给任意收件人发私聊」：QQ 端的收件人标识就是 QQ 号 */
+    @Override
+    public void sendPrivateTo(String recipientId, String message) {
+        sender.sendPrivateMsg(socket, selfId, recipientId, message);
+    }
 }

@@ -52,6 +52,9 @@ class AdminWritePermissionTest {
 
     @BeforeAll
     static void scanCommands() {
+        // 命令分两处：玩法命令已搬到 game.command（端无关），
+        // 账号流程命令仍在 onebot.command。
+        CommandScanner.scanAndRegister("com.mtxgdn.game.command");
         CommandScanner.scanAndRegister("com.mtxgdn.onebot.command");
         assertTrue(CommandRegistry.count() > 0, "命令扫描失败：未注册任何命令");
     }
@@ -192,31 +195,31 @@ class AdminWritePermissionTest {
     @Test
     @DisplayName("改玩家数据的指令必须用 admin.users.manage（与 REST /players/{id}/edit 一致）")
     void testPlayerDataMutatingCommandsUseAdminUsersManage() {
-        assertPermissionOf(com.mtxgdn.onebot.command.admin.SetRootCommand.class,
+        assertPermissionOf(com.mtxgdn.game.command.admin.SetRootCommand.class,
                 PLAYER_WRITE_PERM, "修改灵根会改写玩家属性并重算基础属性");
-        assertPermissionOf(com.mtxgdn.onebot.command.admin.EditPlayerCommand.class,
+        assertPermissionOf(com.mtxgdn.game.command.admin.EditPlayerCommand.class,
                 PLAYER_WRITE_PERM, "编辑玩家可直接改写等级/金币/灵力/境界等");
-        assertPermissionOf(com.mtxgdn.onebot.command.admin.UsersRolesCommand.class,
+        assertPermissionOf(com.mtxgdn.game.command.admin.UsersRolesCommand.class,
                 PLAYER_WRITE_PERM, "用户列表会输出全部账号、角色与 QQ 绑定（REST /users 同为该权限）");
     }
 
     @Test
     @DisplayName("只读的管理指令仍用 admin.status（勿一并收紧，否则版主连查看都没了）")
     void testReadOnlyAdminCommandsKeepAdminStatus() {
-        assertPermissionOf(com.mtxgdn.onebot.command.admin.StatusCommand.class,
+        assertPermissionOf(com.mtxgdn.game.command.admin.StatusCommand.class,
                 READ_ONLY_PERM, "服务器状态是纯读取");
-        assertPermissionOf(com.mtxgdn.onebot.command.admin.PlayersListCommand.class,
+        assertPermissionOf(com.mtxgdn.game.command.admin.PlayersListCommand.class,
                 READ_ONLY_PERM, "玩家列表是纯读取");
-        assertPermissionOf(com.mtxgdn.onebot.command.admin.PlayerDetailCommand.class,
+        assertPermissionOf(com.mtxgdn.game.command.admin.PlayerDetailCommand.class,
                 READ_ONLY_PERM, "玩家详情是纯读取");
-        assertPermissionOf(com.mtxgdn.onebot.command.admin.ItemsQueryCommand.class,
+        assertPermissionOf(com.mtxgdn.game.command.admin.ItemsQueryCommand.class,
                 READ_ONLY_PERM, "物品清单是纯读取");
     }
 
     @Test
     @DisplayName("能量管理必须读写分离：查看 admin.status，增删改 admin.users.manage")
     void testEnergyAdminSplitsReadAndWrite() {
-        Command energy = commandOf(com.mtxgdn.onebot.command.admin.EnergyAdminCommand.class);
+        Command energy = commandOf(com.mtxgdn.game.command.admin.EnergyAdminCommand.class);
         // 指令级权限是「查看」的门槛，因此保持 admin.status；
         // 写操作在指令内部按 action 二次校验（见 EnergyAdminCommand.isWriteAction）。
         assertEquals(READ_ONLY_PERM, energy.getPermission(),
@@ -282,12 +285,12 @@ class AdminWritePermissionTest {
      * 请先确认它是纯读取（不写任何玩家/服务器状态），再把类名加进来。
      */
     private static final List<Class<? extends Command>> ADMIN_STATUS_ALLOWLIST = List.of(
-            com.mtxgdn.onebot.command.admin.StatusCommand.class,
-            com.mtxgdn.onebot.command.admin.PlayersListCommand.class,
-            com.mtxgdn.onebot.command.admin.PlayerDetailCommand.class,
-            com.mtxgdn.onebot.command.admin.ItemsQueryCommand.class,
+            com.mtxgdn.game.command.admin.StatusCommand.class,
+            com.mtxgdn.game.command.admin.PlayersListCommand.class,
+            com.mtxgdn.game.command.admin.PlayerDetailCommand.class,
+            com.mtxgdn.game.command.admin.ItemsQueryCommand.class,
             // 能量管理：指令级权限只用于「查看」，写操作在指令内部按 action 二次校验。
-            com.mtxgdn.onebot.command.admin.EnergyAdminCommand.class);
+            com.mtxgdn.game.command.admin.EnergyAdminCommand.class);
 
     @Test
     @DisplayName("不变量: 用 admin.status 的指令必须在白名单内（新增指令需先确认是纯读取）")

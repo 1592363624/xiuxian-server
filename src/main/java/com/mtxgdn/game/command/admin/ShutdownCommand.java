@@ -1,0 +1,43 @@
+package com.mtxgdn.game.command.admin;
+
+import com.mtxgdn.common.command.Command;
+import com.mtxgdn.common.command.CommandContext;
+import com.mtxgdn.permission.PermissionService;
+import com.mtxgdn.identity.QqBinding;
+import com.mtxgdn.identity.QqBindingService;
+import com.mtxgdn.i18n.I18n;
+
+public class ShutdownCommand extends Command {
+    public ShutdownCommand() {
+        super(new String[]{"关闭服务端", "shutdown", "关闭服务器"},
+                "关闭游戏服务器（仅私聊，需要 SUPER_ADMIN 权限）",
+                "/关闭服务端",
+                "管理", "admin.shutdown", true);
+    
+        setI18nKeys("cmd.shutdown.desc", "cmd.shutdown.usage");
+    }
+
+    @Override
+    public void execute(CommandContext ctx) {
+        QqBinding b = ctx.resolveBoundBinding();
+        if (b == null) {
+            ctx.reply(I18n.t("admin.please_bind_your_account_first_2"));
+            return;
+        }
+        String highestRole = PermissionService.getHighestRole(b.getUserId());
+        if (!"SUPER_ADMIN".equals(highestRole)) {
+            ctx.reply(I18n.t("admin.insufficient_permission_only_super_admin"));
+            return;
+        }
+        ctx.reply(I18n.t("admin.server_is_shutting_down"));
+        Thread shutdownThread = new Thread(() -> {
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException ignored) {
+            }
+            System.exit(0);
+        });
+        shutdownThread.setDaemon(true);
+        shutdownThread.start();
+    }
+}

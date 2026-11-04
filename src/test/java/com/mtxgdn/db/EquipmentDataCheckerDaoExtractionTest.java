@@ -55,7 +55,7 @@ class EquipmentDataCheckerDaoExtractionTest extends DaoExtractionAssertions {
         String main = stripComments(read("src/main/java/com/mtxgdn/Main.java"));
         assertTrue(main.contains("new EquipmentDataChecker().checkEquipmentData()"),
                 "Main 启动流程要调 checkEquipmentData —— 说明它在运行时跑，不是构建期工具");
-        String cmd = stripComments(read("src/main/java/com/mtxgdn/onebot/command/admin/FixEquipmentCommand.java"));
+        String cmd = stripComments(read("src/main/java/com/mtxgdn/game/command/admin/FixEquipmentCommand.java"));
         assertTrue(cmd.contains("forceCheckEquipmentData()"),
                 "管理指令 /修复装备 要能强制再跑一次 —— 说明它有运行时的第二次调用");
     }

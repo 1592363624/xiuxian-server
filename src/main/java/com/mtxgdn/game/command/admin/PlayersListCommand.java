@@ -1,0 +1,114 @@
+package com.mtxgdn.game.command.admin;
+
+import com.mtxgdn.common.command.Command;
+import com.mtxgdn.common.command.CommandContext;
+import com.mtxgdn.common.service.ServiceRegistry;
+import com.mtxgdn.game.entity.PlayerInfo;
+import com.mtxgdn.game.service.ItemService;
+import com.mtxgdn.game.service.PlayerService;
+import com.mtxgdn.permission.PermissionService;
+import com.mtxgdn.util.PageRequest;
+import com.mtxgdn.identity.QqBinding;
+import com.mtxgdn.identity.QqBindingService;
+
+import java.util.List;
+import com.mtxgdn.i18n.I18n;
+
+public class PlayersListCommand extends Command {
+    public PlayersListCommand() {
+        super(new String[]{"玩家列表", "players", "playerslist"},
+                "查看玩家列表（仅私聊，支持分页）",
+                "/玩家列表 [页数=1] [每页=10] 或 /玩家列表 <搜索名>",
+                "管理", "admin.status", true);
+    
+        setI18nKeys("cmd.players_list.desc", "cmd.players_list.usage");
+    }
+
+    @Override
+    public void execute(CommandContext ctx) {
+        QqBinding b = ctx.resolveBoundBinding();
+        if (b == null) {
+            ctx.reply(I18n.t("admin.please_bind_your_account_first_2"));
+            return;
+        }
+        if (!PermissionService.hasPermission(b.getUserId(), "admin.status")) {
+            ctx.reply(I18n.t("admin.insufficient_permission_3"));
+            return;
+        }
+
+        PlayerService playerService = ServiceRegistry.getPlayerService();
+        ItemService itemService = ServiceRegistry.getItemService();
+
+        String arg = ctx.getArg();
+        int page = 1;
+        int pageSize = 10;
+
+        if (arg != null && !arg.isBlank()) {
+            String[] parts = arg.trim().split("\\s+");
+            if (parts.length == 1) {
+                try {
+                    page = Integer.parseInt(parts[0]);
+                } catch (NumberFormatException e) {
+                    // search by name
+                    List<PlayerInfo> players = playerService.searchPlayersByName(parts[0], 20, 0);
+                    ctx.reply(formatPlayersList(players, itemService,
+                            I18n.t("admin.players_search_result", parts[0])));
+                    return;
+                }
+            } else if (parts.length >= 2) {
+                try {
+                    page = Integer.parseInt(parts[0]);
+                    pageSize = Math.min(Integer.parseInt(parts[1]), 50);
+                } catch (NumberFormatException ignored) {
+                }
+            }
+        }
+
+        // 页码与每页条数都必须有下限：
+        //   · pageSize=0  → totalPages 计算时除零（ArithmeticException）
+        //   · pageSize<0  → SQLite 把负 LIMIT 当作"不限条数"，一次读出整表
+        //   · page<1      → offset 变负，且 (page-1)*pageSize 可能整数溢出
+        if (page < 1) {
+            page = 1;
+        }
+        if (pageSize < 1) {
+            pageSize = 10;
+        }
+
+        int offset = (page - 1) * pageSize;
+        int total = playerService.getPlayerCount();
+        // 再走一次统一夹取：page 极大时 (page-1)*pageSize 可能已经溢出成负数，
+        // PageRequest 会把 limit 收进 (0,100]、offset 收到 >= 0。
+        List<PlayerInfo> players = playerService.getAllPlayers(
+                PageRequest.clampLimit(pageSize, 10, 50), PageRequest.clampOffset(offset));
+        int totalPages = (total + pageSize - 1) / pageSize;
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("===== 玩家列表 (第").append(page).append("/").append(totalPages).append("页) =====\n");
+        sb.append("共 ").append(total).append(" 名玩家\n\n");
+        sb.append(formatPlayersList(players, itemService, null));
+
+        if (totalPages > 1) {
+            sb.append("\n输入 /玩家列表 ").append(page + 1 > totalPages ? 1 : page + 1)
+                    .append(" ").append(pageSize).append(" 查看下一页");
+        }
+        ctx.reply(sb.toString());
+    }
+
+    private String formatPlayersList(List<PlayerInfo> players, ItemService itemService, String title) {
+        StringBuilder sb = new StringBuilder();
+        if (title != null) sb.append("【").append(title).append("】\n");
+        for (PlayerInfo p : players) {
+            sb.append("ID:").append(p.getId())
+                    .append(" ").append(p.getName())
+                    .append(" | ").append(p.getRealmName() != null ? p.getRealmName() : "Lv." + p.getRealm())
+                    .append(" Lv.").append(p.getLevel());
+            long ss = itemService.getSpiritStoneCount(p.getId());
+            sb.append(" | 灵石:").append(ss);
+            if (p.isCultivating()) sb.append(" [修炼中]");
+            sb.append("\n");
+        }
+        if (players.isEmpty()) sb.append("无。\n");
+        return sb.toString();
+    }
+}

@@ -195,8 +195,13 @@ public class Main {
         LOG.info(eventScanResult.toString());
 
         LOG.info("正在扫描并注册命令...");
-        CommandScanner.ScanResult cmdScanResult = CommandScanner.scanAndRegister("com.mtxgdn.onebot.command");
+        // 命令分两处扫描：玩法命令是端无关的（game.command），
+        // 账号流程命令仍留在 onebot.command —— 它们依赖 OneBot 特有的
+        // 注册/绑定交互（AccountFlow），其语义不属于玩法层。
+        CommandScanner.ScanResult cmdScanResult = CommandScanner.scanAndRegister("com.mtxgdn.game.command");
+        CommandScanner.ScanResult botCmdScanResult = CommandScanner.scanAndRegister("com.mtxgdn.onebot.command");
         LOG.info(cmdScanResult.toString());
+        LOG.info(botCmdScanResult.toString());
 
         LOG.info("正在加载语言包...");
         // 必须早于插件系统：PluginContext.loadLang() 会把插件自带的语言包合并进来，

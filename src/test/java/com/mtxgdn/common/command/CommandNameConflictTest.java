@@ -38,6 +38,9 @@ class CommandNameConflictTest {
     @BeforeAll
     static void scanCommands() {
         // 指令通过构造函数自注册，发现依赖包扫描（与 Main.doMain 一致）
+        // 命令分两处：玩法命令已搬到 game.command（端无关），
+        // 账号流程命令仍在 onebot.command。
+        CommandScanner.scanAndRegister("com.mtxgdn.game.command");
         CommandScanner.scanAndRegister("com.mtxgdn.onebot.command");
         assertTrue(CommandRegistry.count() > 0, "指令扫描失败：未注册任何指令");
     }
@@ -92,17 +95,17 @@ class CommandNameConflictTest {
     @DisplayName("发放/give: 通用资源发放与物品发放必须各用各的名字")
     void testGiveCommandsAreDistinct() {
         assertEquals(new LinkedHashSet<>(Arrays.asList("发放", "give")),
-                namesOf(com.mtxgdn.onebot.command.admin.GiveCommand.class),
+                namesOf(com.mtxgdn.game.command.admin.GiveCommand.class),
                 "GiveCommand 应只占用 发放/give（它按玩家ID发放金币/灵力/灵石/物品）");
 
         assertEquals(new LinkedHashSet<>(Arrays.asList("发放物品", "giveitem", "give_item")),
-                namesOf(com.mtxgdn.onebot.command.item.ItemGiveCommand.class),
+                namesOf(com.mtxgdn.game.command.item.ItemGiveCommand.class),
                 "ItemGiveCommand 应使用 发放物品/giveitem/give_item（与权限名、admin/items/give 路由一致）");
 
         // 二者都必须以 admin.items.give 门控：GiveCommand 此前用的是 admin.status，
         // 而 MODERATOR 组默认恰好持有 admin.status —— 版主可凭空刷金币/灵力/灵石/物品。
-        for (Class<?> c : Arrays.asList(com.mtxgdn.onebot.command.admin.GiveCommand.class,
-                com.mtxgdn.onebot.command.item.ItemGiveCommand.class)) {
+        for (Class<?> c : Arrays.asList(com.mtxgdn.game.command.admin.GiveCommand.class,
+                com.mtxgdn.game.command.item.ItemGiveCommand.class)) {
             Command cmd = declaredBy(c);
             assertNotNull(cmd, c.getSimpleName() + " 未被扫描到");
             assertEquals("admin.items.give", cmd.getPermission(),
@@ -111,9 +114,9 @@ class CommandNameConflictTest {
         }
 
         // 名字必须真的指向预期的类，而不只是「声明了不同的名字」
-        assertEquals(com.mtxgdn.onebot.command.admin.GiveCommand.class,
+        assertEquals(com.mtxgdn.game.command.admin.GiveCommand.class,
                 CommandRegistry.getRaw("发放").getClass());
-        assertEquals(com.mtxgdn.onebot.command.item.ItemGiveCommand.class,
+        assertEquals(com.mtxgdn.game.command.item.ItemGiveCommand.class,
                 CommandRegistry.getRaw("发放物品").getClass());
     }
 
@@ -121,26 +124,26 @@ class CommandNameConflictTest {
     @DisplayName("管理指令不得抢占玩家指令的名字（灵根 / 物品列表 / status）")
     void testAdminCommandsDoNotShadowPlayerCommands() {
         // 灵根：玩家 /灵根 看自己的灵根，管理用 /修改灵根
-        assertEquals(com.mtxgdn.onebot.command.player.SpiritualRootCommand.class,
+        assertEquals(com.mtxgdn.game.command.player.SpiritualRootCommand.class,
                 CommandRegistry.getRaw("灵根").getClass(),
                 "/灵根 必须归玩家侧 SpiritualRootCommand，否则玩家会收到「权限不足」");
-        assertEquals(com.mtxgdn.onebot.command.admin.SetRootCommand.class,
+        assertEquals(com.mtxgdn.game.command.admin.SetRootCommand.class,
                 CommandRegistry.getRaw("修改灵根").getClass());
 
         // 物品列表：玩家 /物品列表 查图鉴，管理用 /全物品列表 分页浏览
-        assertEquals(com.mtxgdn.onebot.command.item.ItemMapCommand.class,
+        assertEquals(com.mtxgdn.game.command.item.ItemMapCommand.class,
                 CommandRegistry.getRaw("物品列表").getClass(),
                 "/物品列表 必须归玩家侧 ItemMapCommand");
-        assertEquals(com.mtxgdn.onebot.command.admin.ItemsQueryCommand.class,
+        assertEquals(com.mtxgdn.game.command.admin.ItemsQueryCommand.class,
                 CommandRegistry.getRaw("全物品列表").getClass());
 
         // status：玩家 /状态 /status 看角色，管理用 /服务器状态
-        assertEquals(com.mtxgdn.onebot.command.player.StatusCommand.class,
+        assertEquals(com.mtxgdn.game.command.player.StatusCommand.class,
                 CommandRegistry.getRaw("状态").getClass());
-        assertEquals(com.mtxgdn.onebot.command.player.StatusCommand.class,
+        assertEquals(com.mtxgdn.game.command.player.StatusCommand.class,
                 CommandRegistry.getRaw("status").getClass(),
                 "/status 必须归玩家侧 StatusCommand，否则玩家查角色状态会被「权限不足」挡住");
-        assertEquals(com.mtxgdn.onebot.command.admin.StatusCommand.class,
+        assertEquals(com.mtxgdn.game.command.admin.StatusCommand.class,
                 CommandRegistry.getRaw("服务器状态").getClass());
     }
 
@@ -148,11 +151,11 @@ class CommandNameConflictTest {
     @DisplayName("冲突修复不得让管理侧失去入口（每个被改名的管理指令仍可达）")
     void testAdminCommandsRemainReachable() {
         Map<String, Class<?>> expected = new HashMap<>();
-        expected.put("发放", com.mtxgdn.onebot.command.admin.GiveCommand.class);
-        expected.put("发放物品", com.mtxgdn.onebot.command.item.ItemGiveCommand.class);
-        expected.put("修改灵根", com.mtxgdn.onebot.command.admin.SetRootCommand.class);
-        expected.put("全物品列表", com.mtxgdn.onebot.command.admin.ItemsQueryCommand.class);
-        expected.put("服务器状态", com.mtxgdn.onebot.command.admin.StatusCommand.class);
+        expected.put("发放", com.mtxgdn.game.command.admin.GiveCommand.class);
+        expected.put("发放物品", com.mtxgdn.game.command.item.ItemGiveCommand.class);
+        expected.put("修改灵根", com.mtxgdn.game.command.admin.SetRootCommand.class);
+        expected.put("全物品列表", com.mtxgdn.game.command.admin.ItemsQueryCommand.class);
+        expected.put("服务器状态", com.mtxgdn.game.command.admin.StatusCommand.class);
 
         for (Map.Entry<String, Class<?>> e : expected.entrySet()) {
             Command cmd = CommandRegistry.getRaw(e.getKey());

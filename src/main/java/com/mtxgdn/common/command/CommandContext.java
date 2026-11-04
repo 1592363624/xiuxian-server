@@ -57,6 +57,28 @@ public abstract class CommandContext {
 
     public abstract void replyPrivate(String message);
 
+    /**
+     * 按「平台内的收件人标识」主动发一条私聊，不限于当前发送者。
+     *
+     * <p><b>为什么需要这个抽象</b>：频道内的 {@link #replyPrivate} 只能回给
+     * 当前发指令的人，但玩法命令有时要通知第三方 —— 例如 PVP 挑战要私聊
+     * 被挑战者。这类需求之前由命令直接强转 {@code OneBotCommandContext}
+     * 调 {@code sendPrivateMsg} 实现，导致命令与 OneBot 通道焊死，
+     * 命令无法搬到端无关的位置、也无法被其它端复用。</p>
+     *
+     * <p>收件人标识的含义由各端自己定义（QQ 是 QQ 号，未来 MC 端可以是
+     * 角色名）。默认实现<b>什么都不做</b>：不支持主动私聊的端静默跳过，
+     * 这样命令不需要为"本端能不能私聊"写分支，也不会因为不支持而报错。</p>
+     *
+     * <p>调用方应当把"发不出去"视为非致命 —— 通知失败不该让整个操作回滚。</p>
+     *
+     * @param recipientId 端内收件人标识
+     * @param message     消息正文
+     */
+    public void sendPrivateTo(String recipientId, String message) {
+        // 默认空实现：端不支持就算了，命令不因此失败
+    }
+
     /** 解析 QQ 绑定：优先使用平台查找器（如 QQ 官方 openid），否则回退 OneBot qq_bindings */
     private QqBinding resolveQqBinding() {
         if (qqBindingLookup != null) {
