@@ -467,4 +467,27 @@ public class AdapterManager {
         }
         return null;
     }
+
+    // ==================== 内置端自带的命令包 ====================
+
+    /**
+     * 内置适配器附带的命令包，需要在启动时扫描注册。
+     *
+     * <p><b>为什么这个方法在这里而不是在 Main</b>：Main 是装配根，它不该知道
+     * 「有个叫 onebot 的包，里面还剩着账号流程命令」这种细节。真正认识
+     * OneBot 的是本类（它本来就 import 了 OneBot 的具体实现），所以由它
+     * 声明「这个端还带哪些命令包」才符合职责划分。</p>
+     *
+     * <p>玩法命令已在 {@code com.mtxgdn.game.command} 下，是端无关的，
+     * 由 Main 直接扫描；这里返回的是<b>只有该端才有的</b>那部分 ——
+     * 目前仅账号流程命令（注册/绑定/改密/注销），它们依赖 OneBot 的
+     * AccountFlow 交互，语义属于协议侧而非玩法侧。</p>
+     *
+     * <p><b>注意</b>：返回值与适配器是否启用无关，始终返回这个包。
+     * 因为命令注册是"世界里有什么命令"，与"哪个端连着"是两回事 ——
+     * 按启用状态过滤会让玩家在切换适配器时看到命令表忽增忽减。</p>
+     */
+    public static java.util.List<String> builtInCommandPackages() {
+        return java.util.List.of("com.mtxgdn.onebot.command");
+    }
 }

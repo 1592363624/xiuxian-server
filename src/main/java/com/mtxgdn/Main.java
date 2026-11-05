@@ -19,8 +19,6 @@ import com.mtxgdn.game.service.SkillService;
 import com.mtxgdn.game.service.TechniqueService;
 import com.mtxgdn.adapter.AdapterManager;
 import com.mtxgdn.minecraft.MinecraftMotdServer;
-import com.mtxgdn.onebot.OneBotScreenshotBot;
-import com.mtxgdn.onebot.OneBotWebSocketServer;
 import com.mtxgdn.server.AdminStaticFileHandler;
 import com.mtxgdn.server.ServerConfigurator;
 import com.mtxgdn.server.ServerShutdownHook;
@@ -195,13 +193,20 @@ public class Main {
         LOG.info(eventScanResult.toString());
 
         LOG.info("正在扫描并注册命令...");
-        // 命令分两处扫描：玩法命令是端无关的（game.command），
-        // 账号流程命令仍留在 onebot.command —— 它们依赖 OneBot 特有的
-        // 注册/绑定交互（AccountFlow），其语义不属于玩法层。
+        // 玩法命令端无关，由这里直接扫；各端自带的命令包（目前只有 OneBot 的
+        // 账号流程命令）由 AdapterManager 声明 —— Main 不该知道"还有哪些端"。
         CommandScanner.ScanResult cmdScanResult = CommandScanner.scanAndRegister("com.mtxgdn.game.command");
-        CommandScanner.ScanResult botCmdScanResult = CommandScanner.scanAndRegister("com.mtxgdn.onebot.command");
+        CommandScanner.ScanResult botCmdScanResult = null;
+        for (String pkg : com.mtxgdn.adapter.AdapterManager.builtInCommandPackages()) {
+            CommandScanner.ScanResult r = CommandScanner.scanAndRegister(pkg);
+            if (botCmdScanResult == null) {
+                botCmdScanResult = r;
+            }
+        }
         LOG.info(cmdScanResult.toString());
-        LOG.info(botCmdScanResult.toString());
+        if (botCmdScanResult != null) {
+            LOG.info(botCmdScanResult.toString());
+        }
 
         LOG.info("正在加载语言包...");
         // 必须早于插件系统：PluginContext.loadLang() 会把插件自带的语言包合并进来，
