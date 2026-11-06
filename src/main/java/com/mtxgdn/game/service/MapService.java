@@ -943,7 +943,7 @@ public class MapService {
      *       从此这片野外<b>永远不会被回收</b>。</li>
      * </ul>
      */
-    public String recordFirstVisit(long playerId, long locationId) {
+    public String recordFirstVisit(long playerId, long locationId, boolean fromTravel) {
         ensureInitialized();
         MapLocation loc = getLocation(locationId);
         if (loc == null) return null;
@@ -952,7 +952,7 @@ public class MapService {
         boolean firstVisit;
         if (WildernessTerrain.isWildernessId(locationId)) {
             firstVisit = recordWildernessVisit(playerId, locationId, now);
-            if (firstVisit) {
+            if (firstVisit && fromTravel) {
                 try {
                     DatabaseManager.runTransaction(conn -> {
                         grantFirstVisitReward(conn, playerId, loc);
