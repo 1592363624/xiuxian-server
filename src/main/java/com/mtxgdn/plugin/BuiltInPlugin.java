@@ -50,6 +50,28 @@ public abstract class BuiltInPlugin implements Plugin {
         return java.util.Collections.emptyMap();
     }
 
+    /**
+     * 硬依赖的内置模块名：未注册、或注册了但被配置停用时，本模块也不会启用。
+     *
+     * <p>只声明<b>代码能证明</b>的依赖。比如阵法模块在 {@code placeFormation} 里
+     * 明确要求玩家已有洞府，洞府模块关掉时阵法功能必然全废 —— 这就是真实的硬依赖。
+     * 反过来，"都需要玩家数据"这类不算：玩家是核心服务，不是可开关的模块，
+     * 把它写成依赖只会让所有模块都挂在一个开关上，失去意义。</p>
+     *
+     * <p>本字段只影响启用顺序与前置检查，不会改变模块自身的行为。</p>
+     */
+    public java.util.Set<String> getDependencies() {
+        return java.util.Collections.emptySet();
+    }
+
+    /**
+     * 软依赖的内置模块名：缺失时本模块照常启用，由模块自己降级。
+     * 常用于"配合某某模块更好用"的场景，配合 {@link PluginServiceRegistry} 做能力探测。
+     */
+    public java.util.Set<String> getSoftDependencies() {
+        return java.util.Collections.emptySet();
+    }
+
     /** 配置键（{@code config/plugins.yml} 中的键名）对应本插件名。 */
     @Override
     public String toString() {

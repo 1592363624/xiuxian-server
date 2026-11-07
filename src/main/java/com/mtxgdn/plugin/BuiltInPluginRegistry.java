@@ -101,8 +101,7 @@ public final class BuiltInPluginRegistry {
         this.sharedContext = sharedContext;
         if (!initialized) init();
         int enabled = 0;
-        for (BuiltInPluginEntry entry : modules.values()) {
-            if (!entry.enabled) continue;
+        for (BuiltInPluginEntry entry : resolveEnableOrder()) {
             try {
                 entry.module.onLoad(sharedContext);
                 entry.module.onEnable(sharedContext);
@@ -116,6 +115,86 @@ public final class BuiltInPluginRegistry {
         }
         LOG.info("内置插件初始化完成: " + enabled + "/" + modules.size() + " 个已启用"
                 + "（开关文件 " + PluginSwitches.getConfigPath().getFileName() + "）");
+    }
+
+    /**
+     * 算出本次实际要启用的模块，按依赖顺序排列。
+     *
+     * <p>与配置的分工：{@code enabled} 表达"配置说它该开"，{@code active} 表达"它真的开起来了"。
+     * 本方法<b>不修改</b> {@code enabled} —— 一个模块因为依赖没到而没启用，
+     * 不该被顺手写进 plugins.yml 变成永久关闭；下次依赖修好后它应该能自己恢复。</p>
+     *
+     * <p>顺序由 {@link PluginDependencyResolver} 负责（与外部插件共用同一份拓扑排序与环检测），
+     * 这里只多做一件事：把"依赖了未启用模块"的模块提前剔除，以给出精确原因
+     * （拓扑排序只会说"缺少必需插件"，而这里能说"依赖的内置模块未启用"）。</p>
+     */
+    private List<BuiltInPluginEntry> resolveEnableOrder() {
+        // 1. 依赖了"已注册但未启用"或"根本没注册"的模块 → 剔除，并做传递闭包
+        Map<String, String> blocked = new LinkedHashMap<>();
+        boolean changed = true;
+        while (changed) {
+            changed = false;
+            for (BuiltInPluginEntry entry : modules.values()) {
+                String name = entry.module.getName();
+                if (!entry.enabled || blocked.containsKey(name)) continue;
+                for (String dep : entry.module.getDependencies()) {
+                    String reason = null;
+                    if (dep == null || dep.isEmpty()) continue;
+                    BuiltInPluginEntry d = modules.get(dep);
+                    if (d == null) {
+                        reason = "依赖的内置模块未注册: " + dep;
+                    } else if (!d.enabled || blocked.containsKey(dep)) {
+                        reason = "依赖的内置模块未启用: " + dep;
+                    }
+                    if (reason != null) {
+                        blocked.put(name, reason);
+                        changed = true;
+                        break;
+                    }
+                }
+            }
+        }
+        for (Map.Entry<String, String> e : blocked.entrySet()) {
+            LOG.error("内置模块不启用: " + e.getKey() + " —— " + e.getValue()
+                    + "（模块开关保持原值，修好依赖后重启即可恢复）");
+        }
+
+        // 2. 剩下的交给统一解析器排序（顺带兜住环）
+        List<PluginInfo> infos = new ArrayList<>();
+        for (BuiltInPluginEntry entry : modules.values()) {
+            if (!entry.enabled || blocked.containsKey(entry.module.getName())) continue;
+            BuiltInPlugin m = entry.module;
+            infos.add(new PluginInfo(m.getName(), m.getVersion(), "", "", "",
+                    new ArrayList<>(m.getDependencies()),
+                    new ArrayList<>(m.getSoftDependencies())));
+        }
+        PluginDependencyResolver.Plan plan = PluginDependencyResolver.resolve(infos);
+        for (Map.Entry<String, String> e : plan.getRejected().entrySet()) {
+            LOG.error("内置模块不启用: " + e.getKey() + " —— " + e.getValue());
+        }
+
+        List<BuiltInPluginEntry> order = new ArrayList<>();
+        for (String name : plan.getLoadOrder()) {
+            BuiltInPluginEntry entry = modules.get(name);
+            if (entry != null) order.add(entry);
+        }
+        return order;
+    }
+
+    /**
+     * 判断某模块当前是否可以启用（依赖都已就绪）。
+     *
+     * @return 不可启用的原因；可以启用时返回 {@code null}
+     */
+    public String getDependencyBlockReason(String name) {
+        BuiltInPluginEntry entry = modules.get(name);
+        if (entry == null) return "模块未注册";
+        for (String dep : entry.module.getDependencies()) {
+            BuiltInPluginEntry d = modules.get(dep);
+            if (d == null) return "依赖的内置模块未注册: " + dep;
+            if (!d.active) return "依赖的内置模块未启用: " + dep;
+        }
+        return null;
     }
 
     /**
@@ -171,6 +250,11 @@ public final class BuiltInPluginRegistry {
             status.put("configSource", entry.configSource == null
                     ? PluginSwitches.Source.DEFAULT.name().toLowerCase()
                     : entry.configSource.name().toLowerCase());
+            // 依赖关系与"为什么没起来"：WebUI 排查时最需要的就是这两项
+            status.put("dependencies", new ArrayList<>(entry.module.getDependencies()));
+            status.put("softDependencies", new ArrayList<>(entry.module.getSoftDependencies()));
+            String blocked = entry.active ? null : getDependencyBlockReason(entry.module.getName());
+            status.put("blockedReason", blocked == null ? "" : blocked);
             result.add(status);
         }
         return result;
@@ -214,6 +298,11 @@ public final class BuiltInPluginRegistry {
             LOG.warn("内置插件已启用: " + name);
             return false;
         }
+        String blocked = getDependencyBlockReason(name);
+        if (blocked != null) {
+            LOG.warn("内置插件未能启用: " + name + " —— " + blocked);
+            return false;
+        }
         enableEntry(entry);
         if (entry.active) {
             persistConfig(name, true);
@@ -241,6 +330,23 @@ public final class BuiltInPluginRegistry {
         disableEntry(entry);
         persistConfig(name, false);
         return true;
+    }
+
+    /**
+     * 列出仍然启用、且硬依赖指定模块的模块名。
+     *
+     * <p>停用时不连锁停用依赖方：一次手动操作带走半个服，比"某个功能悄悄少了"
+     * 更难善后。依赖方会被 {@link #getDependencyBlockReason} 挡在下一次启用之外，
+     * 所以不会带病运行。</p>
+     */
+    public List<String> getActiveDependents(String name) {
+        List<String> dependents = new ArrayList<>();
+        for (BuiltInPluginEntry entry : modules.values()) {
+            if (!entry.active) continue;
+            if (entry.module.getName().equals(name)) continue;
+            if (entry.module.getDependencies().contains(name)) dependents.add(entry.module.getName());
+        }
+        return dependents;
     }
 
     private void enableEntry(BuiltInPluginEntry entry) {
@@ -276,6 +382,11 @@ public final class BuiltInPluginRegistry {
         entry.enabled = false;
         entry.active = false;
         LOG.info("内置插件已停用: " + entry.module.getName());
+        List<String> dependents = getActiveDependents(entry.module.getName());
+        if (!dependents.isEmpty()) {
+            LOG.warn("模块 " + entry.module.getName() + " 已停用，但下列模块仍依赖它: " + dependents
+                    + "（不会连锁停用；它们会在下次启用时因依赖不满足而被拒绝）");
+        }
     }
 
     /**

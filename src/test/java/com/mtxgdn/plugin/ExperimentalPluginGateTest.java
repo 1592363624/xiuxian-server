@@ -46,6 +46,7 @@ class ExperimentalPluginGateTest {
 
     private static final String SECT_WAR = "experimental_sect_war";
     private static final String ENERGY_EXCHANGE = "experimental_energy_exchange";
+    private static final String SECT = "sect";
 
     private Path savedConfigPath;
     private Path savedLegacyPath;
@@ -67,8 +68,26 @@ class ExperimentalPluginGateTest {
         BuiltInPluginRegistry registry = BuiltInPluginRegistry.getInstance();
         registry.register(new SectWarPlugin());
         registry.register(new EnergyExchangePlugin());
+        // 宗门战已声明硬依赖 sect（没有宗门就没有宗门之间的战争），
+        // 本测试要单独验证它的开关，因此必须先让依赖可用。
+        // 单例里可能已有真实的 SectPlugin（别的测试注册过），此时不应重复注册。
+        if (!BuiltInPluginRegistry.isRegistered(SECT)) {
+            registry.register(new StubModule(SECT));
+        }
+        registry.enablePlugin(SECT);
         registry.enablePlugin(SECT_WAR);
         registry.enablePlugin(ENERGY_EXCHANGE);
+    }
+
+    /** 占位模块：只为满足依赖，不带任何行为。 */
+    private static final class StubModule extends BuiltInPlugin {
+        private final String name;
+
+        StubModule(String name) { this.name = name; }
+
+        @Override public String getName() { return name; }
+        @Override public String getVersion() { return "0.0.0"; }
+        @Override public String getDescription() { return "测试占位模块"; }
     }
 
     @AfterEach
