@@ -305,6 +305,43 @@ public final class PluginContext {
     public EnergyService getEnergyService() { return ServiceRegistry.getEnergyService(); }
     public TitleService getTitleService() { return ServiceRegistry.getTitleService(); }
 
+    // ================ 插件间服务（联动） =================
+
+    /**
+     * 把本插件的一项能力登记到全局服务表，供其它插件调用。
+     *
+     * <p>键应该是<b>接口</b>而不是实现类：消费方只认识接口，于是提供方换实现、
+     * 甚至整个插件被禁用，消费方都能编译通过并优雅降级。</p>
+     *
+     * <p>重复登记同一接口会被拒绝并报错，先登记者保留 —— 两个插件争抢同一接口
+     * 属于配置错误，静默覆盖只会让先注册者的调用方拿到意料之外的实现。</p>
+     *
+     * @return true = 登记成功
+     */
+    public boolean provideService(Class<?> api, Object instance) {
+        return PluginServiceRegistry.getInstance().provide(info.getName(), api, instance);
+    }
+
+    /**
+     * 获取其它插件提供的服务。
+     *
+     * @return 实现实例；没有提供方时返回 {@code null} —— 软依赖缺失属于正常路径，
+     *         不应该让每个消费方都写 try/catch
+     */
+    public <T> T getService(Class<T> api) {
+        return PluginServiceRegistry.getInstance().get(api);
+    }
+
+    /** 是否有插件提供了该服务。 */
+    public boolean hasService(Class<?> api) {
+        return PluginServiceRegistry.getInstance().has(api);
+    }
+
+    /** 注销本插件登记的某接口。 */
+    public boolean unprovideService(Class<?> api) {
+        return PluginServiceRegistry.getInstance().unprovide(api);
+    }
+
     // ================ 底层接口（供插件访问服务端基础设施） =================
 
     /**

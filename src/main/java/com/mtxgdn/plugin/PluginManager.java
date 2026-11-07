@@ -306,6 +306,8 @@ public final class PluginManager {
     private void discardPlugin(LoadedPlugin lp) {
         // 清理事件处理器
         com.mtxgdn.plugin.event.PluginEventManager.getInstance().unregisterAll(lp.info.getName());
+        // 清理本插件对外提供的服务（否则停用后别人还能调到它的实现）
+        PluginServiceRegistry.getInstance().unregisterAll(lp.info.getName());
         // 清理 Web 资源
         PluginWebManager.getInstance().unregisterPlugin(lp.info.getName());
         // 关闭类加载器（释放文件句柄）

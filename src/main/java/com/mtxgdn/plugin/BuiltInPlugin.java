@@ -36,6 +36,20 @@ public abstract class BuiltInPlugin implements Plugin {
         return true;
     }
 
+    /**
+     * 本模块对外提供的能力（接口 → 实现），登记到 {@link PluginServiceRegistry}。
+     *
+     * <p>内置模块与外置插件不同：它们共用一个 {@code PluginContext}，
+     * 没法靠 context 判断"是谁在登记"，所以归属由注册表按模块名代为标注。
+     * 这样停用某个模块时，只注销它自己提供的那几个服务。</p>
+     *
+     * <p>默认不提供任何服务。需要被其它模块/插件调用的模块覆写本方法，
+     * 并只暴露<b>接口</b> —— 直接暴露实现类等于把内部结构变成公共契约。</p>
+     */
+    public java.util.Map<Class<?>, Object> getProvidedServices() {
+        return java.util.Collections.emptyMap();
+    }
+
     /** 配置键（{@code config/plugins.yml} 中的键名）对应本插件名。 */
     @Override
     public String toString() {

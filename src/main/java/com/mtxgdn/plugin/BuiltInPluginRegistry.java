@@ -106,6 +106,7 @@ public final class BuiltInPluginRegistry {
             try {
                 entry.module.onLoad(sharedContext);
                 entry.module.onEnable(sharedContext);
+                registerProvidedServices(entry.module);
                 entry.active = true;
                 enabled++;
                 LOG.info("✓ 内置插件已启用: " + entry.module.getName() + " v" + entry.module.getVersion());
@@ -126,11 +127,32 @@ public final class BuiltInPluginRegistry {
             if (!entry.active) continue;
             try {
                 entry.module.onDisable(sharedContext);
+                unregisterProvidedServices(entry.module);
                 entry.active = false;
             } catch (Throwable t) {
                 LOG.error("内置插件停用异常: " + entry.module.getName(), t);
             }
         }
+    }
+
+    /**
+     * 把模块声明提供的能力登记到全局服务表，归属标注为模块名。
+     *
+     * <p>归属必须在注册表侧标注：内置模块共用一个 {@code PluginContext}，
+     * 靠 context 无法区分"是谁在登记"，一旦按 context 的 "server" 归属，
+     * 停用任意一个模块就会把所有内置模块的服务一起注销。</p>
+     */
+    private void registerProvidedServices(BuiltInPlugin module) {
+        java.util.Map<Class<?>, Object> provided = module.getProvidedServices();
+        if (provided == null || provided.isEmpty()) return;
+        for (java.util.Map.Entry<Class<?>, Object> e : provided.entrySet()) {
+            PluginServiceRegistry.getInstance().provide(module.getName(), e.getKey(), e.getValue());
+        }
+    }
+
+    /** 注销模块提供的能力。 */
+    private void unregisterProvidedServices(BuiltInPlugin module) {
+        PluginServiceRegistry.getInstance().unregisterAll(module.getName());
     }
 
     /** 获取所有模块的状态列表。 */
@@ -235,6 +257,7 @@ public final class BuiltInPluginRegistry {
         try {
             entry.module.onLoad(sharedContext);
             entry.module.onEnable(sharedContext);
+            registerProvidedServices(entry.module);
             LOG.info("✓ 内置插件已启用: " + entry.module.getName() + " v" + entry.module.getVersion());
         } catch (Throwable t) {
             entry.enabled = false;
@@ -249,6 +272,7 @@ public final class BuiltInPluginRegistry {
         } catch (Throwable t) {
             LOG.error("内置插件停用异常: " + entry.module.getName(), t);
         }
+        unregisterProvidedServices(entry.module);
         entry.enabled = false;
         entry.active = false;
         LOG.info("内置插件已停用: " + entry.module.getName());
