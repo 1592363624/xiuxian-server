@@ -71,6 +71,8 @@ public final class PluginManager {
 
         int success = 0;
         int failed = 0;
+        // 文件系统顺序不可靠，先按名字排序消掉这层随机性，让"同级插件"的相对次序至少稳定
+        Arrays.sort(jars, Comparator.comparing(File::getName));
         for (File jar : jars) {
             try {
                 loadSingle(jar);
@@ -80,6 +82,9 @@ public final class PluginManager {
                 failed++;
             }
         }
+
+        // 依赖解析：此时还没有任何 onLoad 被执行，重排与拒载都是安全的
+        applyDependencyPlan();
 
         // 调用 onLoad
         for (LoadedPlugin lp : loaded.values()) {
@@ -93,9 +98,82 @@ public final class PluginManager {
         return new LoadResult(success, failed);
     }
 
-    /** 启用所有已加载的插件（调用 onEnable 生命周期）。 */
-    public synchronized void enablePlugins() {
+    /**
+     * 按依赖关系重排已扫描到的插件，并剔除无法满足依赖的插件。
+     *
+     * <p>调用时机是"jar 都已实例化、onLoad 还没跑"：这时重排只是调整 Map 的顺序，
+     * 不会打断任何已发生的初始化，所以可以放心地在加载阶段做，
+     * 而不必付出"先开一次类加载器读元数据、再开一次真正加载"的双倍代价。</p>
+     */
+    private void applyDependencyPlan() {
+        List<PluginInfo> infos = new ArrayList<>();
         for (LoadedPlugin lp : loaded.values()) {
+            infos.add(lp.info);
+        }
+        PluginDependencyResolver.Plan plan = PluginDependencyResolver.resolve(infos);
+
+        // 拒载：既要从注册表移除，也要关掉类加载器，否则 jar 文件句柄会泄漏
+        for (Map.Entry<String, String> e : plan.getRejected().entrySet()) {
+            LoadedPlugin lp = loaded.remove(e.getKey());
+            LOG.error("插件拒绝加载: " + e.getKey() + " —— " + e.getValue());
+            if (lp != null) discardPlugin(lp);
+        }
+
+        Map<String, LoadedPlugin> ordered = new LinkedHashMap<>();
+        for (String name : plan.getLoadOrder()) {
+            LoadedPlugin lp = loaded.get(name);
+            if (lp != null) ordered.put(name, lp);
+        }
+        // 兜底：解析器理论上不会漏，但一旦漏了就是"插件存在却没被初始化"这种极难查的状态，
+        // 宁可多留一手，让它至少按原顺序跑起来。
+        for (Map.Entry<String, LoadedPlugin> e : loaded.entrySet()) {
+            if (!ordered.containsKey(e.getKey())) {
+                LOG.warn("依赖解析遗漏了插件，已按原顺序追加: " + e.getKey());
+                ordered.put(e.getKey(), e.getValue());
+            }
+        }
+        loaded.clear();
+        loaded.putAll(ordered);
+
+        if (plan.hasRejected()) {
+            LOG.warn("依赖解析: " + plan.getLoadOrder().size() + " 个插件可加载，"
+                    + plan.getRejected().size() + " 个被拒绝");
+        } else {
+            LOG.info(plan.toString());
+        }
+    }
+
+    /**
+     * 找出本插件声明了硬依赖、但那些插件当前未启用的名字。
+     *
+     * <p>加载阶段只保证"依赖的插件存在"，这里保证"它真的起来了"。
+     * 因为依赖方通常在 onEnable 里就要用对方注册的物品/事件，
+     * 对方 onEnable 抛了异常而本方照常初始化，得到的就是半残状态。</p>
+     */
+    private List<String> missingEnabledDepends(String name) {
+        LoadedPlugin lp = loaded.get(name);
+        if (lp == null) return Collections.emptyList();
+        List<String> missing = new ArrayList<>();
+        for (String dep : lp.info.getDepends()) {
+            LoadedPlugin d = loaded.get(dep);
+            if (d == null || !d.enabled) missing.add(dep);
+        }
+        return missing;
+    }
+
+    /** 找出仍然启用、且硬依赖指定插件的插件名。 */
+    private List<String> findEnabledDependents(String name) {
+        List<String> dependents = new ArrayList<>();
+        for (LoadedPlugin lp : loaded.values()) {
+            if (!lp.enabled) continue;
+            if (lp.info.getName().equals(name)) continue;
+            if (lp.info.getDepends().contains(name)) dependents.add(lp.info.getName());
+        }
+        return dependents;
+    }
+
+    /** 启用所有已加载的插件（调用 onEnable 生命周期）。 */
+    public synchronized void enablePlugins() {        for (LoadedPlugin lp : loaded.values()) {
             enableSingle(lp);
         }
     }
@@ -127,17 +205,30 @@ public final class PluginManager {
             LOG.error("插件 onDisable 异常: " + lp.info.getName(), t);
         }
         lp.enabled = false;
+        // 故意不连锁停用依赖方：一次手动操作带走半个服，比"某个功能悄悄少了"更难善后。
+        // 依赖方会在下一次被启用时被 missingEnabledDepends 拒之门外，所以不会带病运行。
+        List<String> dependents = findEnabledDependents(name);
+        if (!dependents.isEmpty()) {
+            LOG.warn("插件 " + name + " 已停用，但下列插件仍依赖它: " + dependents);
+        }
         return true;
     }
 
-    private void enableSingle(LoadedPlugin lp) {
-        if (lp.enabled) return;
+    private boolean enableSingle(LoadedPlugin lp) {
+        if (lp.enabled) return true;
+        List<String> missing = missingEnabledDepends(lp.info.getName());
+        if (!missing.isEmpty()) {
+            LOG.warn("插件未启用（依赖未就绪）: " + lp.info.getName() + "，缺少 " + missing);
+            return false;
+        }
         try {
             lp.instance.onEnable(lp.context);
             lp.enabled = true;
             LOG.info("插件已启用: " + lp.info);
+            return true;
         } catch (Throwable t) {
             LOG.error("插件 onEnable 异常: " + lp.info.getName(), t);
+            return false;
         }
     }
 
@@ -178,6 +269,14 @@ public final class PluginManager {
             if (reloaded != null) {
                 reloaded.instance.onLoad(reloaded.context);
                 enableSingle(reloaded);
+                // 重载可能换掉了依赖声明（比如新版本多要了一个插件），这里重新校验一次
+                List<String> missing = missingEnabledDepends(name);
+                if (!missing.isEmpty()) {
+                    LOG.error("插件重载后依赖不满足，已卸载: " + name + "，缺少 " + missing);
+                    LoadedPlugin bad = loaded.remove(name);
+                    if (bad != null) discardPlugin(bad);
+                    return false;
+                }
                 LOG.info("插件重载成功: " + name);
             }
             return true;
@@ -194,6 +293,17 @@ public final class PluginManager {
         } catch (Throwable t) {
             LOG.error("插件 onDisable 异常: " + lp.info.getName(), t);
         }
+        discardPlugin(lp);
+    }
+
+    /**
+     * 收回插件占用的全部登记资源，但不调用任何生命周期回调。
+     *
+     * <p>抽出来的原因：加载阶段被拒的插件从未执行过 onLoad/onEnable，
+     * 对它们调 onDisable 语义上说不通；但它们同样登记过事件与 Web 资源，
+     * 也必须关闭类加载器。两条路径共用这一份清理逻辑，避免将来加新资源时漏掉一条。</p>
+     */
+    private void discardPlugin(LoadedPlugin lp) {
         // 清理事件处理器
         com.mtxgdn.plugin.event.PluginEventManager.getInstance().unregisterAll(lp.info.getName());
         // 清理 Web 资源
@@ -278,6 +388,10 @@ public final class PluginManager {
             status.put("jarFile", lp.jarFile.getName());
             status.put("enabled", lp.enabled);
             status.put("loaded", true);
+            status.put("depends", lp.info.getDepends());
+            status.put("softDepends", lp.info.getSoftDepends());
+            List<String> missingDeps = missingEnabledDepends(lp.info.getName());
+            status.put("missingDeps", missingDeps);
             result.add(status);
         }
         // 也列出可用但未加载的 jar
@@ -494,7 +608,9 @@ public final class PluginManager {
                         optStr(obj, "version", "1.0.0"),
                         optStr(obj, "author", "匿名"),
                         optStr(obj, "description", ""),
-                        optStr(obj, "main", null)
+                        optStr(obj, "main", null),
+                        optStrList(obj, "depends"),
+                        optStrList(obj, "softDepends")
                 );
             }
         } catch (Exception e) {
@@ -509,6 +625,23 @@ public final class PluginManager {
         var el = obj.get(key);
         if (el == null || el.isJsonNull()) return def;
         return el.getAsString();
+    }
+
+    /** 读取字符串数组字段；缺失或类型不对时返回空列表（而不是抛异常打断整个加载）。 */
+    private static List<String> optStrList(JsonObject obj, String key) {
+        if (obj == null || !obj.has(key)) return Collections.emptyList();
+        var el = obj.get(key);
+        if (el == null || !el.isJsonArray()) {
+            LOG.warn("plugin.json 的 " + key + " 字段不是数组，已忽略");
+            return Collections.emptyList();
+        }
+        List<String> out = new ArrayList<>();
+        for (var item : el.getAsJsonArray()) {
+            if (item == null || item.isJsonNull()) continue;
+            String s = item.getAsString();
+            if (s != null && !s.isEmpty()) out.add(s);
+        }
+        return out;
     }
 
     private String findPluginMainClass(File jar, ClassLoader cl) {
@@ -540,7 +673,8 @@ public final class PluginManager {
             Class<?> cls = Class.forName(mainClassName, false, cl);
             PluginMeta meta = cls.getAnnotation(PluginMeta.class);
             if (meta != null) {
-                return new PluginInfo(meta.name(), meta.version(), meta.author(), meta.description(), mainClassName);
+                return new PluginInfo(meta.name(), meta.version(), meta.author(), meta.description(),
+                        mainClassName, Arrays.asList(meta.depends()), Arrays.asList(meta.softDepends()));
             }
             // 没有注解，用类名作为名字
             String simpleName = cls.getSimpleName();
