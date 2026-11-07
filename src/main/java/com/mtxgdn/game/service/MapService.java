@@ -85,6 +85,20 @@ public class MapService {
     private static final long MIN_TRAVEL_SECONDS = 5;
     private static final long DEFAULT_LOCATION_ID = 1;
 
+    /**
+     * 靠传送符"空降"某地时的首达奖励系数：减半再减半 = 1/4。
+     *
+     * <p>为什么不是零：传送符要消耗道具、且仍受境界门槛限制，玩家确实抵达了
+     * 那里；一刀全砍等于让这件道具在探索维度上彻底无收益，只剩下省脚力。</p>
+     *
+     * <p>为什么不是一半：首达奖励是探索激励的主要兑现口，而传送符能去
+     * <b>没去过</b>的地方。只打对折的话，"买符跳过整条路线"依然划算，
+     * 探索就又被钱买断了。1/4 让"走"始终是最优解，同时不废掉符。</p>
+     */
+    private static final double TELEPORT_FIRST_VISIT_RATIO = 0.25;
+    /** 传送计价的跳数搜索上限：防止管理员配出超大连通图时把计价变成全图遍历。 */
+    private static final int MAX_HOP_SEARCH = 64;
+
     /** 危险度中文名（0~4），越界按最高档处理。 */
     private static final String[] DANGER_NAMES = {"安全", "低危", "中危", "高危", "极危"};
 
@@ -694,7 +708,7 @@ public class MapService {
         }
 
         // 首次抵达的奖励与解锁提示附在移动结果里：玩家刚走到就该看到，不必再敲一次指令
-        String firstVisit = recordFirstVisit(playerId, targetLocationId);
+        String firstVisit = recordFirstVisitRewarding(playerId, targetLocationId, true);
         String message = I18n.t("map.travel_arrived", player.getName(), current.getName(),
                 target.getName(), target.getDescription());
         if (firstVisit != null) {
@@ -769,7 +783,7 @@ public class MapService {
         }
 
         executeTravel(playerId, targetLocationId);
-        String firstVisit = recordFirstVisit(playerId, targetLocationId);
+        String firstVisit = recordFirstVisitRewarding(playerId, targetLocationId, false);
         String message = I18n.t("map.the_talisman_turns_into", target.getName());
         if (firstVisit != null) {
             message = message + "\n" + firstVisit;
@@ -943,7 +957,17 @@ public class MapService {
      *       从此这片野外<b>永远不会被回收</b>。</li>
      * </ul>
      */
-    public String recordFirstVisit(long playerId, long locationId, boolean fromTravel) {
+    /**
+     * 记录抵达（走路语义：首达奖励全额）。
+     *
+     * <p>保留这个两参重载是为了不破坏既有调用方与公共 API 契约；
+     * 传送符那条路径请显式调用三参版本并传 {@code false}。</p>
+     */
+    public String recordFirstVisit(long playerId, long locationId) {
+        return recordFirstVisitRewarding(playerId, locationId, true);
+    }
+
+    private String recordFirstVisitRewarding(long playerId, long locationId, boolean fromTravel) {
         ensureInitialized();
         MapLocation loc = getLocation(locationId);
         if (loc == null) return null;
@@ -952,10 +976,10 @@ public class MapService {
         boolean firstVisit;
         if (WildernessTerrain.isWildernessId(locationId)) {
             firstVisit = recordWildernessVisit(playerId, locationId, now);
-            if (firstVisit && fromTravel) {
+            if (firstVisit) {
                 try {
                     DatabaseManager.runTransaction(conn -> {
-                        grantFirstVisitReward(conn, playerId, loc);
+                        grantFirstVisitReward(conn, playerId, loc, fromTravel);
                         return null;
                     });
                 } catch (Exception e) {
@@ -967,7 +991,7 @@ public class MapService {
                 firstVisit = DatabaseManager.runTransaction(conn -> {
                     boolean inserted = MAP_DAO.insertExplorationIfAbsent(conn, playerId, locationId, now);
                     if (inserted) {
-                        grantFirstVisitReward(conn, playerId, loc);
+                        grantFirstVisitReward(conn, playerId, loc, fromTravel);
                     }
                     return inserted;
                 });
@@ -979,8 +1003,9 @@ public class MapService {
         if (!firstVisit) return null;
 
         WildernessMapConfig.FirstVisitReward reward = WildernessMapConfig.get().getFirstVisitReward();
-        long stones = firstVisitSpiritStones(reward, loc);
-        long exp = firstVisitExperience(reward, loc);
+        double ratio = fromTravel ? 1.0 : TELEPORT_FIRST_VISIT_RATIO;
+        long stones = applyRewardRatio(firstVisitSpiritStones(reward, loc), ratio);
+        long exp = applyRewardRatio(firstVisitExperience(reward, loc), ratio);
         StringBuilder sb = new StringBuilder("🎉 首次抵达【").append(loc.getName()).append("】，获得 ");
         sb.append(stones).append(" 灵石、").append(exp).append(" 灵力");
 
@@ -1031,10 +1056,23 @@ public class MapService {
         return Math.max(0, Math.round(base * multiplier));
     }
 
-    private void grantFirstVisitReward(Connection conn, long playerId, MapLocation loc) throws SQLException {
+    /**
+     * 首达奖励按系数折算。系数 1.0 时原样返回，保证走路抵达的数值一分不差。
+     *
+     * <p>向下取整而非四舍五入：宁可少给一点，也不要让传送符在低危险度地点上
+     * 因为进位而拿到比走路更多的奖励。</p>
+     */
+    private static long applyRewardRatio(long amount, double ratio) {
+        if (amount <= 0) return 0;
+        if (ratio >= 1.0) return amount;
+        return Math.max(0, (long) Math.floor(amount * ratio));
+    }
+
+    private void grantFirstVisitReward(Connection conn, long playerId, MapLocation loc, boolean fromTravel) throws SQLException {
+        double ratio = fromTravel ? 1.0 : TELEPORT_FIRST_VISIT_RATIO;
         WildernessMapConfig.FirstVisitReward reward = WildernessMapConfig.get().getFirstVisitReward();
-        long stones = firstVisitSpiritStones(reward, loc);
-        long exp = firstVisitExperience(reward, loc);
+        long stones = applyRewardRatio(firstVisitSpiritStones(reward, loc), ratio);
+        long exp = applyRewardRatio(firstVisitExperience(reward, loc), ratio);
         if (stones > 0) {
             ServiceRegistry.getItemService().addSpiritStones(conn, playerId, stones);
         }
@@ -1100,7 +1138,69 @@ public class MapService {
         MapLocation to = getLocation(targetLocationId);
         int dangerSum = (from == null ? 0 : from.getDangerLevel()) + (to == null ? 0 : to.getDangerLevel());
         double cost = cfg.getBaseCost() + cfg.getCostPerDanger() * dangerSum;
+
+        // 距离项：只对已知世界算跳数。野外端点不参与 BFS —— 野外是无向无限网格，
+        // 它的"距离"意义由下面的深度项表达，两头都算会重复计价。
+        int hops = knownWorldHops(fromLocationId, targetLocationId);
+        if (hops > 0) {
+            cost += (double) cfg.getCostPerHop() * hops;
+        }
+
+        // 深度项：从野外撤出时按分片半径加价。没有这一项，"深入"就只剩收益没有代价。
+        int depth = wildernessDepthOf(fromLocationId);
+        if (depth > 0) {
+            cost += (double) cfg.getCostPerDepth() * depth;
+        }
+
         return Math.max(cfg.getMinCost(), Math.round(cost));
+    }
+
+    /**
+     * 已知世界两点之间的最少跳数；任一端不在已知世界（野外/未知）时返回 0。
+     *
+     * <p>用 BFS 而不是数连接表的行数：传送价格要表达的是"跳过了多少段路"，
+     * 那是图上的最短路径长度，不是边的条数 —— 一个地点可能有五个邻居，
+     * 但到某地最近只要一跳。</p>
+     *
+     * <p>搜索规模有上限（{@link #MAX_HOP_SEARCH}）：地图是管理员可编辑的数据，
+     * 万一被配成超大连通图，这里不该退化成一次全图遍历。</p>
+     *
+     * <p>不可达时返回 0（不加价），而不是抛错：目的地是否合法由
+     * "是否到过"和"是否存在"两道检查负责，计价函数不该越权拒绝。</p>
+     */
+    private int knownWorldHops(long fromId, long toId) {
+        if (fromId == toId) return 0;
+        if (WildernessTerrain.isWildernessId(fromId) || WildernessTerrain.isWildernessId(toId)) {
+            return 0;
+        }
+        Map<Long, Integer> dist = new java.util.HashMap<>();
+        java.util.ArrayDeque<Long> queue = new java.util.ArrayDeque<>();
+        dist.put(fromId, 0);
+        queue.add(fromId);
+        while (!queue.isEmpty() && dist.size() <= MAX_HOP_SEARCH) {
+            long cur = queue.poll();
+            int d = dist.get(cur);
+            MapLocation loc = getLocation(cur);
+            if (loc == null) continue;
+            for (MapLocation nb : loc.getConnections()) {
+                if (nb == null) continue;
+                long id = nb.getId();
+                if (WildernessTerrain.isWildernessId(id)) continue;
+                if (dist.containsKey(id)) continue;
+                if (id == toId) return d + 1;
+                dist.put(id, d + 1);
+                queue.add(id);
+            }
+        }
+        return 0;
+    }
+
+    /** 野外节点离原点的深度（分片切比雪夫半径）；非野外返回 0。 */
+    private static int wildernessDepthOf(long locationId) {
+        if (!WildernessTerrain.isWildernessId(locationId)) return 0;
+        return WildernessTerrain.distanceFromOrigin(
+                WildernessTerrain.chunkXOfNode(locationId),
+                WildernessTerrain.chunkYOfNode(locationId));
     }
 
     /**
@@ -1175,6 +1275,17 @@ public class MapService {
         long currentLocId = resolveLocationId(position.rawLocationId(), position.locationNull(), playerId);
         if (currentLocId == targetLocationId) {
             return TravelResult.rejected(I18n.t("map.you_are_already", target.getName()));
+        }
+
+        // 传送冷却：挡住"传送→触发地点事件→再传送"这条绕开赶路成本的刷法。
+        // 采集有独立冷却，所以这里管的是位移频率本身。
+        int teleportCooldown = cfg.getCooldownSeconds();
+        if (teleportCooldown > 0) {
+            long sinceLastMove = System.currentTimeMillis() / 1000 - position.lastTravelTime();
+            if (sinceLastMove < teleportCooldown) {
+                return TravelResult.rejected(I18n.t("map.teleport_cooldown",
+                        Math.max(0, teleportCooldown - sinceLastMove)));
+            }
         }
 
         long cost = getTeleportCost(currentLocId, targetLocationId);

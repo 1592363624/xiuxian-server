@@ -250,7 +250,10 @@
     "enabled": true,
     "baseCost": 50,
     "costPerDanger": 60,
-    "minCost": 10
+    "minCost": 10,
+    "costPerHop": 10,
+    "costPerDepth": 15,
+    "cooldownSeconds": 30
   },
 
   "_comment_gather": "采集冷却（秒）与单次最多采集量。",

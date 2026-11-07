@@ -988,6 +988,7 @@
   "map.too_slow_the_resources_here": "Too slow — the resources here have just been picked clean",
   "map.region_not_found": "Region not found: [{0}]",
   "map.you_have_just_finished": "You have just finished a stretch of travel; you must wait {0} seconds before setting off again",
+  "map.teleport_cooldown": "Teleport is still settling; wait {0} more seconds",
   "map.your_current_location_is_invalid": "Your current location is invalid. Please contact an administrator",
   "map.gathered": "⛏ Gathered at [{0}]: {1} ×{2} (remaining here: {3})",
   "map.use_post_api_game_map": "Use POST /api/game/map/travel/{locationId} to move, and POST /api/game/map/gather to gather",

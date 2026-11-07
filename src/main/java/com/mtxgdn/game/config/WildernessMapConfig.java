@@ -245,11 +245,35 @@ public class WildernessMapConfig {
         private long baseCost = 50;
         private long costPerDanger = 60;
         private long minCost = 10;
+        /**
+         * 每跨一跳（图上最短路）的加价。
+         *
+         * <p>没有这一项时，传送只按两地危险度计价，于是"低危但隔了八跳的地点"
+         * 与"隔壁村"同价 —— 整条路径被 50 灵石买断，地图的路线设计失去意义。</p>
+         */
+        private long costPerHop = 10;
+        /**
+         * 从野外撤出时，按离原点深度（分片半径）计价。
+         *
+         * <p>野外设计的核心是"越远越险"，但若撤退成本不随深度上涨，
+         * 深入就只剩收益没有代价：走得再远，花同样的钱就能跑掉。</p>
+         */
+        private long costPerDepth = 15;
+        /**
+         * 传送冷却（秒）。0 或负数表示不限制。
+         *
+         * <p>此前付费直传没有任何频率限制：灵石够就能连点瞬移，
+         * 而"传送→触发地点事件→再传送"正是绕开赶路成本刷事件的路径。</p>
+         */
+        private int cooldownSeconds = 30;
 
         public boolean isEnabled() { return enabled; }
         public long getBaseCost() { return baseCost; }
         public long getCostPerDanger() { return costPerDanger; }
         public long getMinCost() { return minCost; }
+        public long getCostPerHop() { return costPerHop; }
+        public long getCostPerDepth() { return costPerDepth; }
+        public int getCooldownSeconds() { return cooldownSeconds; }
     }
 
     /** 采集参数。 */

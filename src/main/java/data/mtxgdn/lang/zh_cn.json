@@ -988,6 +988,7 @@
   "map.too_slow_the_resources_here": "手慢了，此地的资源刚被采空",
   "map.region_not_found": "未找到区域【{0}】",
   "map.you_have_just_finished": "你刚赶完一段路，还需 {0} 秒才能再次动身",
+  "map.teleport_cooldown": "\u4f20\u9001\u521a\u7ed3\u675f\uff0c\u8fd8\u9700 {0} \u79d2\u624d\u80fd\u518d\u6b21\u50ac\u52a8\u4f20\u9001\u672f",
   "map.your_current_location_is_invalid": "当前位置异常，请联系管理员",
   "map.gathered": "⛏ 在「{0}」采集到 {1} ×{2}（此地剩余 {3}）",
   "map.use_post_api_game_map": "用 POST /api/game/map/travel/{locationId} 移动，POST /api/game/map/gather 采集",
