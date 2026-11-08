@@ -214,6 +214,10 @@ public class Main {
         com.mtxgdn.i18n.I18nManager.load();
 
         LOG.info("正在初始化插件系统...");
+        // 核心服务先登记到插件服务表：插件既能用 ctx.getService(XxxService.class)
+        // 取核心能力，也能在需要时替换/包装某个核心服务（先登记者生效）。
+        com.mtxgdn.plugin.CoreServices.install();
+
         PluginManager pm = PluginManager.getInstance();
         pm.init(new File("plugins"));
         PluginManager.LoadResult pluginLoadResult = pm.loadPlugins();

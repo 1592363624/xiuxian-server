@@ -284,26 +284,39 @@ public final class PluginContext {
 
     // ================ 服务访问快捷方法 =================
 
-    public PlayerService getPlayerService() { return ServiceRegistry.getPlayerService(); }
-    public ItemService getItemService() { return ServiceRegistry.getItemService(); }
-    public EconomyService getEconomyService() { return ServiceRegistry.getEconomyService(); }
-    public CombatService getCombatService() { return ServiceRegistry.getCombatService(); }
-    public SkillService getSkillService() { return ServiceRegistry.getSkillService(); }
-    public DailyService getDailyService() { return ServiceRegistry.getDailyService(); }
-    public ExplorationService getExplorationService() { return ServiceRegistry.getExplorationService(); }
-    public SecretRealmService getSecretRealmService() { return ServiceRegistry.getSecretRealmService(); }
-    public SectService getSectService() { return ServiceRegistry.getSectService(); }
-    public TechniqueService getTechniqueService() { return ServiceRegistry.getTechniqueService(); }
-    public CraftingService getCraftingService() { return ServiceRegistry.getCraftingService(); }
-    public EnhanceService getEnhanceService() { return ServiceRegistry.getEnhanceService(); }
-    public ChatService getChatService() { return ServiceRegistry.getChatService(); }
-    public FriendService getFriendService() { return ServiceRegistry.getFriendService(); }
-    public HeartDemonService getHeartDemonService() { return ServiceRegistry.getHeartDemonService(); }
-    public TradeService getTradeService() { return ServiceRegistry.getTradeService(); }
-    public NewbieGuideService getGuideService() { return ServiceRegistry.getGuideService(); }
-    public RealmService getRealmService() { return ServiceRegistry.getRealmService(); }
-    public EnergyService getEnergyService() { return ServiceRegistry.getEnergyService(); }
-    public TitleService getTitleService() { return ServiceRegistry.getTitleService(); }
+    public PlayerService getPlayerService() { return core(PlayerService.class, ServiceRegistry::getPlayerService); }
+    public ItemService getItemService() { return core(ItemService.class, ServiceRegistry::getItemService); }
+    public EconomyService getEconomyService() { return core(EconomyService.class, ServiceRegistry::getEconomyService); }
+    public CombatService getCombatService() { return core(CombatService.class, ServiceRegistry::getCombatService); }
+    public SkillService getSkillService() { return core(SkillService.class, ServiceRegistry::getSkillService); }
+    public DailyService getDailyService() { return core(DailyService.class, ServiceRegistry::getDailyService); }
+    public ExplorationService getExplorationService() { return core(ExplorationService.class, ServiceRegistry::getExplorationService); }
+    public SecretRealmService getSecretRealmService() { return core(SecretRealmService.class, ServiceRegistry::getSecretRealmService); }
+    public SectService getSectService() { return core(SectService.class, ServiceRegistry::getSectService); }
+    public TechniqueService getTechniqueService() { return core(TechniqueService.class, ServiceRegistry::getTechniqueService); }
+    public CraftingService getCraftingService() { return core(CraftingService.class, ServiceRegistry::getCraftingService); }
+    public EnhanceService getEnhanceService() { return core(EnhanceService.class, ServiceRegistry::getEnhanceService); }
+    public ChatService getChatService() { return core(ChatService.class, ServiceRegistry::getChatService); }
+    public FriendService getFriendService() { return core(FriendService.class, ServiceRegistry::getFriendService); }
+    public HeartDemonService getHeartDemonService() { return core(HeartDemonService.class, ServiceRegistry::getHeartDemonService); }
+    public TradeService getTradeService() { return core(TradeService.class, ServiceRegistry::getTradeService); }
+    public NewbieGuideService getGuideService() { return core(NewbieGuideService.class, ServiceRegistry::getGuideService); }
+    public RealmService getRealmService() { return core(RealmService.class, ServiceRegistry::getRealmService); }
+    public EnergyService getEnergyService() { return core(EnergyService.class, ServiceRegistry::getEnergyService); }
+    public TitleService getTitleService() { return core(TitleService.class, ServiceRegistry::getTitleService); }
+
+    /**
+     * 服务解析：先查插件服务表，再回落到 {@code ServiceRegistry} 的静态单例。
+     *
+     * <p>先查表的意义是让核心服务变成<b>可替换</b>的：插件可以在自己 onEnable 里
+     * 先登记一个实现，把某个核心服务包装一层（加日志、加统计、做实验性玩法），
+     * 之后所有通过 context 取服务的代码都会拿到那一层。回落保证没走启动引导的
+     * 单元测试照常工作 —— 迁移是渐进的，不该要求所有调用方同时改完。</p>
+     */
+    private static <T> T core(Class<T> api, java.util.function.Supplier<T> fallback) {
+        T provided = PluginServiceRegistry.getInstance().get(api);
+        return provided != null ? provided : fallback.get();
+    }
 
     // ================ 插件间服务（联动） =================
 
