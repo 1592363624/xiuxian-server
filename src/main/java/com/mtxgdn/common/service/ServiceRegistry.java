@@ -2,412 +2,178 @@ package com.mtxgdn.common.service;
 
 import com.mtxgdn.game.service.*;
 import com.mtxgdn.minecraft.adapter.MinecraftPlayerBindingService;
+import com.mtxgdn.util.GameLogger;
 
-public class ServiceRegistry {
+/**
+ * 服务访问的静态门面。
+ *
+ * <p>服务的构造与接线已经搬到 {@link ServiceContainer}，这里只剩一层委托。
+ * 保留静态方法是为了不让四百多处调用点在同一次改动里全部重写，
+ * 但它同时是<b>技术债</b>：静态状态让测试之间互相污染、让依赖关系看不出来。</p>
+ *
+ * <p>迁移方向：新代码通过构造参数或 {@link ServiceContainer} 拿服务；
+ * 老代码保持不动，直到被改到为止。</p>
+ */
+public final class ServiceRegistry {
 
-    private static volatile PlayerService playerService;
-    private static volatile RealmService realmService;
-    private static volatile ItemService itemService;
-    private static volatile SecretRealmService secretRealmService;
-    private static volatile ExplorationService explorationService;
-    private static volatile NewbieGuideService guideService;
-    private static volatile SkillService skillService;
-    private static volatile CombatService combatService;
-    private static volatile DailyService dailyService;
-    private static volatile TradeService tradeService;
-    private static volatile HeartDemonService heartDemonService;
-    private static volatile ChatService chatService;
-    private static volatile FriendService friendService;
-    private static volatile EnhanceService enhanceService;
-    private static volatile CraftingService craftingService;
-    private static volatile TechniqueService techniqueService;
-    private static volatile SectService sectService;
-    private static volatile EconomyService economyService;
-    private static volatile EnergyService energyService;
-    private static volatile TitleService titleService;
-    private static volatile CaveService caveService;
-    private static volatile FormationService formationService;
-    private static volatile BuffService buffService;
-    private static volatile FarmService farmService;
-    private static volatile MapService mapService;
-    private static volatile WorldBossService worldBossService;
-    private static volatile DurabilityService durabilityService;
-    private static volatile MinecraftPlayerBindingService mcBindingService;
-    private static volatile OfflineRewardService offlineRewardService;
-    private static volatile RedeemCodeService redeemCodeService;
+    private static final GameLogger LOG = GameLogger.getLogger(ServiceRegistry.class);
+
+    private static volatile ServiceContainer current = new ServiceContainer();
 
     private ServiceRegistry() {
     }
 
-    public static PlayerService getPlayerService() {
-        if (playerService == null) {
-            synchronized (ServiceRegistry.class) {
-                if (playerService == null) {
-                    playerService = new PlayerService();
-                }
-            }
+    /** 当前容器。首次访问时创建，之后一直复用同一个实例。 */
+    public static ServiceContainer container() {
+        return current;
+    }
+
+    /**
+     * 换掉当前容器，并注销旧容器的换库回调。
+     *
+     * <p>给测试用：每个测试类可以拿一个干净容器，而不是共享整个 JVM 生命周期里
+     * 那一套服务实例。也允许将来把某个子系统换成另一套实现。</p>
+     */
+    public static void install(ServiceContainer container) {
+        if (container == null) {
+            throw new IllegalArgumentException("container 不能为 null");
         }
-        return playerService;
+        ServiceContainer previous = current;
+        current = container;
+        if (previous != null && previous != container) {
+            previous.close();
+        }
+    }
+
+    /**
+     * 丢弃当前容器，下次访问时重建一套。
+     *
+     * <p><b>注意</b>：服务类里的调度器是在 static 块里启动的，换容器不会停掉它们
+     * —— 停调度器仍然要显式调用各自的 shutdown（见 {@code TestBase}）。
+     * 这里只保证"服务实例本身"不再跨测试复用，以及旧容器的换库回调被摘掉。</p>
+     */
+    public static void reset() {
+        install(new ServiceContainer());
+    }
+
+    public static PlayerService getPlayerService() {
+        return current.getPlayerService();
     }
 
     public static RealmService getRealmService() {
-        if (realmService == null) {
-            synchronized (ServiceRegistry.class) {
-                if (realmService == null) {
-                    realmService = new RealmService(getPlayerService());
-                }
-            }
-        }
-        return realmService;
+        return current.getRealmService();
     }
 
     public static ItemService getItemService() {
-        if (itemService == null) {
-            synchronized (ServiceRegistry.class) {
-                if (itemService == null) {
-                    itemService = new ItemService();
-                }
-            }
-        }
-        return itemService;
+        return current.getItemService();
     }
 
     public static SecretRealmService getSecretRealmService() {
-        if (secretRealmService == null) {
-            synchronized (ServiceRegistry.class) {
-                if (secretRealmService == null) {
-                    secretRealmService = new SecretRealmService(getPlayerService());
-                }
-            }
-        }
-        return secretRealmService;
+        return current.getSecretRealmService();
     }
 
     public static ExplorationService getExplorationService() {
-        if (explorationService == null) {
-            synchronized (ServiceRegistry.class) {
-                if (explorationService == null) {
-                    explorationService = new ExplorationService(getPlayerService());
-                }
-            }
-        }
-        return explorationService;
+        return current.getExplorationService();
     }
 
     public static NewbieGuideService getGuideService() {
-        if (guideService == null) {
-            synchronized (ServiceRegistry.class) {
-                if (guideService == null) {
-                    guideService = new NewbieGuideService();
-                }
-            }
-        }
-        return guideService;
+        return current.getGuideService();
     }
 
     public static SkillService getSkillService() {
-        if (skillService == null) {
-            synchronized (ServiceRegistry.class) {
-                if (skillService == null) {
-                    skillService = new SkillService();
-                }
-            }
-        }
-        return skillService;
+        return current.getSkillService();
     }
 
     public static CombatService getCombatService() {
-        if (combatService == null) {
-            synchronized (ServiceRegistry.class) {
-                if (combatService == null) {
-                    combatService = new CombatService();
-                }
-            }
-        }
-        return combatService;
+        return current.getCombatService();
     }
 
     public static DailyService getDailyService() {
-        if (dailyService == null) {
-            synchronized (ServiceRegistry.class) {
-                if (dailyService == null) {
-                    dailyService = new DailyService();
-                }
-            }
-        }
-        return dailyService;
+        return current.getDailyService();
     }
 
     public static TradeService getTradeService() {
-        if (tradeService == null) {
-            synchronized (ServiceRegistry.class) {
-                if (tradeService == null) {
-                    tradeService = new TradeService();
-                }
-            }
-        }
-        return tradeService;
+        return current.getTradeService();
     }
 
     public static HeartDemonService getHeartDemonService() {
-        if (heartDemonService == null) {
-            synchronized (ServiceRegistry.class) {
-                if (heartDemonService == null) {
-                    heartDemonService = new HeartDemonService();
-                }
-            }
-        }
-        return heartDemonService;
+        return current.getHeartDemonService();
     }
 
     public static ChatService getChatService() {
-        if (chatService == null) {
-            synchronized (ServiceRegistry.class) {
-                if (chatService == null) {
-                    chatService = new ChatService();
-                }
-            }
-        }
-        return chatService;
+        return current.getChatService();
     }
 
     public static FriendService getFriendService() {
-        if (friendService == null) {
-            synchronized (ServiceRegistry.class) {
-                if (friendService == null) {
-                    friendService = new FriendService();
-                }
-            }
-        }
-        return friendService;
+        return current.getFriendService();
     }
 
     public static EnhanceService getEnhanceService() {
-        if (enhanceService == null) {
-            synchronized (ServiceRegistry.class) {
-                if (enhanceService == null) {
-                    enhanceService = new EnhanceService();
-                }
-            }
-        }
-        return enhanceService;
+        return current.getEnhanceService();
     }
 
     public static CraftingService getCraftingService() {
-        if (craftingService == null) {
-            synchronized (ServiceRegistry.class) {
-                if (craftingService == null) {
-                    craftingService = new CraftingService();
-                }
-            }
-        }
-        return craftingService;
+        return current.getCraftingService();
     }
 
     public static TechniqueService getTechniqueService() {
-        if (techniqueService == null) {
-            synchronized (ServiceRegistry.class) {
-                if (techniqueService == null) {
-                    techniqueService = new TechniqueService();
-                }
-            }
-        }
-        return techniqueService;
+        return current.getTechniqueService();
     }
 
     public static SectService getSectService() {
-        if (sectService == null) {
-            synchronized (ServiceRegistry.class) {
-                if (sectService == null) {
-                    sectService = new SectService();
-                }
-            }
-        }
-        return sectService;
+        return current.getSectService();
     }
 
     public static EconomyService getEconomyService() {
-        if (economyService == null) {
-            synchronized (ServiceRegistry.class) {
-                if (economyService == null) {
-                    economyService = new EconomyService();
-                }
-            }
-        }
-        return economyService;
+        return current.getEconomyService();
     }
 
     public static EnergyService getEnergyService() {
-        if (energyService == null) {
-            synchronized (ServiceRegistry.class) {
-                if (energyService == null) {
-                    energyService = new EnergyService();
-                }
-            }
-        }
-        return energyService;
+        return current.getEnergyService();
     }
 
     public static TitleService getTitleService() {
-        if (titleService == null) {
-            synchronized (ServiceRegistry.class) {
-                if (titleService == null) {
-                    titleService = new TitleService();
-                }
-            }
-        }
-        return titleService;
+        return current.getTitleService();
     }
 
     public static CaveService getCaveService() {
-        if (caveService == null) {
-            synchronized (ServiceRegistry.class) {
-                if (caveService == null) {
-                    caveService = new CaveService();
-                }
-            }
-        }
-        return caveService;
+        return current.getCaveService();
     }
 
     public static FormationService getFormationService() {
-        if (formationService == null) {
-            synchronized (ServiceRegistry.class) {
-                if (formationService == null) {
-                    formationService = new FormationService();
-                }
-            }
-        }
-        return formationService;
+        return current.getFormationService();
     }
 
     public static BuffService getBuffService() {
-        if (buffService == null) {
-            synchronized (ServiceRegistry.class) {
-                if (buffService == null) {
-                    buffService = new BuffService();
-                }
-            }
-        }
-        return buffService;
+        return current.getBuffService();
     }
 
     public static FarmService getFarmService() {
-        if (farmService == null) {
-            synchronized (ServiceRegistry.class) {
-                if (farmService == null) {
-                    farmService = new FarmService();
-                }
-            }
-        }
-        return farmService;
+        return current.getFarmService();
     }
 
     public static MinecraftPlayerBindingService getMcBindingService() {
-        if (mcBindingService == null) {
-            synchronized (ServiceRegistry.class) {
-                if (mcBindingService == null) {
-                    mcBindingService = new MinecraftPlayerBindingService();
-                }
-            }
-        }
-        return mcBindingService;
+        return current.getMcBindingService();
     }
 
     public static MapService getMapService() {
-        if (mapService == null) {
-            synchronized (ServiceRegistry.class) {
-                if (mapService == null) {
-                    mapService = new MapService();
-                }
-            }
-        }
-        return mapService;
+        return current.getMapService();
     }
 
     public static WorldBossService getWorldBossService() {
-        if (worldBossService == null) {
-            synchronized (ServiceRegistry.class) {
-                if (worldBossService == null) {
-                    worldBossService = new WorldBossService();
-                }
-            }
-        }
-        return worldBossService;
+        return current.getWorldBossService();
     }
 
     public static DurabilityService getDurabilityService() {
-        if (durabilityService == null) {
-            synchronized (ServiceRegistry.class) {
-                if (durabilityService == null) {
-                    durabilityService = new DurabilityService();
-                }
-            }
-        }
-        return durabilityService;
+        return current.getDurabilityService();
     }
 
-    /**
-     * 离线奖励服务。
-     *
-     * <p>它本身无状态，但历史上被 {@code new OfflineRewardService()} 在
-     * 「每次读取玩家状态」「每条指令」的路径上反复构造 —— 每次构造都会新建
-     * 一个 {@link ItemService} 与 {@link PlayerService}，等于每来一条消息就多
-     * 开一批对象。统一走注册表即可消除这类无意义开销。</p>
-     */
     public static OfflineRewardService getOfflineRewardService() {
-        if (offlineRewardService == null) {
-            synchronized (ServiceRegistry.class) {
-                if (offlineRewardService == null) {
-                    offlineRewardService = new OfflineRewardService();
-                }
-            }
-        }
-        return offlineRewardService;
+        return current.getOfflineRewardService();
     }
 
-    /** 兑换码服务（无状态，但同样避免重复构造）。 */
     public static RedeemCodeService getRedeemCodeService() {
-        if (redeemCodeService == null) {
-            synchronized (ServiceRegistry.class) {
-                if (redeemCodeService == null) {
-                    redeemCodeService = new RedeemCodeService();
-                }
-            }
-        }
-        return redeemCodeService;
+        return current.getRedeemCodeService();
     }
 
-    /**
-     * 换库时让各处内存缓存失效。
-     *
-     * <p><b>为什么需要</b>：{@code DatabaseManager.init()} 可重复调用（测试里每个测试类
-     * 调一次，运行时切换配置也会走到它）。它把连接池换到新库，但那些
-     * "首次访问时从库里读一遍、之后一直用内存副本"的单例并不知道库已经换了，
-     * 仍然拿着旧库的内容 —— 而旧库可能已经被删掉了。</p>
-     *
-     * <p>登记放在这里而不是各自类的静态块里，有两个原因：</p>
-     * <ul>
-     *   <li>{@code MapService} 的构造器要回调 {@code getPlayerService()}，
-     *       在它自己的静态块里再调 {@code getMapService()} 会构成类初始化循环；</li>
-     *   <li>{@code PermissionService} 属于服务层，不该 import {@code DatabaseManager}
-     *       （{@code PermissionDaoExtractionTest.serviceLayerContainsNoJdbc} 禁止）。</li>
-     * </ul>
-     *
-     * <p>回调读的是<b>当前</b>字段而不是捕获某个实例：换库可能发生在实例创建之前
-     * （启动早期），那时应当什么都不做 —— 实例还没建，自然也没有缓存要清。</p>
-     */
-    static {
-        com.mtxgdn.db.DatabaseManager.addReinitListener(() -> {
-            MapService service = mapService;
-            if (service != null) {
-                service.invalidateCache();
-            }
-            com.mtxgdn.permission.PermissionService.invalidateAllCachesForNewDatabase();
-            // 吊销名单是"启动时从库里读一遍、之后一直在内存里"。换库后必须丢掉旧库的内容，
-            // 否则旧库吊销的 token 会挡住新库的正常登录；反过来更糟 ——
-            // 新库已吊销的 token 在内存里查不到，会被当成有效。
-            com.mtxgdn.util.TokenBlacklist.clear();
-        });
-    }
 }

@@ -67,6 +67,20 @@ public class DatabaseManager {
         }
     }
 
+    /**
+     * 注销一个换库回调。
+     *
+     * <p>服务的构造已经搬到 {@link com.mtxgdn.common.service.ServiceContainer}，
+     * 而容器是可以被替换的（测试里每个类拿一个干净容器）。若只登记不注销，
+     * 每换一次容器就多一个回调，它们全都指向已经废弃的实例 ——
+     * 换库时对着旧实例清缓存，新实例的缓存反而没清。</p>
+     */
+    public static void removeReinitListener(Runnable listener) {
+        if (listener != null) {
+            REINIT_LISTENERS.remove(listener);
+        }
+    }
+
     /** 通知所有登记方"库已换，请丢掉缓存"。单个回调失败不得影响其它回调，更不得中断 init。 */
     private static void fireReinitListeners() {
         for (Runnable listener : REINIT_LISTENERS) {

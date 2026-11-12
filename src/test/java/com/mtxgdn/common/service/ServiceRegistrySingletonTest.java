@@ -60,8 +60,11 @@ class ServiceRegistrySingletonTest extends TestBase {
         try (Stream<Path> files = Files.walk(Paths.get("src/main/java"))) {
             for (Path file : files.filter(p -> p.toString().endsWith(".java")).toList()) {
                 String name = file.getFileName().toString();
-                if (name.equals("ServiceRegistry.java") || name.equals("TeamService.java")) {
-                    continue; // 注册表本身与单例自身的构造点是合法的
+                if (name.equals("ServiceRegistry.java") || name.equals("TeamService.java")
+                        || name.equals("ServiceContainer.java")) {
+                    // 服务的构造点现在集中在 ServiceContainer —— 那是唯一合法的地方。
+                    // ServiceRegistry 只剩委托，白名单里留着它是因为旧版本曾在这里 new。
+                    continue;
                 }
                 String source = Files.readString(file);
                 for (String service : STATEFUL_SERVICES) {

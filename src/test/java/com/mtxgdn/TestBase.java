@@ -32,6 +32,12 @@ public class TestBase {
         // INSERT，肇事者早已跑完，堆栈也早没了。
         stopBackgroundSchedulers();
 
+        // 服务实例也要重置：整个测试进程共用一个 JVM（forkCount=0），服务单例从不销毁，
+        // 上一个测试类留在实例里的状态会漏到下一个类。换容器不会停调度器，
+        // 所以必须放在 stopBackgroundSchedulers 之后 —— 否则新容器刚建好，
+        // 旧容器的调度线程还在往正在重建的库里写。
+        com.mtxgdn.common.service.ServiceRegistry.reset();
+
         File dbFile = testDbFile("xiuxian_test.db");
         if (dbFile.exists()) {
             dbFile.delete();
