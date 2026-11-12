@@ -1,4 +1,6 @@
 package com.mtxgdn.game.service;
+import com.mtxgdn.game.entity.SuccessionOutcome;
+
 
 import com.mtxgdn.game.sect.ContestResult;
 import com.mtxgdn.game.sect.StepDownResult;
@@ -257,8 +259,8 @@ class SectSuccessionTest extends TestBase {
         long now = now();
         markAbsent(sectId, now);
 
-        SectService.SuccessionOutcome first = sectService.resolveSuccession(sectId, now);
-        SectService.SuccessionOutcome second = sectService.resolveSuccession(sectId, now);
+        SuccessionOutcome first = sectService.resolveSuccession(sectId, now);
+        SuccessionOutcome second = sectService.resolveSuccession(sectId, now);
 
         assertTrue(first.succeeded, first.note);
         assertEquals(heir, first.successorId);

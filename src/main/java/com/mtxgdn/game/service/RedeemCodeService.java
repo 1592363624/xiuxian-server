@@ -9,8 +9,9 @@ import com.mtxgdn.common.service.ServiceRegistry;
 import java.sql.Timestamp;
 import java.util.List;
 import java.util.Map;
+import com.mtxgdn.api.RedeemCodeApi;
 
-public class RedeemCodeService {
+public class RedeemCodeService implements RedeemCodeApi {
 
     private static final Gson gson = new Gson();
     private final PlayerService playerService = ServiceRegistry.getPlayerService();

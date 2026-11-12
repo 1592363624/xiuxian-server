@@ -1,4 +1,6 @@
 package com.mtxgdn.game.service;
+import com.mtxgdn.game.entity.SuccessionOutcome;
+
 
 import com.mtxgdn.TestBase;
 import org.junit.jupiter.api.DisplayName;
@@ -92,7 +94,7 @@ class SectServiceSplitTest extends TestBase {
             "public com.mtxgdn.game.sect.SectActionResult transferLeader(long, long)",
             "public com.mtxgdn.game.sect.WarResult declareWar(long, long)",
             "public com.mtxgdn.game.sect.StepDownResult stepDown(long)",
-            "public com.mtxgdn.game.service.SectService$SuccessionOutcome resolveSuccession(long, long)",
+            "public com.mtxgdn.game.entity.SuccessionOutcome resolveSuccession(long, long)",
             "public com.mtxgdn.game.sect.ContestResult challengeLeader(long, boolean)",
             "public java.lang.String leadershipStatus(com.mtxgdn.game.entity.Sect)",
             "public int sweepLeaderSuccession(long)",
@@ -109,11 +111,21 @@ class SectServiceSplitTest extends TestBase {
             "public int sweepSalaries(long)");
 
     /**
-     * {@code javap -public com.mtxgdn.game.service.SectService$SuccessionOutcome}
-     * 在拆分前导出的公开成员清单。调用方（{@code SectSuccessionTest} 等）直接引用这个
-     * 嵌套类型，因此它必须留在门面里、形状不能变。
+     * {@code javap -public com.mtxgdn.game.entity.SuccessionOutcome}
+     * 的公开成员清单。调用方（{@code SectSuccessionTest} 等）直接使用这个类型，
+     * 因此它必须保持形状不变。
+     *
+     * <p>它原本是 {@code SectService} 的内部嵌套类。抽插件接口时遇到一个绕不开的问题：
+     * 接口若声明 {@code SectService.SuccessionOutcome}，就必须 import 服务实现类 ——
+     * 那正是要消除的依赖。所以把它提到 {@code com.mtxgdn.game.entity}：
+     * 它本来就是纯数据，和服务的生命周期无关。公开成员一个字没改，
+     * 只是全限定名变了（下面的清单同步更新）。</p>
      */
     private static final List<String> GOLDEN_OUTCOME_API = List.of(
+            // 搬出 SectService 后这三项必须是 public：原来同包可见，换包后包级私有就访问不到了
+            "public com.mtxgdn.game.entity.SuccessionOutcome(boolean, long, java.lang.String, long, java.lang.String, long, java.lang.String)",
+            "public static com.mtxgdn.game.entity.SuccessionOutcome none(java.lang.String)",
+            "public static com.mtxgdn.game.entity.SuccessionOutcome success(long, java.lang.String, long, java.lang.String, long)",
             "public final boolean succeeded",
             "public final long successorId",
             "public final java.lang.String successorName",
@@ -146,7 +158,7 @@ class SectServiceSplitTest extends TestBase {
     @Test
     @DisplayName("门面: 嵌套类 SuccessionOutcome 的形状不变")
     void nestedSuccessionOutcomeShapeIsUnchanged() {
-        List<String> actual = describePublicApi(SectService.SuccessionOutcome.class);
+        List<String> actual = describePublicApi(SuccessionOutcome.class);
         assertEquals(GOLDEN_OUTCOME_API.stream().sorted().toList(), actual,
                 "SuccessionOutcome 的公开字段与方法被调用方直接使用，不能改名或改类型");
     }

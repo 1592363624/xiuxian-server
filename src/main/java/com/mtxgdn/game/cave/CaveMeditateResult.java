@@ -1,4 +1,6 @@
 package com.mtxgdn.game.cave;
+import com.mtxgdn.game.entity.HeartDemonResult;
+
 
 import com.mtxgdn.game.service.HeartDemonService;
 
@@ -19,14 +21,14 @@ public record CaveMeditateResult(
         String message,
         Long expGain,
         Integer bonus,
-        HeartDemonService.HeartDemonResult heartDemon) {
+        HeartDemonResult heartDemon) {
 
     public static CaveMeditateResult rejected(String message) {
         return new CaveMeditateResult(false, message, null, null, null);
     }
 
     public static CaveMeditateResult meditated(
-            String message, long expGain, int bonus, HeartDemonService.HeartDemonResult heartDemon) {
+            String message, long expGain, int bonus, HeartDemonResult heartDemon) {
         return new CaveMeditateResult(true, message, expGain, bonus, heartDemon);
     }
 }

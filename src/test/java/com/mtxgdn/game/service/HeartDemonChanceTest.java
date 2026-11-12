@@ -1,4 +1,6 @@
 package com.mtxgdn.game.service;
+import com.mtxgdn.game.entity.HeartDemonResult;
+
 
 import com.mtxgdn.TestBase;
 import com.mtxgdn.common.service.ServiceRegistry;
@@ -45,7 +47,7 @@ class HeartDemonChanceTest extends TestBase {
         HeartDemonService service = ServiceRegistry.getHeartDemonService();
         int triggered = 0;
         for (int i = 0; i < TRIALS; i++) {
-            HeartDemonService.HeartDemonResult result =
+            HeartDemonResult result =
                     service.processCultivation(playerId, 1000, 3600);
             if (result.triggered) {
                 triggered++;

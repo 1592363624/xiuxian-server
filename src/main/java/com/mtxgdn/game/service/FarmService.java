@@ -17,8 +17,9 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.*;
 import com.mtxgdn.i18n.I18n;
+import com.mtxgdn.api.FarmApi;
 
-public class FarmService {
+public class FarmService implements FarmApi {
 
     private static final GameLogger LOG = GameLogger.getLogger(FarmService.class);
     private static final int DEFAULT_PLOTS = 4;

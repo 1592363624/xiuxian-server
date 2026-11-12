@@ -10,8 +10,9 @@ import java.util.*;
 import com.mtxgdn.common.result.OperationResult;
 import com.mtxgdn.game.title.TitleChangeResult;
 import com.mtxgdn.i18n.I18n;
+import com.mtxgdn.api.TitleApi;
 
-public class TitleService {
+public class TitleService implements TitleApi {
 
     private static final com.mtxgdn.util.GameLogger LOG =
             com.mtxgdn.util.GameLogger.getLogger(TitleService.class);

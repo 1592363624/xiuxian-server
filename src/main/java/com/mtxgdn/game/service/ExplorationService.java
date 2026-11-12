@@ -17,8 +17,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import com.mtxgdn.api.ExplorationApi;
 
-public class ExplorationService {
+public class ExplorationService implements ExplorationApi {
 
     /** 游历基础冷却 5 分钟（原 60 秒导致每天可刷上千次，灵石/物品产出失控） */
     public static final long BASE_COOLDOWN_MS = 300_000;

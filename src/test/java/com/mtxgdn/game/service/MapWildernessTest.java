@@ -1,4 +1,6 @@
 package com.mtxgdn.game.service;
+import com.mtxgdn.game.entity.CombatResult;
+
 
 import com.mtxgdn.game.map.GatherResult;
 import com.mtxgdn.game.map.TravelResult;
@@ -769,7 +771,7 @@ class MapWildernessTest extends TestBase {
         long challengerBefore = ServiceRegistry.getItemService().getSpiritStoneCount(challenger);
         long targetBefore = ServiceRegistry.getItemService().getSpiritStoneCount(target);
 
-        CombatService.CombatResult result = new CombatService().pvpChallenge(challenger, target);
+        CombatResult result = new CombatService().pvpChallenge(challenger, target);
         assertTrue(result.isSuccess(), "试炼场应允许私斗，实际: " + result.getMessage());
 
         long loot = result.getSpiritStonesLooted();

@@ -1,4 +1,7 @@
 package com.mtxgdn.game.service;
+import com.mtxgdn.game.entity.CombatResult;
+import com.mtxgdn.game.entity.PendingChallenge;
+
 
 import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.db.CombatDAO;
@@ -16,8 +19,9 @@ import com.mtxgdn.game.service.SeasonService;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import com.mtxgdn.api.CombatApi;
 
-public class CombatService {
+public class CombatService implements CombatApi {
 
     private final PlayerService playerService;
     private final SkillService skillService;
@@ -25,21 +29,6 @@ public class CombatService {
 
     private static final long CHALLENGE_TIMEOUT_MS = 30_000;
 
-    public static class PendingChallenge {
-        public final long challengerPlayerId;
-        public final String challengerName;
-        public final long targetPlayerId;
-        public final String targetName;
-        public final long createdAt;
-        public PendingChallenge(long challengerPlayerId, String challengerName, long targetPlayerId, String targetName) {
-            this.challengerPlayerId = challengerPlayerId;
-            this.challengerName = challengerName;
-            this.targetPlayerId = targetPlayerId;
-            this.targetName = targetName;
-            this.createdAt = System.currentTimeMillis();
-        }
-        public boolean isExpired() { return System.currentTimeMillis() - createdAt > CHALLENGE_TIMEOUT_MS; }
-    }
 
     /** 战斗中的可变状态：HP/MP 通过引用传递，回合函数直接修改，避免值拷贝导致判定失效 */
     private static class BattleState {
@@ -1384,59 +1373,4 @@ public class CombatService {
         return result;
     }
 
-    public static class CombatResult {
-        private boolean success;
-        private boolean pending;
-        private String winner;
-        private boolean challengerWon;
-        private String challengerName;
-        private String targetName;
-        private int challengerRemainingHp;
-        private int targetRemainingHp;
-        private int totalRounds;
-        private long expReward;
-        private long goldReward;
-        /** 险地 PK 从败者身上掠夺到的灵石（危险度 <3 的地点恒为 0）。 */
-        private long spiritStonesLooted;
-        private List<String> battleLog;
-        private String message;
-
-        public CombatResult() {}
-
-        public static CombatResult failure(String message) {
-            CombatResult r = new CombatResult();
-            r.success = false;
-            r.message = message;
-            return r;
-        }
-
-        public boolean isSuccess() { return success; }
-        public void setSuccess(boolean success) { this.success = success; }
-        public boolean isPending() { return pending; }
-        public void setPending(boolean pending) { this.pending = pending; }
-        public String getWinner() { return winner; }
-        public void setWinner(String winner) { this.winner = winner; }
-        public boolean isChallengerWon() { return challengerWon; }
-        public void setChallengerWon(boolean challengerWon) { this.challengerWon = challengerWon; }
-        public String getChallengerName() { return challengerName; }
-        public void setChallengerName(String challengerName) { this.challengerName = challengerName; }
-        public String getTargetName() { return targetName; }
-        public void setTargetName(String targetName) { this.targetName = targetName; }
-        public int getChallengerRemainingHp() { return challengerRemainingHp; }
-        public void setChallengerRemainingHp(int challengerRemainingHp) { this.challengerRemainingHp = challengerRemainingHp; }
-        public int getTargetRemainingHp() { return targetRemainingHp; }
-        public void setTargetRemainingHp(int targetRemainingHp) { this.targetRemainingHp = targetRemainingHp; }
-        public int getTotalRounds() { return totalRounds; }
-        public void setTotalRounds(int totalRounds) { this.totalRounds = totalRounds; }
-        public long getExpReward() { return expReward; }
-        public void setExpReward(long expReward) { this.expReward = expReward; }
-        public long getGoldReward() { return goldReward; }
-        public void setGoldReward(long goldReward) { this.goldReward = goldReward; }
-        public long getSpiritStonesLooted() { return spiritStonesLooted; }
-        public void setSpiritStonesLooted(long spiritStonesLooted) { this.spiritStonesLooted = spiritStonesLooted; }
-        public List<String> getBattleLog() { return battleLog; }
-        public void setBattleLog(List<String> battleLog) { this.battleLog = battleLog; }
-        public String getMessage() { return message; }
-        public void setMessage(String message) { this.message = message; }
-    }
 }

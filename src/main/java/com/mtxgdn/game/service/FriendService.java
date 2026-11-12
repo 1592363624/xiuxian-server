@@ -18,8 +18,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import com.mtxgdn.i18n.I18n;
+import com.mtxgdn.api.FriendApi;
 
-public class FriendService {
+public class FriendService implements FriendApi {
 
     private final PlayerService playerService;
     private static final FriendDAO FRIEND_DAO = new FriendDAO();

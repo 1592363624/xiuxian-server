@@ -1,4 +1,6 @@
 package com.mtxgdn.db;
+import com.mtxgdn.game.entity.TradeListing;
+
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -209,10 +211,10 @@ class TradeDaoExtractionTest extends DaoExtractionAssertions {
     @DisplayName("通用的 queryListings 刻意是 private")
     void genericQueryIsPrivate() throws IOException {
         String code = stripComments(read(daoPath()));
-        assertTrue(code.contains("private List<TradeService.TradeListing> queryListings(Connection conn, String sql,"),
+        assertTrue(code.contains("private List<TradeListing> queryListings(Connection conn, String sql,"),
                 "做成 public 就得配 Connection 首参重载，而「调用方自己拼一条 "
                         + "trade_listings 的 SQL」正是抽取想消除的东西");
-        assertTrue(code.contains("private List<TradeService.TradeListing> queryListings("),
+        assertTrue(code.contains("private List<TradeListing> queryListings("),
                 "坊市只有两条查询，都走具名 public 入口");
     }
 
@@ -234,7 +236,7 @@ class TradeDaoExtractionTest extends DaoExtractionAssertions {
     void activeListingForUpdateLocksAndFilters() throws IOException {
         String code = stripComments(read(daoPath()));
         String body = bodyOf(code,
-                "public TradeService.TradeListing findActiveListingForUpdate(Connection conn, long listingId,");
+                "public TradeListing findActiveListingForUpdate(Connection conn, long listingId,");
         assertTrue(body.contains("SELECT * FROM trade_listings WHERE id = ? AND status = 'active' "),
                 "按 id 与在售状态");
         assertTrue(body.contains("AND (expires_at IS NULL OR expires_at > ?)"),
@@ -297,7 +299,7 @@ class TradeDaoExtractionTest extends DaoExtractionAssertions {
     @DisplayName("expiresAt 的 0 表示永不过期")
     void mappingKeepsZeroMeansNeverExpires() throws IOException {
         String code = stripComments(read(daoPath()));
-        String body = bodyOf(code, "private static TradeService.TradeListing mapListing(ResultSet rs)");
+        String body = bodyOf(code, "private static TradeListing mapListing(ResultSet rs)");
         assertTrue(body.contains("l.expiresAt = exp != null ? exp.getTime() : 0L"),
                 "getTimestamp 返回 NULL 时写 0，与 remainingMs() 的 <= 0 → -1 对应。"
                         + "不能改成 Long 装箱 —— 那是公开 API");

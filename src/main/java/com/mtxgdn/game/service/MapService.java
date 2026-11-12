@@ -34,6 +34,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 import com.mtxgdn.i18n.I18n;
+import com.mtxgdn.api.MapApi;
 
 /**
  * 游戏地图服务 —— 管理地点、路线和玩家移动。
@@ -66,7 +67,7 @@ import com.mtxgdn.i18n.I18n;
  * 仍在本类里开连接的地方只有四处，且都是"多条语句必须共用同一条连接"的场景
  * （整段地图加载、探索记录 + 首达奖励、一轮分片扫描、发物品 + 采集冷却）。</p>
  */
-public class MapService {
+public class MapService implements MapApi {
 
     private static final GameLogger LOG = GameLogger.getLogger(MapService.class);
 

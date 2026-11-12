@@ -1,4 +1,6 @@
 package com.mtxgdn.game.command.cultivation;
+import com.mtxgdn.game.entity.GuideResult;
+
 
 import com.mtxgdn.game.cultivation.BeginCultivationResult;
 import com.mtxgdn.common.command.Command;
@@ -53,7 +55,7 @@ public class CultivateCommand extends Command {
                 + "闭关地点: " + result.locationName() + "（灵气 ×" + locationMultiplier + "）\n"
                 + "使用 /停止 结束打坐并结算灵力";
 
-        NewbieGuideService.GuideResult guide = ServiceRegistry.getGuideService()
+        GuideResult guide = ServiceRegistry.getGuideService()
                 .checkAndAdvance((int) p.getId(), p, "cultivate_start");
         if (guide.message != null) msg += "\n\n💡 " + guide.message;
 

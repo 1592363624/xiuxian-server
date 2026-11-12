@@ -16,8 +16,9 @@ import com.mtxgdn.util.GameLogger;
 import java.sql.SQLException;
 import java.util.*;
 import com.mtxgdn.i18n.I18n;
+import com.mtxgdn.api.CraftingApi;
 
-public class CraftingService {
+public class CraftingService implements CraftingApi {
 
     private static final GameLogger LOG = GameLogger.getLogger(CraftingService.class);
     private final PlayerService playerService = ServiceRegistry.getPlayerService();

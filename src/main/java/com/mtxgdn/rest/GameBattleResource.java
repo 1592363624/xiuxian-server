@@ -1,4 +1,6 @@
 package com.mtxgdn.rest;
+import com.mtxgdn.game.entity.CombatResult;
+
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -151,7 +153,7 @@ public class GameBattleResource {
             return Response.ok(GameMessage.restError(GameErrorCode.PARAM_MISSING).toString()).build();
         }
 
-        CombatService.CombatResult combatResult = combatService.pvpChallenge(challengerPlayerId, targetPlayerId);
+        CombatResult combatResult = combatService.pvpChallenge(challengerPlayerId, targetPlayerId);
 
         actionLog.logCombat(userId, getPlayerName(userId), "PVP",
                 combatResult.getTargetName(), combatResult.isChallengerWon(), combatResult.getMessage());

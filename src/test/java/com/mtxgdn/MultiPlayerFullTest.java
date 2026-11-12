@@ -329,10 +329,10 @@ public class MultiPlayerFullTest {
         assertTrue(added2);
 
         // 背包查看
-        List<ItemService.InventoryEntry> inv = itemService.getInventory(p1.playerId);
+        List<InventoryEntry> inv = itemService.getInventory(p1.playerId);
         assertTrue(inv.size() >= 2, "背包应至少有2种物品，实际 " + inv.size());
         System.out.println("  ✓ 背包物品数=" + inv.size());
-        for (ItemService.InventoryEntry e : inv) {
+        for (InventoryEntry e : inv) {
             System.out.println("    - " + e.getItem().getName() + " x" + e.getQuantity());
         }
 
@@ -442,7 +442,7 @@ public class MultiPlayerFullTest {
         TestPlayer p4 = PLAYERS.get("p4");
 
         // 直接PVP
-        CombatService.CombatResult result = combatService.pvpChallenge(p3.playerId, p4.playerId);
+        CombatResult result = combatService.pvpChallenge(p3.playerId, p4.playerId);
         System.out.println("  " + (result.isSuccess()?"✓":"○") + " PVP: " + result.getMessage());
         if (result.isSuccess()) {
             System.out.println("    挑战者=" + result.getChallengerName() +

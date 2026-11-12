@@ -1,4 +1,6 @@
 package com.mtxgdn.websocket;
+import com.mtxgdn.game.entity.OfflineRewardResult;
+
 
 import com.google.gson.JsonObject;
 import com.mtxgdn.common.GameErrorCode;
@@ -294,7 +296,7 @@ public class GameWebSocketApp extends WebSocketApplication implements WsContext 
                             .data("username", username)
                             .build());
 
-            OfflineRewardService.OfflineRewardResult offlineReward =
+            OfflineRewardResult offlineReward =
                     ServiceRegistry.getOfflineRewardService().processOfflineRewards(userId);
 
             JsonObject welcomeData = new JsonObject();

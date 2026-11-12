@@ -1,4 +1,6 @@
 package com.mtxgdn.rest;
+import com.mtxgdn.game.entity.OfflineRewardResult;
+
 
 import com.mtxgdn.playerdata.PlayerDataResult;
 import com.mtxgdn.game.cultivation.HealResult;
@@ -93,7 +95,7 @@ public class GamePlayerResource {
             return Response.ok(result.toString()).build();
         }
 
-        OfflineRewardService.OfflineRewardResult offlineReward =
+        OfflineRewardResult offlineReward =
                 ServiceRegistry.getOfflineRewardService().processOfflineRewards(userId);
 
         JsonObject data = gson.toJsonTree(player).getAsJsonObject();

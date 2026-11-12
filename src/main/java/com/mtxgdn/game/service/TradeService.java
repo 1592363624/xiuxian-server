@@ -1,4 +1,6 @@
 package com.mtxgdn.game.service;
+import com.mtxgdn.game.entity.TradeListing;
+
 
 import com.mtxgdn.game.trade.MarketQuote;
 import com.mtxgdn.game.trade.TradeResult;
@@ -22,8 +24,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import com.mtxgdn.api.TradeApi;
 
-public class TradeService {
+public class TradeService implements TradeApi {
 
     private static final GameLogger LOG = GameLogger.getLogger(TradeService.class);
 
@@ -456,25 +459,4 @@ public class TradeService {
     }
 
 
-    public static class TradeListing {
-        public long id;
-        public long sellerPlayerId;
-        public String itemKey;
-        public int quantity;
-        public long priceSpiritStones;
-        public long fee;
-        public String createdAt;
-        /** 到期时间戳（毫秒）；0 表示永不过期（历史遗留挂单）。 */
-        public long expiresAt;
-
-        /** 剩余有效毫秒数；永不过期返回 -1。 */
-        public long remainingMs() {
-            return expiresAt <= 0 ? -1L : Math.max(0L, expiresAt - System.currentTimeMillis());
-        }
-
-        /** 单价（总价 ÷ 数量）。 */
-        public long unitPrice() {
-            return quantity > 0 ? Math.max(1L, priceSpiritStones / quantity) : priceSpiritStones;
-        }
-    }
 }

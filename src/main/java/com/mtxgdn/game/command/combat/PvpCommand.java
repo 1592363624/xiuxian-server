@@ -1,4 +1,6 @@
 package com.mtxgdn.game.command.combat;
+import com.mtxgdn.game.entity.CombatResult;
+
 
 import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandContext;
@@ -108,7 +110,7 @@ public class PvpCommand extends Command {
         } catch (Exception ignored) {}
     }
 
-    private void sendBattleReport(CommandContext ctx, PlayerInfo p, CombatService.CombatResult result, String myName) {
+    private void sendBattleReport(CommandContext ctx, PlayerInfo p, CombatResult result, String myName) {
         List<String> log = result.getBattleLog();
         if (log == null || log.isEmpty()) return;
 

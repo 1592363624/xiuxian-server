@@ -1,4 +1,6 @@
 package com.mtxgdn.game.service;
+import com.mtxgdn.game.entity.CombatResult;
+
 
 import com.mtxgdn.game.map.TravelResult;
 import com.mtxgdn.TestBase;
@@ -305,7 +307,7 @@ class MapServiceTest extends TestBase {
         long challenger = createPlayer(3, TAIXU_CITY);
         long target = createPlayer(3, QINGYUN_MOUNTAIN);
 
-        CombatService.CombatResult result = new CombatService().createChallenge(challenger, target);
+        CombatResult result = new CombatService().createChallenge(challenger, target);
 
         assertFalse(result.isSuccess());
         assertTrue(result.getMessage().contains("安全区"), result.getMessage());
@@ -317,7 +319,7 @@ class MapServiceTest extends TestBase {
         long challenger = createPlayer(3, QINGYUN_MOUNTAIN);
         long target = createPlayer(3, LINGYAO_VALLEY);
 
-        CombatService.CombatResult result = new CombatService().createChallenge(challenger, target);
+        CombatResult result = new CombatService().createChallenge(challenger, target);
 
         assertTrue(result.isSuccess(), result.getMessage());
     }

@@ -14,8 +14,9 @@ import com.mtxgdn.game.secretrealm.SecretRealm;
 import com.mtxgdn.game.secretrealm.SecretRealmRegistry;
 
 import java.util.*;
+import com.mtxgdn.api.SecretRealmApi;
 
-public class SecretRealmService {
+public class SecretRealmService implements SecretRealmApi {
 
     private final PlayerService playerService;
     private final ItemService itemService;

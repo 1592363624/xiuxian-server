@@ -1,4 +1,6 @@
 package com.mtxgdn.game.command.player;
+import com.mtxgdn.game.entity.OfflineRewardResult;
+
 
 import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandContext;
@@ -27,7 +29,7 @@ public class StatusCommand extends Command {
         if (p == null) return;
 
         Long userId = ctx.requireBinding();
-        OfflineRewardService.OfflineRewardResult offlineReward =
+        OfflineRewardResult offlineReward =
                 ServiceRegistry.getOfflineRewardService().processOfflineRewards(userId);
 
         StringBuilder sb = new StringBuilder();

@@ -19,8 +19,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import com.mtxgdn.i18n.I18n;
+import com.mtxgdn.api.SkillApi;
 
-public class SkillService {
+public class SkillService implements SkillApi {
 
     private static final GameLogger LOG = GameLogger.getLogger(SkillService.class);
     private final PlayerService playerService = ServiceRegistry.getPlayerService();

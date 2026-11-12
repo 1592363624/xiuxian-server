@@ -33,8 +33,9 @@ import java.util.concurrent.TimeUnit;
 import com.mtxgdn.i18n.I18n;
 import com.mtxgdn.util.AppConfig;
 import com.mtxgdn.util.GameLogger;
+import com.mtxgdn.api.EconomyApi;
 
-public class EconomyService {
+public class EconomyService implements EconomyApi {
 
     private static final GameLogger LOG = GameLogger.getLogger(EconomyService.class);
 

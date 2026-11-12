@@ -1,4 +1,6 @@
 package com.mtxgdn.rest;
+import com.mtxgdn.game.entity.HeartDemonResult;
+
 
 import com.mtxgdn.game.cultivation.BeginCultivationResult;
 import com.mtxgdn.game.cultivation.FinishCultivationResult;
@@ -184,7 +186,7 @@ public class GameRealmResource {
         int elapsedSeconds = result.elapsedSeconds().intValue();
         long expGained = result.rawExpGained();
 
-        HeartDemonService.HeartDemonResult hdResult = heartDemonService.processCultivation(
+        HeartDemonResult hdResult = heartDemonService.processCultivation(
                 player.getId(), expGained, elapsedSeconds);
         long netExp = hdResult.netExpChange;
         if (netExp != 0) {

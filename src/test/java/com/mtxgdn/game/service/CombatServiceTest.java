@@ -1,4 +1,6 @@
 package com.mtxgdn.game.service;
+import com.mtxgdn.game.entity.PendingChallenge;
+
 
 import com.mtxgdn.db.DatabaseManager;
 import com.mtxgdn.game.entity.Monster;
@@ -84,7 +86,7 @@ class CombatServiceTest {
     @Order(2)
     @DisplayName("PendingChallenge 应正确判断超时")
     void testPendingChallengeExpiration() {
-        var challenge = new CombatService.PendingChallenge(player1Id, "战斗甲", player2Id, "战斗乙");
+        var challenge = new PendingChallenge(player1Id, "战斗甲", player2Id, "战斗乙");
         assertFalse(challenge.isExpired());
     }
 

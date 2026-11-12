@@ -1,4 +1,6 @@
 package com.mtxgdn.game.command.cultivation;
+import com.mtxgdn.game.entity.GuideResult;
+
 
 import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandContext;
@@ -80,7 +82,7 @@ public class BreakthroughCommand extends Command {
             PlayerInfo updated = playerService.getPlayerByUserId(userId);
             sb.append("\n\n").append(CommandContext.formatPlayerStatus(updated));
 
-            NewbieGuideService.GuideResult guide = ServiceRegistry.getGuideService()
+            GuideResult guide = ServiceRegistry.getGuideService()
                     .checkAndAdvance((int) updated.getId(), updated, "breakthrough");
             if (guide.message != null) sb.append("\n\n💡 ").append(guide.message);
         } else if (result.isHasTribulation()) {

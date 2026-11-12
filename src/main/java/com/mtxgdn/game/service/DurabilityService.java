@@ -16,6 +16,7 @@ import java.sql.SQLException;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import com.mtxgdn.api.DurabilityApi;
 
 /**
  * 装备耐久与修理。
@@ -33,7 +34,7 @@ import java.util.Map;
  *       逼玩家先修理再换装，否则"损坏→卸下→装上"又是一次免费重置。</li>
  * </ol>
  */
-public class DurabilityService {
+public class DurabilityService implements DurabilityApi {
 
     private static final GameLogger LOG = GameLogger.getLogger(DurabilityService.class);
 

@@ -8,8 +8,9 @@ import com.mtxgdn.game.item.ItemRegistry;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import com.mtxgdn.api.EnergyApi;
 
-public class EnergyService {
+public class EnergyService implements EnergyApi {
 
     /** {@code player_energy} 的读写入口（无状态，可共享）。 */
     private static final EnergyDAO ENERGY_DAO = new EnergyDAO();

@@ -12,6 +12,7 @@ import com.mtxgdn.util.GameLogger;
 
 import java.sql.SQLException;
 import java.util.List;
+import com.mtxgdn.api.TechniqueApi;
 
 /**
  * 功法系统的业务入口。
@@ -25,7 +26,7 @@ import java.util.List;
  * {@link DatabaseManager#runTransaction} 的 lambda 内执行；
  * DAO 自己不会另开连接，否则 SQLite 下会撞 {@code SQLITE_BUSY_SNAPSHOT}。</p>
  */
-public class TechniqueService {
+public class TechniqueService implements TechniqueApi {
 
     private static final GameLogger LOG = GameLogger.getLogger(TechniqueService.class);
     private static final int MAX_EQUIPPED = 3;

@@ -19,8 +19,9 @@ import java.time.LocalTime;
 import java.util.Map;
 import java.util.Random;
 import com.mtxgdn.i18n.I18n;
+import com.mtxgdn.api.DailyApi;
 
-public class DailyService {
+public class DailyService implements DailyApi {
 
     private static final GameLogger LOG = GameLogger.getLogger(DailyService.class);
     private final PlayerService playerService = ServiceRegistry.getPlayerService();

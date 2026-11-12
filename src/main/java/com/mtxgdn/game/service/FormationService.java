@@ -19,8 +19,9 @@ import java.util.concurrent.TimeUnit;
 import com.mtxgdn.i18n.I18n;
 
 import java.sql.SQLException;
+import com.mtxgdn.api.FormationApi;
 
-public class FormationService {
+public class FormationService implements FormationApi {
 
     private static final GameLogger LOG = GameLogger.getLogger(FormationService.class);
 

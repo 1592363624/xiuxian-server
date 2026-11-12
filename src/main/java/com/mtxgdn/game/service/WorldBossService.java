@@ -21,6 +21,7 @@ import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 import com.mtxgdn.game.worldboss.WorldBossChallengeResult;
 import com.mtxgdn.i18n.I18n;
+import com.mtxgdn.api.WorldBossApi;
 
 /**
  * 世界 Boss（B6）：全服共享血量 + 伤害分红 + 超发熔断。
@@ -49,7 +50,7 @@ import com.mtxgdn.i18n.I18n;
  *       {@code last_hit_at} 上，并用条件更新抢占，并发下只会有一次成功。</li>
  * </ol>
  */
-public class WorldBossService {
+public class WorldBossService implements WorldBossApi {
 
     private static final GameLogger LOG = GameLogger.getLogger(WorldBossService.class);
 

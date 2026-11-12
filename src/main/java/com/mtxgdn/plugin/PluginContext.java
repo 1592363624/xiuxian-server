@@ -12,7 +12,8 @@ import com.mtxgdn.game.entity.Title;
 import com.mtxgdn.game.secretrealm.SecretRealm;
 import com.mtxgdn.game.secretrealm.SecretRealmRegistry;
 import com.mtxgdn.game.title.TitleRegistry;
-import com.mtxgdn.game.service.*;
+import com.mtxgdn.api.*;
+import com.mtxgdn.game.service.EnergyService;
 import com.mtxgdn.permission.PermissionService;
 import com.mtxgdn.plugin.event.PluginEvent;
 import com.mtxgdn.plugin.event.PluginEventHandler;
@@ -284,26 +285,26 @@ public final class PluginContext {
 
     // ================ 服务访问快捷方法 =================
 
-    public PlayerService getPlayerService() { return core(PlayerService.class, ServiceRegistry::getPlayerService); }
-    public ItemService getItemService() { return core(ItemService.class, ServiceRegistry::getItemService); }
-    public EconomyService getEconomyService() { return core(EconomyService.class, ServiceRegistry::getEconomyService); }
-    public CombatService getCombatService() { return core(CombatService.class, ServiceRegistry::getCombatService); }
-    public SkillService getSkillService() { return core(SkillService.class, ServiceRegistry::getSkillService); }
-    public DailyService getDailyService() { return core(DailyService.class, ServiceRegistry::getDailyService); }
-    public ExplorationService getExplorationService() { return core(ExplorationService.class, ServiceRegistry::getExplorationService); }
-    public SecretRealmService getSecretRealmService() { return core(SecretRealmService.class, ServiceRegistry::getSecretRealmService); }
-    public SectService getSectService() { return core(SectService.class, ServiceRegistry::getSectService); }
-    public TechniqueService getTechniqueService() { return core(TechniqueService.class, ServiceRegistry::getTechniqueService); }
-    public CraftingService getCraftingService() { return core(CraftingService.class, ServiceRegistry::getCraftingService); }
-    public EnhanceService getEnhanceService() { return core(EnhanceService.class, ServiceRegistry::getEnhanceService); }
-    public ChatService getChatService() { return core(ChatService.class, ServiceRegistry::getChatService); }
-    public FriendService getFriendService() { return core(FriendService.class, ServiceRegistry::getFriendService); }
-    public HeartDemonService getHeartDemonService() { return core(HeartDemonService.class, ServiceRegistry::getHeartDemonService); }
-    public TradeService getTradeService() { return core(TradeService.class, ServiceRegistry::getTradeService); }
-    public NewbieGuideService getGuideService() { return core(NewbieGuideService.class, ServiceRegistry::getGuideService); }
-    public RealmService getRealmService() { return core(RealmService.class, ServiceRegistry::getRealmService); }
-    public EnergyService getEnergyService() { return core(EnergyService.class, ServiceRegistry::getEnergyService); }
-    public TitleService getTitleService() { return core(TitleService.class, ServiceRegistry::getTitleService); }
+    public PlayerApi getPlayerService() { return core(PlayerApi.class, ServiceRegistry::getPlayerService); }
+    public ItemApi getItemService() { return core(ItemApi.class, ServiceRegistry::getItemService); }
+    public EconomyApi getEconomyService() { return core(EconomyApi.class, ServiceRegistry::getEconomyService); }
+    public CombatApi getCombatService() { return core(CombatApi.class, ServiceRegistry::getCombatService); }
+    public SkillApi getSkillService() { return core(SkillApi.class, ServiceRegistry::getSkillService); }
+    public DailyApi getDailyService() { return core(DailyApi.class, ServiceRegistry::getDailyService); }
+    public ExplorationApi getExplorationService() { return core(ExplorationApi.class, ServiceRegistry::getExplorationService); }
+    public SecretRealmApi getSecretRealmService() { return core(SecretRealmApi.class, ServiceRegistry::getSecretRealmService); }
+    public SectApi getSectService() { return core(SectApi.class, ServiceRegistry::getSectService); }
+    public TechniqueApi getTechniqueService() { return core(TechniqueApi.class, ServiceRegistry::getTechniqueService); }
+    public CraftingApi getCraftingService() { return core(CraftingApi.class, ServiceRegistry::getCraftingService); }
+    public EnhanceApi getEnhanceService() { return core(EnhanceApi.class, ServiceRegistry::getEnhanceService); }
+    public ChatApi getChatService() { return core(ChatApi.class, ServiceRegistry::getChatService); }
+    public FriendApi getFriendService() { return core(FriendApi.class, ServiceRegistry::getFriendService); }
+    public HeartDemonApi getHeartDemonService() { return core(HeartDemonApi.class, ServiceRegistry::getHeartDemonService); }
+    public TradeApi getTradeService() { return core(TradeApi.class, ServiceRegistry::getTradeService); }
+    public GuideApi getGuideService() { return core(GuideApi.class, ServiceRegistry::getGuideService); }
+    public RealmApi getRealmService() { return core(RealmApi.class, ServiceRegistry::getRealmService); }
+    public EnergyApi getEnergyService() { return core(EnergyApi.class, ServiceRegistry::getEnergyService); }
+    public TitleApi getTitleService() { return core(TitleApi.class, ServiceRegistry::getTitleService); }
 
     /**
      * 服务解析：先查插件服务表，再回落到 {@code ServiceRegistry} 的静态单例。

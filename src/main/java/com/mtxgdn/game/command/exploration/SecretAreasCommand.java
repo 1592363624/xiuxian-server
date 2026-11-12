@@ -1,4 +1,6 @@
 package com.mtxgdn.game.command.exploration;
+import com.mtxgdn.game.entity.GuideResult;
+
 
 import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandContext;
@@ -51,7 +53,7 @@ public class SecretAreasCommand extends Command {
         sb.append("使用 /进入秘境 <秘境名称或序号> 进入");
         ctx.reply(sb.toString());
 
-        NewbieGuideService.GuideResult guide = ServiceRegistry.getGuideService()
+        GuideResult guide = ServiceRegistry.getGuideService()
                 .checkAndAdvance((int) p.getId(), p, "secret_areas");
         if (guide.message != null) ctx.reply(guide.message);
     }

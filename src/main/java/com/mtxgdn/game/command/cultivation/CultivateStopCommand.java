@@ -1,4 +1,7 @@
 package com.mtxgdn.game.command.cultivation;
+import com.mtxgdn.game.entity.HeartDemonResult;
+import com.mtxgdn.game.entity.GuideResult;
+
 
 import com.mtxgdn.game.cultivation.FinishCultivationResult;
 import com.mtxgdn.common.command.Command;
@@ -53,7 +56,7 @@ public class CultivateStopCommand extends Command {
         }
 
         // 心魔判定：直接按净收益发放，避免 QQ 端与 REST/WS 端行为不一致
-        HeartDemonService.HeartDemonResult heartDemon = heartDemonService.processCultivation(p.getId(), expGained, elapsedSeconds);
+        HeartDemonResult heartDemon = heartDemonService.processCultivation(p.getId(), expGained, elapsedSeconds);
         long netExp = heartDemon.netExpChange;
         if (netExp != 0) {
             playerService.addExperience(p.getId(), netExp);
@@ -79,7 +82,7 @@ public class CultivateStopCommand extends Command {
         PlayerInfo updated = playerService.getPlayerByUserId(userId);
         msg.append("\n\n").append(CommandContext.formatPlayerStatus(updated));
 
-        NewbieGuideService.GuideResult guide = guideService.checkAndAdvance(
+        GuideResult guide = guideService.checkAndAdvance(
                 (int) updated.getId(), updated, "cultivate_stop");
         if (guide.message != null) msg.append("\n\n💡 ").append(guide.message);
 

@@ -18,8 +18,9 @@ import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 import com.mtxgdn.i18n.I18n;
+import com.mtxgdn.api.EnhanceApi;
 
-public class EnhanceService {
+public class EnhanceService implements EnhanceApi {
 
     private static final GameLogger LOG = GameLogger.getLogger(EnhanceService.class);
     private static final int MAX_ENHANCE_LEVEL = 15;

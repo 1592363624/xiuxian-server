@@ -24,6 +24,7 @@ import com.mtxgdn.game.cultivation.BeginCultivationResult;
 import com.mtxgdn.game.cultivation.FinishCultivationResult;
 import com.mtxgdn.game.cultivation.HealResult;
 import com.mtxgdn.i18n.I18n;
+import com.mtxgdn.api.PlayerApi;
 
 /**
  * 角色（{@code players}）相关的业务逻辑。
@@ -42,7 +43,7 @@ import com.mtxgdn.i18n.I18n;
  * 它们把连接原样交给 {@link PlayerDAO}，绝不会在事务里另开连接
  * （SQLite 下那会抛 {@code SQLITE_BUSY_SNAPSHOT} 或读到旧快照）。</p>
  */
-public class PlayerService {
+public class PlayerService implements PlayerApi {
 
     private static final GameLogger LOG = GameLogger.getLogger(PlayerService.class);
 

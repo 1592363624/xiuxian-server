@@ -1,4 +1,6 @@
 package com.mtxgdn.qq;
+import com.mtxgdn.game.entity.OfflineRewardResult;
+
 
 import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandRegistry;
@@ -209,7 +211,7 @@ final class QqMessageRouter {
 
     private void processOfflineReward(String senderQq, Long userId) {
         OfflineRewardService offlineService = ServiceRegistry.getOfflineRewardService();
-        OfflineRewardService.OfflineRewardResult result = offlineService.processOfflineRewards(userId);
+        OfflineRewardResult result = offlineService.processOfflineRewards(userId);
 
         if (!result.hasReward) {
             return;

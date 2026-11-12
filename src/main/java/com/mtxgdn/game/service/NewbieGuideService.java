@@ -1,11 +1,14 @@
 package com.mtxgdn.game.service;
+import com.mtxgdn.game.entity.GuideResult;
+
 
 import com.mtxgdn.common.service.ServiceRegistry;
 
 import com.mtxgdn.game.entity.PlayerInfo;
 import com.mtxgdn.game.entity.SpiritualRoot;
+import com.mtxgdn.api.GuideApi;
 
-public class NewbieGuideService {
+public class NewbieGuideService implements GuideApi {
 
     private final PlayerService playerService = ServiceRegistry.getPlayerService();
 
@@ -31,9 +34,6 @@ public class NewbieGuideService {
         { SpiritualRoot.XUANBING_ICE.name(), "玄冰灵根——冰封万里，寒彻骨髓。技能伤害更高。" },
     };
 
-    public static class GuideResult {
-        public String message;
-    }
 
     public GuideResult checkAndAdvance(long playerId, PlayerInfo player, String action) {
         GuideResult result = new GuideResult();

@@ -16,8 +16,9 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import com.mtxgdn.api.RealmApi;
 
-public class RealmService {
+public class RealmService implements RealmApi {
 
     private final PlayerService playerService;
     private Random random = new Random();

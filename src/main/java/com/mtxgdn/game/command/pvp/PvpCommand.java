@@ -1,4 +1,6 @@
 package com.mtxgdn.game.command.pvp;
+import com.mtxgdn.game.entity.CombatResult;
+
 
 import com.mtxgdn.common.service.ServiceRegistry;
 
@@ -100,7 +102,7 @@ public class PvpCommand extends Command {
     }
 
     private String handleAccept(long playerId) {
-        CombatService.CombatResult result = combatService.acceptChallenge(playerId);
+        CombatResult result = combatService.acceptChallenge(playerId);
         if (!result.isSuccess()) {
             return result.getMessage();
         }
@@ -120,7 +122,7 @@ public class PvpCommand extends Command {
         if (targets.isEmpty()) return "角色【" + targetName + "】不存在";
         PlayerInfo target = targets.get(0);
 
-        CombatService.CombatResult result = combatService.createChallenge(playerId, target.getId());
+        CombatResult result = combatService.createChallenge(playerId, target.getId());
         if (!result.isSuccess()) {
             return result.getMessage();
         }
@@ -191,7 +193,7 @@ public class PvpCommand extends Command {
         return formatRaidResult(result);
     }
 
-    private String formatPvpResult(CombatService.CombatResult result) {
+    private String formatPvpResult(CombatResult result) {
         StringBuilder sb = new StringBuilder();
         sb.append("⚔【").append(result.getChallengerName()).append("】VS【").append(result.getTargetName()).append("】\n");
 

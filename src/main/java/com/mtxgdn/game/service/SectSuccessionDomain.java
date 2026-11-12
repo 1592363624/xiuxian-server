@@ -1,4 +1,6 @@
 package com.mtxgdn.game.service;
+import com.mtxgdn.game.entity.SuccessionOutcome;
+
 
 import com.mtxgdn.game.sect.ContestResult;
 import com.mtxgdn.game.sect.StepDownResult;
@@ -129,7 +131,7 @@ final class SectSuccessionDomain {
 
         long now = System.currentTimeMillis();
         markLeaderAbsent(sect.getId(), now);
-        SectService.SuccessionOutcome outcome = resolveSuccession(sect.getId(), now);
+        SuccessionOutcome outcome = resolveSuccession(sect.getId(), now);
 
         String message = buildStepDownMessage(member.getPlayerName(), outcome);
         if (!outcome.succeeded) {
@@ -152,16 +154,16 @@ final class SectSuccessionDomain {
      *
      * @param now 统一由调用方传入，便于测试注入时间（不要在方法内部取系统时间）
      */
-    SectService.SuccessionOutcome resolveSuccession(long sectId, long now) {
+    SuccessionOutcome resolveSuccession(long sectId, long now) {
         Sect sect = queryDomain.getSectById(sectId);
         if (sect == null) {
-            return SectService.SuccessionOutcome.none("宗门不存在");
+            return SuccessionOutcome.none("宗门不存在");
         }
         if (!sect.isLeaderAbsent()) {
-            return SectService.SuccessionOutcome.none("宗主在任");
+            return SuccessionOutcome.none("宗主在任");
         }
         if (sect.getContestUntil() > now) {
-            return SectService.SuccessionOutcome.none("宗主竞争期正在进行中");
+            return SuccessionOutcome.none("宗主竞争期正在进行中");
         }
 
         List<SectMember> members = queryDomain.getSectMembers(sectId);
@@ -177,7 +179,7 @@ final class SectSuccessionDomain {
             // 无人可继位：清掉缺位标记，等有新成员加入后由扫描任务重新判定。
             // 不清的话每次扫描都会重复命中同一条记录。
             clearLeaderAbsent(sectId, sect.getLeaderAbsentSince());
-            return SectService.SuccessionOutcome.none("宗门内没有可继位的成员");
+            return SuccessionOutcome.none("宗门内没有可继位的成员");
         }
 
         Map<Long, Player> players = loadPlayers(candidates);
@@ -229,13 +231,13 @@ final class SectSuccessionDomain {
         });
 
         if (!Boolean.TRUE.equals(applied)) {
-            return SectService.SuccessionOutcome.none("继位状态已被其他请求处理");
+            return SuccessionOutcome.none("继位状态已被其他请求处理");
         }
 
         SectSupport.LOG.info("宗门[" + sect.getName() + "] 宗主继位：playerId=" + newLeaderId
                 + (challengerId > 0 ? "，开启竞争期至 " + contestUntil + "，挑战者 playerId=" + challengerId : ""));
 
-        return SectService.SuccessionOutcome.success(
+        return SuccessionOutcome.success(
                 newLeaderId,
                 players.containsKey(newLeaderId) ? players.get(newLeaderId).getName() : successor.getPlayerName(),
                 challengerId,
@@ -541,7 +543,7 @@ final class SectSuccessionDomain {
         return Math.max(1, (int) Math.round(value * ratio));
     }
 
-    private String buildStepDownMessage(String formerLeaderName, SectService.SuccessionOutcome outcome) {
+    private String buildStepDownMessage(String formerLeaderName, SuccessionOutcome outcome) {
         if (!outcome.succeeded) {
             return "你已卸任宗主之位。\n" + (outcome.note != null ? outcome.note : "")
                     + "\n宗门暂由你继续代管，待有成员符合继位条件后自动交接。";

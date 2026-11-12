@@ -1,4 +1,6 @@
 package com.mtxgdn.rest;
+import com.mtxgdn.game.entity.InventoryEntry;
+
 
 import com.mtxgdn.game.item.UseItemResult;
 import com.mtxgdn.game.item.EquipResult;
@@ -90,10 +92,10 @@ public class GameInventoryResource {
         Long userId = getCurrentUserId();
         long playerId = getPlayerIdByUserId(userId);
 
-        List<ItemService.InventoryEntry> inventory = itemService.getInventory(playerId);
+        List<InventoryEntry> inventory = itemService.getInventory(playerId);
 
         JsonArray items = new JsonArray();
-        for (ItemService.InventoryEntry entry : inventory) {
+        for (InventoryEntry entry : inventory) {
             JsonObject obj = gson.toJsonTree(entry.getItem()).getAsJsonObject();
             obj.addProperty("quantity", entry.getQuantity());
             items.add(obj);

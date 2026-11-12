@@ -1,4 +1,6 @@
 package com.mtxgdn.game.service;
+import com.mtxgdn.game.entity.SuccessionOutcome;
+
 
 import com.mtxgdn.game.sect.SalaryPayResult;
 import com.mtxgdn.game.sect.TreasuryInfo;
@@ -21,6 +23,7 @@ import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import com.mtxgdn.api.SectApi;
 
 /**
  * 宗门服务门面。
@@ -65,7 +68,7 @@ import java.util.concurrent.TimeUnit;
  * 而不是某个业务域 —— 它要调的是本门面的公开方法，放这里才不会被误当成域内逻辑。
  * 首个 tick 的延迟与间隔、守护线程名、异常吞掉的方式都与拆分前逐字相同。</p>
  */
-public class SectService {
+public class SectService implements SectApi {
 
     /** 宗主争夺战局数（三局两胜）。 */
     public static final int CONTEST_ROUNDS = 3;
@@ -292,40 +295,6 @@ public class SectService {
      * <p>{@link #succeeded} 为 false 时 {@link #note} 说明原因（宗主在任 / 竞争期进行中 /
      * 无可继位成员 / 状态被并发推进），调用方直接把它转成玩家提示即可。</p>
      */
-    public static class SuccessionOutcome {
-        public final boolean succeeded;
-        public final long successorId;
-        public final String successorName;
-        public final long rivalId;
-        public final String rivalName;
-        /** >0 表示同时开启了竞争期，值为截止时间戳。 */
-        public final long contestUntil;
-        public final String note;
-
-        private SuccessionOutcome(boolean succeeded, long successorId, String successorName,
-                                  long rivalId, String rivalName, long contestUntil, String note) {
-            this.succeeded = succeeded;
-            this.successorId = successorId;
-            this.successorName = successorName;
-            this.rivalId = rivalId;
-            this.rivalName = rivalName;
-            this.contestUntil = contestUntil;
-            this.note = note;
-        }
-
-        static SuccessionOutcome none(String note) {
-            return new SuccessionOutcome(false, 0, null, 0, null, 0, note);
-        }
-
-        static SuccessionOutcome success(long successorId, String successorName,
-                                         long rivalId, String rivalName, long contestUntil) {
-            return new SuccessionOutcome(true, successorId, successorName, rivalId, rivalName, contestUntil, null);
-        }
-
-        public boolean hasContest() {
-            return contestUntil > 0;
-        }
-    }
 
     /**
      * 宗主主动退位：卸任但仍留在宗门（降为副宗主），随后立刻按贡献选出继任者。

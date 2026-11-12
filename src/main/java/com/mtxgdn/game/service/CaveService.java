@@ -1,4 +1,6 @@
 package com.mtxgdn.game.service;
+import com.mtxgdn.game.entity.HeartDemonResult;
+
 
 import com.mtxgdn.common.service.ServiceRegistry;
 
@@ -18,8 +20,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import com.mtxgdn.i18n.I18n;
+import com.mtxgdn.api.CaveApi;
 
-public class CaveService {
+public class CaveService implements CaveApi {
 
     private static final GameLogger LOG = GameLogger.getLogger(CaveService.class);
 
@@ -174,7 +177,7 @@ public class CaveService {
         int totalCaveLevelForHeartDemon = cave.getLevel() + (formationResist / 2);
 
         HeartDemonService heartDemonService = ServiceRegistry.getHeartDemonService();
-        HeartDemonService.HeartDemonResult heartDemon = heartDemonService.processCultivationWithCave(playerId, expGain, 30, totalCaveLevelForHeartDemon);
+        HeartDemonResult heartDemon = heartDemonService.processCultivationWithCave(playerId, expGain, 30, totalCaveLevelForHeartDemon);
 
         if (heartDemon.triggered) {
             expGain = heartDemon.netExpChange;

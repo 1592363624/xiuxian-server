@@ -1,4 +1,6 @@
 package com.mtxgdn.game.command.item;
+import com.mtxgdn.game.entity.InventoryEntry;
+
 
 import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandContext;
@@ -23,7 +25,7 @@ public class BackpackCommand extends Command {
 
         var guideService = ServiceRegistry.getGuideService();
         var itemService = ServiceRegistry.getItemService();
-        List<ItemService.InventoryEntry> inventory = itemService.getInventory((int) p.getId());
+        List<InventoryEntry> inventory = itemService.getInventory((int) p.getId());
         int usedSlots = itemService.getInventoryUsedSlots((int) p.getId());
         int capacity = itemService.getInventoryCapacity((int) p.getId());
 
@@ -34,7 +36,7 @@ public class BackpackCommand extends Command {
         if (inventory.isEmpty()) {
             sb.append("空空如也...");
         } else {
-            for (ItemService.InventoryEntry entry : inventory) {
+            for (InventoryEntry entry : inventory) {
                 Item item = entry.getItem();
                 String desc = item.getDescription();
                 sb.append(item.getName()).append(" x").append(entry.getQuantity());

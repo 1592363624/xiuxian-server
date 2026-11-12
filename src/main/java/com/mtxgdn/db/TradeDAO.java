@@ -1,4 +1,6 @@
 package com.mtxgdn.db;
+import com.mtxgdn.game.entity.TradeListing;
+
 
 import com.mtxgdn.game.service.TradeService;
 import com.mtxgdn.util.GameLogger;
@@ -74,7 +76,7 @@ import java.util.List;
  *       {@code Long} 装箱 —— 那是公开 API。</li>
  *   <li><b>{@code TradeListing} 是 {@link TradeService} 的公开类型</b>：
  *       搬不动（全项目的管理台与 WebSocket 都在用
- *       {@code TradeService.TradeListing}），所以 {@link #mapListing}
+ *       {@code TradeListing}），所以 {@link #mapListing}
  *       与查询方法仍返回它。这是 DAO 依赖服务层类型的唯一一处，
  *       理由是公开 API 不能变；其余地方一律不碰服务层。</li>
  *   <li><b>写入价格失败不影响成交</b>：{@link #recordPriceHistory} 自己
@@ -279,7 +281,7 @@ public class TradeDAO {
      *
      * <p>读不到返回 {@code null}：调用方据此给"挂单不存在或已售出"的文案。</p>
      */
-    public TradeService.TradeListing findActiveListingForUpdate(Connection conn, long listingId,
+    public TradeListing findActiveListingForUpdate(Connection conn, long listingId,
                                                                 Timestamp now) throws SQLException {
         String sql = "SELECT * FROM trade_listings WHERE id = ? AND status = 'active' "
                 + "AND (expires_at IS NULL OR expires_at > ?) "
@@ -495,7 +497,7 @@ public class TradeDAO {
      *
      * <p>{@code now} 由调用方给：DAO 不自己读时钟。</p>
      */
-    public List<TradeService.TradeListing> findActiveListings(Timestamp now) {
+    public List<TradeListing> findActiveListings(Timestamp now) {
         try (Connection conn = DatabaseManager.getConnection()) {
             return findActiveListings(conn, now);
         } catch (SQLException e) {
@@ -504,7 +506,7 @@ public class TradeDAO {
     }
 
     /** 事务内版本：只用调用方连接。 */
-    public List<TradeService.TradeListing> findActiveListings(Connection conn, Timestamp now)
+    public List<TradeListing> findActiveListings(Connection conn, Timestamp now)
             throws SQLException {
         return queryListings(conn, ACTIVE_LISTINGS_SQL, ps -> ps.setTimestamp(1, now));
     }
@@ -514,7 +516,7 @@ public class TradeDAO {
      *
      * <p>同样是为了让服务层不碰 {@code PreparedStatement}。</p>
      */
-    public List<TradeService.TradeListing> findPlayerListings(long playerId, Timestamp now) {
+    public List<TradeListing> findPlayerListings(long playerId, Timestamp now) {
         try (Connection conn = DatabaseManager.getConnection()) {
             return findPlayerListings(conn, playerId, now);
         } catch (SQLException e) {
@@ -523,7 +525,7 @@ public class TradeDAO {
     }
 
     /** 事务内版本：只用调用方连接。 */
-    public List<TradeService.TradeListing> findPlayerListings(Connection conn, long playerId,
+    public List<TradeListing> findPlayerListings(Connection conn, long playerId,
                                                               Timestamp now) throws SQLException {
         return queryListings(conn, MY_ACTIVE_LISTINGS_SQL, ps -> {
             ps.setLong(1, playerId);
@@ -540,10 +542,10 @@ public class TradeDAO {
      * 一条 trade_listings 的 SQL"正是抽取想消除的东西。真有新查询需求时，
      * 在这里加一个具名的 private 重载，再开一个 public 入口。</p>
      */
-    private List<TradeService.TradeListing> queryListings(Connection conn, String sql,
+    private List<TradeListing> queryListings(Connection conn, String sql,
                                                           SqlParameterSetter setter)
             throws SQLException {
-        List<TradeService.TradeListing> result = new ArrayList<>();
+        List<TradeListing> result = new ArrayList<>();
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             if (setter != null) {
                 setter.set(ps);
@@ -566,7 +568,7 @@ public class TradeDAO {
     }
 
     /**
-     * {@code trade_listings} 行 → {@link TradeService.TradeListing}。
+     * {@code trade_listings} 行 → {@link TradeListing}。
      *
      * <p><b>返回服务层的公开类型</b>：{@code TradeListing} 被管理台与
      * WebSocket 直接用，搬不动。这是本 DAO 唯一依赖服务层类型的地方。</p>
@@ -575,8 +577,8 @@ public class TradeDAO {
      * NULL 时写 0，与 {@code remainingMs()} 的 {@code <= 0 → -1} 对应。
      * 不能改成 {@code Long} 装箱 —— 那是公开 API。</p>
      */
-    private static TradeService.TradeListing mapListing(ResultSet rs) throws SQLException {
-        TradeService.TradeListing l = new TradeService.TradeListing();
+    private static TradeListing mapListing(ResultSet rs) throws SQLException {
+        TradeListing l = new TradeListing();
         l.id = rs.getLong("id");
         l.sellerPlayerId = rs.getLong("seller_player_id");
         l.itemKey = rs.getString("item_key");

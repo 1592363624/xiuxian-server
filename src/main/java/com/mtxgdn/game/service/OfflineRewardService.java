@@ -1,4 +1,8 @@
 package com.mtxgdn.game.service;
+import com.mtxgdn.game.entity.OfflineRewardResult;
+
+import com.mtxgdn.game.entity.HeartDemonResult;
+
 
 import com.mtxgdn.common.service.ServiceRegistry;
 
@@ -6,8 +10,9 @@ import com.mtxgdn.entity.Player;
 import com.mtxgdn.game.config.GameConfigLoader;
 import com.mtxgdn.game.entity.CelestialPhenomenon;
 import com.mtxgdn.game.entity.SpiritualRoot;
+import com.mtxgdn.api.OfflineRewardApi;
 
-public class OfflineRewardService {
+public class OfflineRewardService implements OfflineRewardApi {
 
     private static final int MAX_OFFLINE_SECONDS = 8 * 3600;
     private static final double OFFLINE_CULTIVATION_RATE = 0.50;
@@ -86,7 +91,7 @@ public class OfflineRewardService {
             rawExpGained = elapsedSeconds;
         }
 
-        HeartDemonService.HeartDemonResult hdResult =
+        HeartDemonResult hdResult =
                 heartDemonService.processCultivation(player.getId(), rawExpGained,
                         (int)(elapsedSeconds * OFFLINE_HEART_DEMON_RATE));
 
@@ -131,25 +136,4 @@ public class OfflineRewardService {
         return hpRecovered;
     }
 
-    public static class OfflineRewardResult {
-        public boolean hasReward;
-        public boolean wasCultivating;
-        public int offlineSeconds;
-        public int offlineMinutes;
-        public int offlineHours;
-        public long expGained;
-        public long rawExpGained;
-        public int hpRecovered;
-        public int mpRecovered;
-        public boolean heartDemonTriggered;
-        public String heartDemonSeverity;
-        public String heartDemonNarrative;
-        public long heartDemonExpLost;
-
-        public static OfflineRewardResult noReward() {
-            OfflineRewardResult r = new OfflineRewardResult();
-            r.hasReward = false;
-            return r;
-        }
-    }
 }

@@ -1,4 +1,6 @@
 package com.mtxgdn.game.service;
+import com.mtxgdn.game.entity.InventoryEntry;
+
 
 import com.mtxgdn.game.item.EquipResult;
 import com.mtxgdn.game.item.ExchangeResult;
@@ -23,8 +25,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import com.mtxgdn.i18n.I18n;
+import com.mtxgdn.api.ItemApi;
 
-public class ItemService {
+public class ItemService implements ItemApi {
 
     private static final int BASE_CAPACITY = AppConfig.getInt("inventory.base_capacity", 30);
     private static final int CAPACITY_PER_LEVEL = AppConfig.getInt("inventory.capacity_per_level", 5);
@@ -735,21 +738,4 @@ public class ItemService {
 
     // ==================== 内部类 ====================
 
-    public static class InventoryEntry {
-        private final Item item;
-        private final long quantity;
-
-        InventoryEntry(Item item, long quantity) {
-            this.item = item;
-            this.quantity = quantity;
-        }
-
-        public Item getItem() {
-            return item;
-        }
-
-        public long getQuantity() {
-            return quantity;
-        }
-    }
 }

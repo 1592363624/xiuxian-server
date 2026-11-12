@@ -12,8 +12,9 @@ import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import com.mtxgdn.api.BuffApi;
 
-public class BuffService {
+public class BuffService implements BuffApi {
 
     private static final BuffDAO BUFF_DAO = new BuffDAO();
 

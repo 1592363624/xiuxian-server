@@ -8,8 +8,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import com.mtxgdn.api.ChatApi;
 
-public class ChatService {
+public class ChatService implements ChatApi {
 
     private static final int MAX_WORLD_HISTORY = 100;
     private static final int MAX_PRIVATE_HISTORY = 50;
