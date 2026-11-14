@@ -1,5 +1,6 @@
 package com.mtxgdn.db;
 
+import com.mtxgdn.game.item.EquipmentSlot;
 import com.mtxgdn.util.AppConfig;
 
 import java.sql.Connection;
@@ -9,7 +10,9 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Locale;
+import java.util.Map;
 
 /**
  * 数据库结构迁移。
@@ -113,6 +116,8 @@ public class DatabaseMigration {
         steps.add(new Step("024_players_language", "玩家界面语言列", this::addPlayersLanguageColumn));
         steps.add(new Step("025_techniques_player_made", "自创功法归属与词条列", this::addTechniquePlayerMadeColumns));
         steps.add(new Step("026_caves_last_meditate", "洞府冥想冷却列", this::addCavesLastMeditateColumn));
+        steps.add(new Step("027_players_equipment_slot_normalize",
+                "装备栏位规范化为 weapon/armor/accessory", this::normalizeEquipmentSlots));
         return steps;
     }
 
@@ -544,6 +549,134 @@ public class DatabaseMigration {
     /** player_daily 表添加 pvp_count 列：每日PVP切磋次数持久化（重启不丢失） */
     private void addPlayerDailyPvpCountColumn(Statement stmt) throws SQLException {
         tryAlter(stmt, "ALTER TABLE player_daily ADD COLUMN pvp_count INT DEFAULT 0");
+    }
+
+    /**
+     * 装备栏位归一化：把历史数据里 {@code players_equipment.slot} 的
+     * 「武器/护甲/饰品」等别名改写成 {@code weapon/armor/accessory}。
+     *
+     * <p><b>为什么必须迁数据</b>：旧 {@code equipItem} 不校验槽位，玩家打
+     * {@code /装备 灵剑 武器} 会把「武器」原样写库；物品已经从背包扣掉，但
+     * {@code /已装备}、{@code /卸下}、{@code /强化} 都按 {@code weapon} 查，
+     * 表现为"装备凭空消失、还卸不下来"。只在代码里归一化新写入不够——
+     * 已有坏行必须迁过来，否则玩家永远看不到/卸不下那件装备。</p>
+     *
+     * <p><b>重复行处理</b>：同一玩家同一规范槽位可能同时存在 {@code weapon} 与
+     * 「武器」两行（第二次装备时按规范名查不到旧行，于是又插了一行）。
+     * 保留优先级：原本就是规范名的那行 &gt; id 最小的行；其余行删掉，
+     * 并把它们的物品退回背包（否则玩家会净亏一件装备）。</p>
+     *
+     * <p>不认识的脏槽位原样保留，不擅自删玩家数据。</p>
+     */
+    private void normalizeEquipmentSlots(Statement stmt) throws SQLException {
+        normalizeEquipmentSlots(stmt.getConnection());
+    }
+
+    /**
+     * 归一化的可测量版本：给迁移步骤与回归测试共用。
+     *
+     * <p>（包级可见而不是 private：{@code EquipmentSlotMigrationTest} 需要在一张
+     * 造好"旧数据"的库上单独跑它，否则迁移只在 initTable 里跑一次，测试没法覆盖。）</p>
+     */
+    static void normalizeEquipmentSlots(Connection conn) throws SQLException {
+        record Row(long id, long playerId, String slot) {
+        }
+
+        List<Row> rows = new ArrayList<>();
+        try (PreparedStatement ps = conn.prepareStatement(
+                "SELECT id, player_id, slot FROM players_equipment");
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                rows.add(new Row(rs.getLong("id"), rs.getLong("player_id"), rs.getString("slot")));
+            }
+        }
+        if (rows.isEmpty()) {
+            return;
+        }
+
+        Map<Long, Map<String, List<Row>>> grouped = new LinkedHashMap<>();
+        for (Row row : rows) {
+            String canonical = EquipmentSlot.normalize(row.slot());
+            if (canonical == null) {
+                continue;
+            }
+            grouped.computeIfAbsent(row.playerId(), k -> new LinkedHashMap<>())
+                    .computeIfAbsent(canonical, k -> new ArrayList<>())
+                    .add(row);
+        }
+
+        try (PreparedStatement del = conn.prepareStatement(
+                "DELETE FROM players_equipment WHERE id = ?");
+             PreparedStatement upd = conn.prepareStatement(
+                     "UPDATE players_equipment SET slot = ? WHERE id = ?")) {
+            for (Map<String, List<Row>> perPlayer : grouped.values()) {
+                for (Map.Entry<String, List<Row>> entry : perPlayer.entrySet()) {
+                    String canonical = entry.getKey();
+                    List<Row> candidates = entry.getValue();
+
+                    Row keep = null;
+                    for (Row row : candidates) {
+                        if (canonical.equals(row.slot())) {
+                            keep = row;
+                            break;
+                        }
+                    }
+                    if (keep == null) {
+                        keep = candidates.get(0);
+                    }
+
+                    for (Row row : candidates) {
+                        if (row.id() == keep.id()) {
+                            continue;
+                        }
+                        returnItemToBackpack(conn, row.playerId(), row.id());
+                        del.setLong(1, row.id());
+                        del.executeUpdate();
+                    }
+                    if (!canonical.equals(keep.slot())) {
+                        upd.setString(1, canonical);
+                        upd.setLong(2, keep.id());
+                        upd.executeUpdate();
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * 迁移期间把"多余装备行"对应的物品退回背包。
+     *
+     * <p>只做最小可移植实现：先查 {@code players_items} 是否已有该物品，
+     * 有就 +1，没有就 INSERT 1。表结构上的 created_at/updated_at 由列默认值处理。</p>
+     */
+    private static void returnItemToBackpack(Connection conn, long playerId, long equipmentRowId)
+            throws SQLException {
+        String itemKey = null;
+        try (PreparedStatement ps = conn.prepareStatement(
+                "SELECT item_key FROM players_equipment WHERE id = ?")) {
+            ps.setLong(1, equipmentRowId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    itemKey = rs.getString(1);
+                }
+            }
+        }
+        if (itemKey == null || itemKey.isEmpty()) {
+            return;
+        }
+        try (PreparedStatement updQty = conn.prepareStatement(
+                "UPDATE players_items SET quantity = quantity + 1 "
+                        + "WHERE player_id = ? AND item_key = ?");
+             PreparedStatement ins = conn.prepareStatement(
+                     "INSERT INTO players_items (player_id, item_key, quantity) VALUES (?, ?, 1)")) {
+            updQty.setLong(1, playerId);
+            updQty.setString(2, itemKey);
+            if (updQty.executeUpdate() == 0) {
+                ins.setLong(1, playerId);
+                ins.setString(2, itemKey);
+                ins.executeUpdate();
+            }
+        }
     }
 
     /**

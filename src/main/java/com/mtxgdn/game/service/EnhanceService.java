@@ -74,7 +74,8 @@ public class EnhanceService implements EnhanceApi {
 
     public int getEnhanceLevel(long playerId, String slot) {
         try {
-            return ENHANCE_DAO.getEnhanceLevel(playerId, slot);
+            return ENHANCE_DAO.getEnhanceLevel(playerId,
+                    com.mtxgdn.game.item.EquipmentSlot.normalize(slot));
         } catch (EnhanceQueryException e) {
             LOG.error("查询强化等级失败: " + e.getMessage(), e);
         }
@@ -83,14 +84,22 @@ public class EnhanceService implements EnhanceApi {
 
     public String getEquippedItemKey(long playerId, String slot) {
         try {
-            return ENHANCE_DAO.getEquippedItemKey(playerId, slot);
+            return ENHANCE_DAO.getEquippedItemKey(playerId,
+                    com.mtxgdn.game.item.EquipmentSlot.normalize(slot));
         } catch (EnhanceQueryException e) {
             LOG.error("查询装备失败: " + e.getMessage(), e);
         }
         return null;
     }
 
-    public EnhanceResult enhanceItem(long playerId, String slot) {
+    public EnhanceResult enhanceItem(long playerId, String rawSlot) {
+        // 栏位先归一化：中文「武器」与 weapon 视为同一个槽位。
+        // 局部变量用 final：后面的事务 lambda 要捕获它。
+        final String slot = com.mtxgdn.game.item.EquipmentSlot.normalize(rawSlot);
+        if (slot == null) {
+            return EnhanceResult.rejected(I18n.t("enhance.invalid_equipment_slot",
+                    com.mtxgdn.game.item.EquipmentSlot.usageHint()));
+        }
         String itemKey = getEquippedItemKey(playerId, slot);
         if (itemKey == null) {
             return EnhanceResult.rejected(I18n.t("enhance.there_is_no_equipment"));

@@ -33,14 +33,11 @@ public class EnhanceCommand extends Command {
             return;
         }
 
-        String slot = arg.trim().toLowerCase();
-        String[] validSlots = {"weapon", "armor", "accessory"};
-        boolean valid = false;
-        for (String s : validSlots) {
-            if (s.equals(slot)) { valid = true; break; }
-        }
-        if (!valid) {
-            ctx.reply(I18n.t("enhance.invalid_equipment_slot", slot));
+        // 与 /装备、/卸下 一致：中文「武器/防具/饰品」也接受，统一归一化成规范名
+        String slot = com.mtxgdn.game.item.EquipmentSlot.normalize(arg.trim());
+        if (slot == null) {
+            ctx.reply(I18n.t("enhance.invalid_equipment_slot",
+                    com.mtxgdn.game.item.EquipmentSlot.usageHint()));
             return;
         }
 

@@ -1142,10 +1142,19 @@ HTTP 侧由 `UnifiedRestResource`（`/game/{path:.*}`）把同一批 `RouteDefin
 1. **`config/` 双基准路径**：`config/application.yml`、`config/plugins.yml` 按 **jar 所在目录** 解析；`config/adapters.json`、`xiuxian.db`、`data/`、`log/`、`plugins/` 按 **工作目录** 解析。两者不一致时 `Main.reportDeploymentPaths()` 会打印告警。Docker/systemd 部署已刻意把两者统一到同一目录。
 2. **指令名唯一性（已修复，勿回退）**：修复前有 4 组重名——`发放`/`give`（`admin/GiveCommand` vs `item/ItemGiveCommand`）、`灵根`（`admin/SetRootCommand` vs `player/SpiritualRootCommand`）、`物品列表`（`admin/ItemsQueryCommand` vs `item/ItemMapCommand`）、`status`（`admin/StatusCommand` vs `player/StatusCommand`）。`CommandRegistry.register()` 用 `Map.put` 覆盖，而 `CommandScanner` 的扫描顺序来自 `File.listFiles()` / jar 条目顺序（都不保证稳定），所以**谁生效取决于运行环境**；更糟的是后三组是管理指令抢占了玩家指令的名字——玩家敲 `/灵根`、`/物品列表`、`/status` 会收到「权限不足」。现已让两侧名字互斥（管理侧改为 `修改灵根`、`全物品列表`、`服务器状态`、`发放物品`），并在 `CommandRegistry.register()` 增加冲突 WARN 日志、由 `common/command/CommandNameConflictTest` 锁定。新增指令前请先确认名字没被占用。
 3. **战斗指令已拆分（勿再合并）**：历史上有两个 `PvpCommand` 覆盖同一玩法——`combat/PvpCommand`（`挑战`/`pvp`）与 `pvp/PvpCommand`（`决斗`/`切磋`/`fight`/`战斗`/`讨伐`/`boss`）。后者没有权限门控、帮助里把六条指令混成一段（i18n 里还是字面 `\n`），已删除并拆成 `BattleCommand` / `SubjugateCommand` / `RaidBossCommand`；旧名字 `决斗`/`切磋`/`fight` 保留为别名。由 `CommandNameConflictTest` 锁定。
+4. **装备栏位必须过 `EquipmentSlot.normalize`**：`players_equipment.slot` 只允许
+   `weapon/armor/accessory`。历史上 `/装备 灵剑 武器` 会把「武器」原样写库，
+   物品从背包扣掉后 `/已装备`、`/卸下 weapon`、`/强化 weapon` 全按规范名查，
+   表现为"装备凭空消失且卸不下来"。现在写入前归一化、读取兼容历史行，
+   并用迁移 `027_players_equipment_slot_normalize` 把存量数据改成规范名
+   （同槽重复行只留一行、多余物品退回背包）。新增涉及装备栏位的入口时，
+   先从 `com.mtxgdn.game.item.EquipmentSlot` 取规范名，别再自己拼字符串。
+   回归测试：`EquipmentSlotTest` / `EquipSlotNormalizationTest` / `EquipmentSlotMigrationTest`。
+
 4. **`FormationItem` 无无参构造**：`ItemScanner` 只接受无参构造，`FormationItem` 会被记入启动日志的「失败：缺少无参构造」，其 3 个子类（`SpiritGatheringFormation`、`MountainProtectionFormation`、`PurificationFormation`）正常注册。
-5. **MC 插件源码不参与主构建**：`com/mtxgdn/minecraft/plugin/**` 被 compiler 排除，必须用 `build-mc-plugin.bat` 单独编译（依赖 `mc_server/server.jar` 提供 Bukkit API）。
-6. **测试用插件开关隔离**：Surefire 通过系统属性 `xiuxian.plugins.config` 指向 `target/test-config/plugins.yml`，改动 `PluginSwitches` 相关逻辑时不要绕过该属性。
-7. **空包目录**：`com/mtxgdn/plugin/api/` 当前无文件，属预留位置。
+6. **MC 插件源码不参与主构建**：`com/mtxgdn/minecraft/plugin/**` 被 compiler 排除，必须用 `build-mc-plugin.bat` 单独编译（依赖 `mc_server/server.jar` 提供 Bukkit API）。
+7. **测试用插件开关隔离**：Surefire 通过系统属性 `xiuxian.plugins.config` 指向 `target/test-config/plugins.yml`，改动 `PluginSwitches` 相关逻辑时不要绕过该属性。
+8. **空包目录**：`com/mtxgdn/plugin/api/` 当前无文件，属预留位置。
 8. **CI 已存在**：`.github/workflows/build.yml` 会在推送/PR 时构建并跑测试；本地仍可用 `run_tests.sh` / `run_tests.bat`。
    （早期版本这里写的是"无 CI，`.github/` 下只有 Issue 模板"，已经过时。）
 9. **`admin.status` 只用于只读接口（已修复，勿回退）**：`admin.status` 的显示名是「查看服务器状态」，但 `PermissionService` 给 `MODERATOR` 组的默认权限里包含它（MODERATOR = PLAYER + `admin.login`、`admin.status`、`admin.logs.view`、`qq.command.admin`、`admin.blacklist.view`）。此前多处以它门控**写操作**，等于版主能随意改玩家数据。现已按「读用 `admin.status`、写用 `admin.users.manage`」划分：

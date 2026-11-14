@@ -252,6 +252,41 @@ public class ItemDAO {
         return null;
     }
 
+    /**
+     * 按规范槽位找装备行，兼容历史数据里非规范的 slot 文本（例如「武器」）。
+     *
+     * <p>只做数据访问：槽位别名的归一化规则在
+     * {@link com.mtxgdn.game.item.EquipmentSlot}，DAO 不重复定义。</p>
+     *
+     * @return 库里真实存的行（slot 可能是历史文本）；没有返回 {@code null}
+     */
+    public EquipmentRow findEquipmentRow(long playerId, String canonicalSlot) {
+        try (Connection conn = DatabaseManager.getConnection()) {
+            return findEquipmentRow(conn, playerId, canonicalSlot);
+        } catch (SQLException e) {
+            throw new RuntimeException("查询装备失败", e);
+        }
+    }
+
+    /** 事务内版本：见 {@link #findEquipmentRow(long, String)}。 */
+    public EquipmentRow findEquipmentRow(Connection conn, long playerId, String canonicalSlot)
+            throws SQLException {
+        String exact = getEquippedItem(conn, playerId, canonicalSlot);
+        if (exact != null) {
+            return new EquipmentRow(canonicalSlot, exact);
+        }
+        for (Map.Entry<String, String> entry : getEquipment(conn, playerId).entrySet()) {
+            if (canonicalSlot.equals(com.mtxgdn.game.item.EquipmentSlot.normalize(entry.getKey()))) {
+                return new EquipmentRow(entry.getKey(), entry.getValue());
+            }
+        }
+        return null;
+    }
+
+    /** 装备栏位的一行原始记录：库里真实存的 slot + 物品 key。 */
+    public record EquipmentRow(String slot, String itemKey) {
+    }
+
     /** 全部装备：slot -> item_key。 */
     public Map<String, String> getEquipment(long playerId) {
         String sql = "SELECT slot, item_key FROM players_equipment WHERE player_id = ?";

@@ -3,6 +3,7 @@ import com.mtxgdn.game.entity.InventoryEntry;
 
 
 import com.mtxgdn.game.item.EquipResult;
+import com.mtxgdn.game.item.EquipmentSlot;
 import com.mtxgdn.game.item.ExchangeResult;
 import com.mtxgdn.game.item.UseItemResult;
 
@@ -20,6 +21,7 @@ import com.mtxgdn.util.AppConfig;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import com.mtxgdn.i18n.I18n;
@@ -539,6 +541,12 @@ public class ItemService implements ItemApi {
      * 如果效果执行失败，回滚数据库变更。
      */
     public EquipResult equipItem(long playerId, String itemKey, String slot) {
+        // 栏位必须归一化：玩家可能打「武器」或「weapon」，若原样写库，
+        // /已装备、/卸下、/强化 都按规范名查，装备就会"凭空消失且卸不下来"。
+        String canonicalSlot = EquipmentSlot.normalize(slot);
+        if (canonicalSlot == null) {
+            return EquipResult.fail(I18n.t("item.unknown_equipment_slot", EquipmentSlot.usageHint()));
+        }
         Item item = ItemRegistry.resolve(itemKey);
         if (item == null) {
             return EquipResult.fail(I18n.t("item.item_not_found"));
@@ -552,14 +560,14 @@ public class ItemService implements ItemApi {
                     return EquipResult.fail(I18n.t("item.that_item"));
                 }
 
-                String occupied = getEquippedItem(conn, playerId, slot);
-                if (occupied != null && occupied.equals(fullKey)) {
+                ItemDAO.EquipmentRow occupied = ITEM_DAO.findEquipmentRow(conn, playerId, canonicalSlot);
+                if (occupied != null && occupied.itemKey().equals(fullKey)) {
                     return EquipResult.fail(I18n.t("item.that_item_is_already_equipped"));
                 }
 
-                // 1. 回退旧装备效果
+                // 1. 回退旧装备效果（旧行可能是历史数据里的非规范槽位，按真实槽位删）
                 if (occupied != null) {
-                    Item oldItem = ItemRegistry.get(occupied);
+                    Item oldItem = ItemRegistry.get(occupied.itemKey());
                     if (oldItem != null) {
                         for (ItemEffect effect : oldItem.getEffects()) {
                             if (effect instanceof BuffEffect be) {
@@ -569,8 +577,9 @@ public class ItemService implements ItemApi {
                                 if (be.getSpiritBonus() > 0) playerService.addSpirit(conn, playerId, -be.getSpiritBonus());
                             }
                         }
-                        addItem(conn, playerId, occupied, 1);
+                        addItem(conn, playerId, occupied.itemKey(), 1);
                     }
+                    ITEM_DAO.deleteEquipment(conn, playerId, occupied.slot());
                 }
 
                 // 2. 从背包移除
@@ -578,8 +587,8 @@ public class ItemService implements ItemApi {
                     throw new SQLException("背包物品扣除失败: " + fullKey);
                 }
 
-                // 3. 写入装备表
-                ITEM_DAO.upsertEquipment(conn, playerId, slot, fullKey);
+                // 3. 写入装备表（只写规范槽位）
+                ITEM_DAO.upsertEquipment(conn, playerId, canonicalSlot, fullKey);
 
                 // 4. 执行新装备效果（在数据库写入成功后）
                 StringBuilder msgBuilder = new StringBuilder();
@@ -617,13 +626,18 @@ public class ItemService implements ItemApi {
      * 卸下装备。使用事务包裹。
      */
     public EquipResult unequipItem(long playerId, String slot) {
+        String canonicalSlot = EquipmentSlot.normalize(slot);
+        if (canonicalSlot == null) {
+            return EquipResult.fail(I18n.t("item.unknown_equipment_slot", EquipmentSlot.usageHint()));
+        }
         try {
             return DatabaseManager.runTransaction(conn -> {
 
-                String itemKey = getEquippedItem(conn, playerId, slot);
-                if (itemKey == null) {
+                ItemDAO.EquipmentRow equipped = ITEM_DAO.findEquipmentRow(conn, playerId, canonicalSlot);
+                if (equipped == null) {
                     return EquipResult.fail(I18n.t("item.that_equipment_slot_is_empty"));
                 }
+                String itemKey = equipped.itemKey();
                 Item item = ItemRegistry.get(itemKey);
                 if (item == null) {
                     return EquipResult.fail(I18n.t("item.item_data_is_corrupted"));
@@ -634,11 +648,11 @@ public class ItemService implements ItemApi {
                 if (services.getDurabilityService()
                         .getDurability(conn, playerId, itemKey) <= 0) {
                     return EquipResult.fail(I18n.t("equip.unequip_broken",
-                            DurabilityService.getSlotDisplayName(slot)));
+                            EquipmentSlot.displayName(canonicalSlot)));
                 }
 
-                // 1. 从装备表删除
-                ITEM_DAO.deleteEquipment(conn, playerId, slot);
+                // 1. 从装备表删除（按真实存的槽位删，兼容历史非规范槽位）
+                ITEM_DAO.deleteEquipment(conn, playerId, equipped.slot());
 
                 // 2. 物品回到背包
                 addItem(conn, playerId, itemKey, 1);
@@ -684,16 +698,31 @@ public class ItemService implements ItemApi {
     }
 
     public String getEquippedItem(long playerId, String slot) {
-        return ITEM_DAO.getEquippedItem(playerId, slot);
+        String canonicalSlot = EquipmentSlot.normalize(slot);
+        if (canonicalSlot == null) {
+            return null;
+        }
+        // DAO 内部兼容历史数据里非规范的槽位文本（例如「武器」）
+        ItemDAO.EquipmentRow row = ITEM_DAO.findEquipmentRow(playerId, canonicalSlot);
+        return row == null ? null : row.itemKey();
     }
 
-    private String getEquippedItem(Connection conn, long playerId, String slot) throws SQLException {
-        return ITEM_DAO.getEquippedItem(conn, playerId, slot);
-    }
-
+    /**
+     * 三部位装备（slot 已归一化为 {@code weapon}/{@code armor}/{@code accessory}）。
+     *
+     * <p>返回前把历史数据里的非规范槽位（例如「武器」）也映射成规范名，
+     * 否则 {@code /已装备} 与容量加成都会漏看这些装备。</p>
+     */
     public Map<String, String> getEquipment(long playerId) {
-        return ITEM_DAO.getEquipment(playerId);
+        Map<String, String> raw = ITEM_DAO.getEquipment(playerId);
+        Map<String, String> normalized = new LinkedHashMap<>();
+        for (Map.Entry<String, String> entry : raw.entrySet()) {
+            String canonical = EquipmentSlot.normalize(entry.getKey());
+            normalized.put(canonical != null ? canonical : entry.getKey(), entry.getValue());
+        }
+        return normalized;
     }
+
 
     // ==================== 使用物品 ====================
 
