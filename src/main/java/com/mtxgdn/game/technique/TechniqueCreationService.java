@@ -1,5 +1,6 @@
 package com.mtxgdn.game.technique;
 
+import com.mtxgdn.db.DatabaseManager;
 import com.mtxgdn.db.PlayerTechniqueDAO;
 import com.mtxgdn.entity.Player;
 
@@ -189,16 +190,61 @@ public class TechniqueCreationService {
         }
     }
 
-    /** 删除一门自创功法（只能删自己的） */
+    /**
+     * 删除一门自创功法（只能删自己的）。
+     *
+     * <h3>为什么不能"一行 DELETE 了事"</h3>
+     * <p>功法的属性加成在<b>装备时就已经写进 {@code players} 行</b>
+     * （{@code TechniqueService.applyTechniqueBonuses}），而
+     * {@code players_techniques.technique_id} 是 {@code ON DELETE CASCADE}。
+     * 如果直接删 {@code techniques} 行：</p>
+     *
+     * <ul>
+     *   <li>创建者自己还装备着 → 加成没人回退，<b>属性永久留在身上</b>；
+     *       删了再造、再学再装备，就能无限叠加属性；</li>
+     *   <li>别的玩家学过这门功法 → 他们的学习记录被级联删掉，
+     *       学费不退、功法凭空消失。</li>
+     * </ul>
+     *
+     * <p>所以这里立三条规则：</p>
+     * <ol>
+     *   <li>有人正在运转 → 拒绝删除（请先卸下；卸下会回退属性）；</li>
+     *   <li>除创建者外还有人学过 → 拒绝删除（不允许"作者一删，全服丢功法"）；</li>
+     *   <li>只有创建者自己学过、且没装备 → 允许删除，同时清掉自己那条学习记录。</li>
+     * </ol>
+     *
+     * <p>判定与删除在同一个事务里，避免"检查完、删除前有人学了/装备了"的窗口。</p>
+     */
     public CreationResult delete(Player player, long techniqueId) {
         if (player == null) {
             return fail("未找到角色");
         }
         try {
-            return dao.deleteOwned(techniqueId, player.getId())
-                    ? new CreationResult(true, "已遗忘这门功法", techniqueId, 0, 0)
-                    : fail("没有找到这门功法");
-        } catch (SQLException e) {
+            return DatabaseManager.runTransaction(conn -> {
+                long creatorId = dao.findCreatorId(conn, techniqueId);
+                if (creatorId <= 0 || creatorId != player.getId()) {
+                    return fail("没有找到这门功法");
+                }
+
+                if (dao.countEquippedLearners(conn, techniqueId) > 0) {
+                    return fail("这门功法正在被运转，请先卸下再删除");
+                }
+
+                boolean creatorLearned = dao.hasLearner(conn, player.getId(), techniqueId);
+                int learners = dao.countLearners(conn, techniqueId);
+                int others = learners - (creatorLearned ? 1 : 0);
+                if (others > 0) {
+                    return fail("已有 " + others + " 名修士习得这门功法，无法删除");
+                }
+
+                if (creatorLearned && !dao.removeLearner(conn, player.getId(), techniqueId)) {
+                    return fail("删除失败：自己的学习记录未能清理");
+                }
+                return dao.deleteOwned(conn, techniqueId, player.getId())
+                        ? new CreationResult(true, "已遗忘这门功法", techniqueId, 0, 0)
+                        : fail("没有找到这门功法");
+            });
+        } catch (RuntimeException e) {
             return fail("删除失败：" + e.getMessage());
         }
     }

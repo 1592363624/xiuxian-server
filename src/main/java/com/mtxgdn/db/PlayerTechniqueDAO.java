@@ -139,6 +139,98 @@ public class PlayerTechniqueDAO {
         return "";
     }
 
+    /** 一门功法的创建者（{@code players.id}）；不是自创功法或不存在返回 0。 */
+    public long findCreatorId(long techniqueId) throws SQLException {
+        try (Connection conn = DatabaseManager.getConnection()) {
+            return findCreatorId(conn, techniqueId);
+        }
+    }
+
+    /** 事务内版本：见 {@link #findCreatorId(long)}。 */
+    public long findCreatorId(Connection conn, long techniqueId) throws SQLException {
+        String sql = "SELECT creator_user_id FROM techniques WHERE id = ? AND player_made = 1";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, techniqueId);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getLong(1) : 0L;
+            }
+        }
+    }
+
+    /** 学得这门功法的玩家数（含创建者自己）。 */
+    public int countLearners(long techniqueId) throws SQLException {
+        try (Connection conn = DatabaseManager.getConnection()) {
+            return countLearners(conn, techniqueId);
+        }
+    }
+
+    /** 事务内版本：见 {@link #countLearners(long)}。 */
+    public int countLearners(Connection conn, long techniqueId) throws SQLException {
+        String sql = "SELECT COUNT(*) FROM players_techniques WHERE technique_id = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, techniqueId);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getInt(1) : 0;
+            }
+        }
+    }
+
+    /** 正在运转（装备中）这门功法的人数。 */
+    public int countEquippedLearners(long techniqueId) throws SQLException {
+        try (Connection conn = DatabaseManager.getConnection()) {
+            return countEquippedLearners(conn, techniqueId);
+        }
+    }
+
+    /** 事务内版本：见 {@link #countEquippedLearners(long)}。 */
+    public int countEquippedLearners(Connection conn, long techniqueId) throws SQLException {
+        String sql = "SELECT COUNT(*) FROM players_techniques WHERE technique_id = ? AND is_equipped = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, techniqueId);
+            ps.setBoolean(2, true);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getInt(1) : 0;
+            }
+        }
+    }
+
+    /** 某玩家是否学过这门功法。 */
+    public boolean hasLearner(Connection conn, long playerId, long techniqueId) throws SQLException {
+        String sql = "SELECT 1 FROM players_techniques WHERE player_id = ? AND technique_id = ? LIMIT 1";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, playerId);
+            ps.setLong(2, techniqueId);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next();
+            }
+        }
+    }
+
+    /**
+     * 删除某玩家对某功法的学习记录（事务内）。
+     *
+     * <p>只用于「创建者自己学过这门功法、且没有装备」时随删除一起清理。
+     * 不能拿它来清别人的记录 —— 删除流程在有人学过时直接拒绝。</p>
+     */
+    public boolean removeLearner(Connection conn, long playerId, long techniqueId) throws SQLException {
+        String sql = "DELETE FROM players_techniques WHERE player_id = ? AND technique_id = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, playerId);
+            ps.setLong(2, techniqueId);
+            return ps.executeUpdate() > 0;
+        }
+    }
+
+    /** 事务内版本：见 {@link #deleteOwned(long, long)}。 */
+    public boolean deleteOwned(Connection conn, long techniqueId, long creatorUserId) throws SQLException {
+        String sql = "DELETE FROM techniques WHERE id = ? AND creator_user_id = ? AND player_made = 1";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, techniqueId);
+            ps.setLong(2, creatorUserId);
+            return ps.executeUpdate() > 0;
+        }
+    }
+
     /**
      * 删除一门自创功法 —— <b>只能删自己造的</b>。
      *
