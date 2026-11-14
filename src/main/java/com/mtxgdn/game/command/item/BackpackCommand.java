@@ -34,15 +34,19 @@ public class BackpackCommand extends Command {
         if (inventory.isEmpty()) {
             sb.append("空空如也...");
         } else {
+            // 带序号：常见物品不必打全名/全 key，/使用 <序号> | /装备 <序号> <部位> 都能用
+            int index = 1;
             for (InventoryEntry entry : inventory) {
                 Item item = entry.getItem();
                 String desc = item.getDescription();
-                sb.append(item.getName()).append(" x").append(entry.getQuantity());
+                sb.append("[").append(index++).append("] ")
+                        .append(item.getName()).append(" x").append(entry.getQuantity());
                 if (!desc.isEmpty() && !desc.equals(item.getDescKey())) {
                     sb.append("\n  └ ").append(desc);
                 }
                 sb.append("\n");
             }
+            sb.append("\n使用: /使用 <序号或名称>   装备: /装备 <序号或key> <部位>");
         }
 
         ctx.reply(sb.toString());

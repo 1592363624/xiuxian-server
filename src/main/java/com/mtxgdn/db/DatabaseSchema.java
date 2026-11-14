@@ -877,6 +877,7 @@ public class DatabaseSchema {
                 "cultivation_bonus INT DEFAULT 5, " +
                 "storage_bonus INT DEFAULT 10, " +
                 "last_collect_time BIGINT DEFAULT 0, " +
+                "last_meditate_time BIGINT DEFAULT 0, " +
                 "created_at " + tsDefault + ", " +
                 "updated_at " + tsUpdate +
                 (dialect.supportsForeignKeysInCreateTable()

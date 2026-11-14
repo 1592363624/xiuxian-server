@@ -26,7 +26,10 @@ public class EquipCommand extends Command {
             return;
         }
 
-        EquipResult result = services().getItemService().equipItem((int) p.getId(), parts[0].trim(), parts[1].trim().toLowerCase());
+        var itemService = services().getItemService();
+        // 允许 /装备 1 weapon（背包序号）；不是数字或越界时按原样当 key 处理
+        String itemRef = itemService.resolveInventoryItemReference(p.getId(), parts[0].trim());
+        EquipResult result = itemService.equipItem((int) p.getId(), itemRef, parts[1].trim().toLowerCase());
         String msg = result.message() != null ? result.message() : "";
         if (msg.isEmpty()) msg = "装备失败，请检查物品key和部位是否正确。";
         String discTip = services().getGuideService().checkDiscovery((int) p.getId(), p, "equip");

@@ -29,6 +29,8 @@ public class ItemUseCommand extends Command {
         var itemService = services().getItemService();
         var guideService = services().getGuideService();
         var actionLog = PlayerActionLogger.getInstance();
+        // 允许 /使用 1（背包序号）；不是数字或越界时按原样当 key/名称处理
+        itemKey = itemService.resolveInventoryItemReference(p.getId(), itemKey);
         UseItemResult useResult = itemService.useItem((int) p.getId(), itemKey);
         boolean success = useResult.success();
         String msg = useResult.message() != null ? useResult.message() : "";

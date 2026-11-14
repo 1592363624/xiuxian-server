@@ -15,7 +15,7 @@ import com.mtxgdn.i18n.I18n;
 public class PvpCommand extends Command {
 
     public PvpCommand() {
-        super(new String[]{"挑战", "pvp"}, "挑战其他修士", "/挑战 <角色名>\n/挑战 接受 — 接受正在进行的切磋\n/挑战 拒绝 — 拒绝切磋", "战斗", "game.pvp.challenge");
+        super(new String[]{"挑战", "pvp", "决斗", "切磋"}, "挑战其他修士", "/挑战 <角色名>\n/挑战 接受 — 接受正在进行的切磋\n/挑战 拒绝 — 拒绝切磋", "战斗", "game.pvp.challenge");
         
         setI18nKeys("cmd.pvp.desc", "cmd.pvp.usage");
     setModule("pvp");

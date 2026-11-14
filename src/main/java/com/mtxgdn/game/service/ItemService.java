@@ -222,6 +222,33 @@ public class ItemService implements ItemApi {
         return result;
     }
 
+    /**
+     * 把「背包序号」解析成 {@code itemKey}。
+     *
+     * <p>{@code /背包} 现在带序号展示（1 起、按 item_key 排序，与
+     * {@link #getInventory(long)} 的顺序一致）。玩家输入的是数字时按序号取物品，
+     * 这样常见物品不必打全名/全 key；输入不是纯数字、或序号越界时<b>原样返回</b>，
+     * 交给按 key 的既有路径去报"没有该物品" —— 不在这里抛异常，也不猜。</p>
+     */
+    public String resolveInventoryItemReference(long playerId, String input) {
+        String trimmed = input == null ? "" : input.trim();
+        if (trimmed.isEmpty()) {
+            return trimmed;
+        }
+        int index;
+        try {
+            index = Integer.parseInt(trimmed);
+        } catch (NumberFormatException e) {
+            return trimmed;
+        }
+        List<InventoryEntry> inventory = getInventory(playerId);
+        if (index < 1 || index > inventory.size()) {
+            return trimmed;
+        }
+        Item item = inventory.get(index - 1).getItem();
+        return item == null ? trimmed : item.getKey();
+    }
+
     public long getItemCount(long playerId, String itemKey) {
         return ITEM_DAO.getItemCount(playerId, itemKey);
     }

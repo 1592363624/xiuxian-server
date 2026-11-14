@@ -574,20 +574,22 @@
 | `MorningCommand.java` | 24 | `晨修` / `morning` | 晨修·紫气东来 |
 | `DailyCommand.java` | 24 | `天象` / `daily` | 今日天象 |
 
-**`combat/`（4）** — 模块 `skill` / `pvp`
+**`combat/`（7）** — 模块 `skill` / `pvp`
 
 | 文件 | 行数 | 指令名 | 职责 |
 |---|---:|---|---|
-| `PvpCommand.java` | 151 | `挑战` / `pvp` | 挑战（模块 `pvp`） |
+| `PvpCommand.java` | 172 | `挑战` / `pvp` / `决斗` / `切磋` | PVP 切磋（模块 `pvp`；`决斗`/`切磋` 是兼容别名） |
+| `BattleCommand.java` | 73 | `战斗` / `battle` / `fight` | 挑战随机野外怪物（模块 `pvp`） |
+| `SubjugateCommand.java` | 53 | `讨伐` / `subjugate` | 挑战个人 Boss 千年妖王（模块 `pvp`） |
+| `RaidBossCommand.java` | 78 | `boss` / `团本` | 团队 Boss 战（至少 2 人，模块 `pvp`） |
 | `SkillsCommand.java` | 88 | `技能` / `skills` | 技能列表（模块 `skill`） |
 | `BattleTacticCommand.java` | 59 | `战斗策略` / `战术` / `tactic` | 战斗策略设置（模块 `skill`） |
 | `LearnSkillCommand.java` | 45 | `学习` / `learn` | 学习技能（模块 `skill`） |
 
-**`pvp/`（1）** — 模块 `pvp`
-
-| 文件 | 行数 | 指令名 | 职责 |
-|---|---:|---|---|
-| `PvpCommand.java` | 185 | `决斗` / `切磋` / `fight` / `战斗` / `讨伐` / `boss` | PVP 与 Boss 讨伐（含安全区限制） |
+> 原 `pvp/PvpCommand`（`决斗`/`切磋`/`fight`/`战斗`/`讨伐`/`boss` 一个类占六个名字）
+> 已删除：它与 `combat/PvpCommand` 功能重复、没有权限门控，且帮助里的用法规格
+> 把六条指令混成一段。PVP 归 `combat/PvpCommand`（旧名字保留为别名），
+> 三种 PVE 战斗拆成上面三个独立指令。由 `CommandNameConflictTest` 锁定。
 
 **`item/`（10）** — 模块 `inventory` / `buff`，另有两个无模块项
 
@@ -1139,7 +1141,7 @@ HTTP 侧由 `UnifiedRestResource`（`/game/{path:.*}`）把同一批 `RouteDefin
 
 1. **`config/` 双基准路径**：`config/application.yml`、`config/plugins.yml` 按 **jar 所在目录** 解析；`config/adapters.json`、`xiuxian.db`、`data/`、`log/`、`plugins/` 按 **工作目录** 解析。两者不一致时 `Main.reportDeploymentPaths()` 会打印告警。Docker/systemd 部署已刻意把两者统一到同一目录。
 2. **指令名唯一性（已修复，勿回退）**：修复前有 4 组重名——`发放`/`give`（`admin/GiveCommand` vs `item/ItemGiveCommand`）、`灵根`（`admin/SetRootCommand` vs `player/SpiritualRootCommand`）、`物品列表`（`admin/ItemsQueryCommand` vs `item/ItemMapCommand`）、`status`（`admin/StatusCommand` vs `player/StatusCommand`）。`CommandRegistry.register()` 用 `Map.put` 覆盖，而 `CommandScanner` 的扫描顺序来自 `File.listFiles()` / jar 条目顺序（都不保证稳定），所以**谁生效取决于运行环境**；更糟的是后三组是管理指令抢占了玩家指令的名字——玩家敲 `/灵根`、`/物品列表`、`/status` 会收到「权限不足」。现已让两侧名字互斥（管理侧改为 `修改灵根`、`全物品列表`、`服务器状态`、`发放物品`），并在 `CommandRegistry.register()` 增加冲突 WARN 日志、由 `common/command/CommandNameConflictTest` 锁定。新增指令前请先确认名字没被占用。
-3. **两个 PvpCommand**：`onebot/command/combat/PvpCommand`（`挑战`/`pvp`）与 `onebot/command/pvp/PvpCommand`（`决斗`/`切磋`/`fight`/`战斗`/`讨伐`/`boss`），同属 `pvp` 模块但指令名不重叠。
+3. **战斗指令已拆分（勿再合并）**：历史上有两个 `PvpCommand` 覆盖同一玩法——`combat/PvpCommand`（`挑战`/`pvp`）与 `pvp/PvpCommand`（`决斗`/`切磋`/`fight`/`战斗`/`讨伐`/`boss`）。后者没有权限门控、帮助里把六条指令混成一段（i18n 里还是字面 `\n`），已删除并拆成 `BattleCommand` / `SubjugateCommand` / `RaidBossCommand`；旧名字 `决斗`/`切磋`/`fight` 保留为别名。由 `CommandNameConflictTest` 锁定。
 4. **`FormationItem` 无无参构造**：`ItemScanner` 只接受无参构造，`FormationItem` 会被记入启动日志的「失败：缺少无参构造」，其 3 个子类（`SpiritGatheringFormation`、`MountainProtectionFormation`、`PurificationFormation`）正常注册。
 5. **MC 插件源码不参与主构建**：`com/mtxgdn/minecraft/plugin/**` 被 compiler 排除，必须用 `build-mc-plugin.bat` 单独编译（依赖 `mc_server/server.jar` 提供 Bukkit API）。
 6. **测试用插件开关隔离**：Surefire 通过系统属性 `xiuxian.plugins.config` 指向 `target/test-config/plugins.yml`，改动 `PluginSwitches` 相关逻辑时不要绕过该属性。

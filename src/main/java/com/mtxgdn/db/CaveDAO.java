@@ -155,6 +155,29 @@ public class CaveDAO {
         }
     }
 
+    /**
+     * 原子地占用一次冥想冷却。
+     *
+     * <p>条件 UPDATE 而不是"先查后写"：两个并发的 {@code /洞府 meditate}
+     * 不能同时通过冷却判断（否则冷却是摆设，连点两次就各拿一份经验）。
+     * 命中 0 行表示冷却未结束。</p>
+     *
+     * @param now        当前毫秒
+     * @param cooldownMs 冷却时长
+     * @return 是否成功占用（true = 可以冥想）
+     */
+    public boolean tryStartMeditate(Connection conn, long caveId, long now, long cooldownMs)
+            throws SQLException {
+        String sql = "UPDATE caves SET last_meditate_time = ? "
+                + "WHERE id = ? AND (last_meditate_time = 0 OR last_meditate_time <= ?)";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, now);
+            ps.setLong(2, caveId);
+            ps.setLong(3, now - cooldownMs);
+            return ps.executeUpdate() > 0;
+        }
+    }
+
     // ==================== 收取灵气 ====================
 
     /**
@@ -297,6 +320,7 @@ public class CaveDAO {
         cave.setCultivationBonus(rs.getInt("cultivation_bonus"));
         cave.setStorageBonus(rs.getInt("storage_bonus"));
         cave.setLastCollectTime(rs.getLong("last_collect_time"));
+        cave.setLastMeditateTime(rs.getLong("last_meditate_time"));
         cave.setCreatedAt(rs.getString("created_at"));
         return cave;
     }

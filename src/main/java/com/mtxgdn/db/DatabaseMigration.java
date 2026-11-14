@@ -112,6 +112,7 @@ public class DatabaseMigration {
         steps.add(new Step("023_players_breakthrough_pity", "突破失败增益与凝实层数", this::addBreakthroughPityColumns));
         steps.add(new Step("024_players_language", "玩家界面语言列", this::addPlayersLanguageColumn));
         steps.add(new Step("025_techniques_player_made", "自创功法归属与词条列", this::addTechniquePlayerMadeColumns));
+        steps.add(new Step("026_caves_last_meditate", "洞府冥想冷却列", this::addCavesLastMeditateColumn));
         return steps;
     }
 
@@ -543,6 +544,19 @@ public class DatabaseMigration {
     /** player_daily 表添加 pvp_count 列：每日PVP切磋次数持久化（重启不丢失） */
     private void addPlayerDailyPvpCountColumn(Statement stmt) throws SQLException {
         tryAlter(stmt, "ALTER TABLE player_daily ADD COLUMN pvp_count INT DEFAULT 0");
+    }
+
+    /**
+     * 洞府冥想冷却列：{@code caves} 补 {@code last_meditate_time}。
+     *
+     * <p>冥想原来没有任何冷却，连点 {@code /洞府 meditate} 就能无限拿经验。
+     * 冷却记在洞府行上（不记玩家行）：它属于"这座洞府"的修炼节奏，
+     * 与收取灵气的 {@code last_collect_time} 同一层级。</p>
+     *
+     * <p>带 {@code DEFAULT 0}：老库已有洞府视为"从未冥想"，第一次冥想直接可用。</p>
+     */
+    private void addCavesLastMeditateColumn(Statement stmt) throws SQLException {
+        tryAlter(stmt, "ALTER TABLE caves ADD COLUMN last_meditate_time BIGINT DEFAULT 0");
     }
 
     /**

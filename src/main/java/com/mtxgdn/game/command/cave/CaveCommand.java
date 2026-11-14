@@ -185,7 +185,7 @@ public class CaveCommand extends Command {
         }
         sb.append("\n可用操作:\n");
         sb.append("  /洞府 collect   收集灵气\n");
-        sb.append("  /洞府 meditate  洞中冥想\n");
+        sb.append("  /洞府 meditate  洞中冥想（5 分钟冷却）\n");
         sb.append("  /洞府 levelup   升级洞府");
         ctx.reply(sb.toString());
     }
@@ -216,7 +216,7 @@ public class CaveCommand extends Command {
             sb.append("  存储加成: +").append(cave.getStorageBonus()).append("格");
             sb.append("\n\n▍快捷操作\n");
             sb.append("  /洞府 collect   收集灵气\n");
-            sb.append("  /洞府 meditate  洞中冥想\n");
+            sb.append("  /洞府 meditate  洞中冥想（5 分钟冷却）\n");
             sb.append("  /洞府 levelup   升级洞府");
             return sb.toString();
         } else {
@@ -243,7 +243,7 @@ public class CaveCommand extends Command {
 /洞府 create [名称]      开辟洞府（金丹期，300灵石）
 /洞府 info               查看洞府信息
 /洞府 collect            收集洞府灵气（每5分钟可收集一次）
-/洞府 meditate           在洞府中冥想修炼（获得经验）
+/洞府 meditate           在洞府中冥想修炼（获得经验，每 5 分钟一次）
 /洞府 levelup            升级洞府（消耗灵石）
 /洞府 help               显示帮助""";
     }

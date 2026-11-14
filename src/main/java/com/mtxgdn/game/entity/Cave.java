@@ -11,6 +11,7 @@ public class Cave {
     private int cultivationBonus;
     private int storageBonus;
     private long lastCollectTime;
+    private long lastMeditateTime;
     private String createdAt;
 
     public long getId() { return id; }
@@ -39,6 +40,9 @@ public class Cave {
 
     public long getLastCollectTime() { return lastCollectTime; }
     public void setLastCollectTime(long lastCollectTime) { this.lastCollectTime = lastCollectTime; }
+
+    public long getLastMeditateTime() { return lastMeditateTime; }
+    public void setLastMeditateTime(long lastMeditateTime) { this.lastMeditateTime = lastMeditateTime; }
 
     public String getCreatedAt() { return createdAt; }
     public void setCreatedAt(String createdAt) { this.createdAt = createdAt; }

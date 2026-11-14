@@ -24,6 +24,17 @@ public class CaveService implements CaveApi, com.mtxgdn.common.service.Backgroun
 
     private static final GameLogger LOG = GameLogger.getLogger(CaveService.class);
 
+    /**
+     * 洞府冥想冷却（默认 5 分钟，可用 {@code cave.meditate_cooldown_seconds} 配置）。
+     *
+     * <p>冥想此前<b>没有任何冷却</b>：连点 {@code /洞府 meditate} 就能无限拿经验，
+     * 洞府加成越高刷得越快。经验获取类玩法都该有节奏，这里按"每 5 分钟一次"定档，
+     * 与"每 5 分钟收一次灵气"的洞府节奏一致。</p>
+     */
+    public static final long MEDITATE_COOLDOWN_MS =
+            Math.max(60_000L,
+                    com.mtxgdn.util.AppConfig.getInt("cave.meditate_cooldown_seconds", 300) * 1000L);
+
     private static final CaveDAO CAVE_DAO = new CaveDAO();
 
     /** 服务查询面：由容器注入，替代原来对 {@code ServiceRegistry} 静态方法的调用。 */
@@ -187,6 +198,24 @@ public class CaveService implements CaveApi, com.mtxgdn.common.service.Backgroun
             return CaveMeditateResult.rejected(I18n.t("cave.character_does_not_exist"));
         }
 
+        // 冥想冷却：先按读到的行做一次便宜判断（给出精确剩余秒数），
+        // 再用条件 UPDATE 原子占位（挡住并发连点）。
+        long now = System.currentTimeMillis();
+        long lastMeditate = cave.getLastMeditateTime();
+        if (lastMeditate > 0 && now - lastMeditate < MEDITATE_COOLDOWN_MS) {
+            return CaveMeditateResult.rejected(
+                    I18n.t("cave.meditate_on_cooldown", remainSeconds(now, lastMeditate)));
+        }
+        boolean claimed = DatabaseManager.runTransaction(conn ->
+                CAVE_DAO.tryStartMeditate(conn, cave.getId(), now, MEDITATE_COOLDOWN_MS));
+        if (!claimed) {
+            Cave fresh = CAVE_DAO.findCaveByPlayerId(playerId);
+            long lastNow = fresh == null ? lastMeditate : fresh.getLastMeditateTime();
+            return CaveMeditateResult.rejected(
+                    I18n.t("cave.meditate_on_cooldown",
+                            Math.max(1, remainSeconds(System.currentTimeMillis(), lastNow))));
+        }
+
         int caveBonus = cave.getCultivationBonus();
         int formationBonus = services.getFormationService().getTotalCultivationBonus(playerId);
         int totalBonus = caveBonus + formationBonus;
@@ -221,6 +250,12 @@ public class CaveService implements CaveApi, com.mtxgdn.common.service.Backgroun
             msg.append("（阵法加成: +").append(formationBonus).append("%）");
         }
         return CaveMeditateResult.meditated(msg.toString(), expGain, totalBonus, null);
+    }
+
+    /** 冷却剩余秒数（向上取整，最少 1 秒）。 */
+    private static long remainSeconds(long now, long lastTime) {
+        long elapsed = Math.max(0, now - lastTime);
+        return (MEDITATE_COOLDOWN_MS - Math.min(elapsed, MEDITATE_COOLDOWN_MS) + 999) / 1000;
     }
 
     public CaveLevelUpResult levelUp(long playerId) {

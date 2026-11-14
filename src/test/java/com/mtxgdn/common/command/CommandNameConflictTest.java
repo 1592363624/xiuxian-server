@@ -14,7 +14,9 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -118,6 +120,36 @@ class CommandNameConflictTest {
                 CommandRegistry.getRaw("发放").getClass());
         assertEquals(com.mtxgdn.game.command.item.ItemGiveCommand.class,
                 CommandRegistry.getRaw("发放物品").getClass());
+    }
+
+    @Test
+    @DisplayName("战斗指令拆分：/挑战 与 /战斗 /讨伐 /boss 各自独立，旧的混合指令不再存在")
+    void testCombatCommandsAreSplit() {
+        assertEquals(com.mtxgdn.game.command.combat.PvpCommand.class,
+                CommandRegistry.getRaw("挑战").getClass(),
+                "/挑战 必须归 combat.PvpCommand");
+        // 旧名字继续可用（别名指向同一个类），但不再是一个塞了 6 个名字的独立指令
+        assertEquals(com.mtxgdn.game.command.combat.PvpCommand.class,
+                CommandRegistry.getRaw("决斗").getClass(),
+                "/决斗 应作为 /挑战 的别名，而不是另一个 command");
+        assertEquals(com.mtxgdn.game.command.combat.PvpCommand.class,
+                CommandRegistry.getRaw("切磋").getClass());
+
+        assertEquals(com.mtxgdn.game.command.combat.BattleCommand.class,
+                CommandRegistry.getRaw("战斗").getClass(),
+                "/战斗 必须是独立的 PVE 指令（原来挂在决斗指令上，用法文案混在一起）");
+        assertEquals(com.mtxgdn.game.command.combat.SubjugateCommand.class,
+                CommandRegistry.getRaw("讨伐").getClass(),
+                "/讨伐 必须是独立指令");
+        assertEquals(com.mtxgdn.game.command.combat.RaidBossCommand.class,
+                CommandRegistry.getRaw("boss").getClass(),
+                "/boss 必须是独立的团队 Boss 指令");
+
+        // 旧的多名字 command 必须消失：它没有权限门控、且帮助里展示的是混合用法
+        for (Command cmd : CommandRegistry.getAllUnique()) {
+            assertFalse(cmd.getClass().getName().equals("com.mtxgdn.game.command.pvp.PvpCommand"),
+                    "旧的 game.command.pvp.PvpCommand 应已删除（它和 /挑战 重复且无权限门控）");
+        }
     }
 
     @Test
