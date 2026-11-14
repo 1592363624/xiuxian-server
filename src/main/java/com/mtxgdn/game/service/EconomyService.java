@@ -35,12 +35,25 @@ import com.mtxgdn.util.AppConfig;
 import com.mtxgdn.util.GameLogger;
 import com.mtxgdn.api.EconomyApi;
 
-public class EconomyService implements EconomyApi {
+public class EconomyService implements EconomyApi, com.mtxgdn.common.service.BackgroundTaskOwner {
 
     private static final GameLogger LOG = GameLogger.getLogger(EconomyService.class);
 
-    private final PlayerService playerService = ServiceRegistry.getPlayerService();
-    private final ItemService itemService = ServiceRegistry.getItemService();
+    /** 服务查询面：由容器注入。 */
+    private final com.mtxgdn.common.service.ServiceLookup services;
+    private final PlayerService playerService;
+    private final ItemService itemService;
+
+    /** 兼容旧调用点的构造器：走当前容器。 */
+    public EconomyService() {
+        this(com.mtxgdn.common.service.ServiceRegistry.container());
+    }
+
+    public EconomyService(com.mtxgdn.common.service.ServiceLookup services) {
+        this.services = services;
+        this.playerService = services.getPlayerService();
+        this.itemService = services.getItemService();
+    }
 
     private static final EconomyDAO ECONOMY_DAO = new EconomyDAO();
 
@@ -55,22 +68,20 @@ public class EconomyService implements EconomyApi {
      * 要等下一次有人翻列表才补上。这里补一个定时任务，让结算与"有没有人看"解耦；
      * 惰性结算仍然保留，两者都是幂等的（靠 {@code UPDATE ... WHERE status='active'} 抢占）。</p>
      */
-    private static final ScheduledExecutorService AUCTION_SCHEDULER =
-            Executors.newSingleThreadScheduledExecutor(r -> {
-                Thread t = new Thread(r, "auction-settler");
-                t.setDaemon(true);
-                return t;
-            });
+    private ScheduledExecutorService auctionScheduler;
 
     /** 结算扫描间隔（秒）。拍卖时长是天级的，60 秒的精度完全够用。 */
     private static final int AUCTION_SWEEP_SECONDS =
             Math.max(10, AppConfig.getInt("market.auction_sweep_seconds", 60));
 
-    static {
+    @Override
+    public synchronized void startBackgroundTasks() {
+        if (auctionScheduler != null) return;
+        auctionScheduler = com.mtxgdn.util.Schedulers.newDaemonSingle("auction-settler");
         // 首个 tick 延迟 30s：避开启动高峰（与坊市回收任务的 20s 错开）
-        AUCTION_SCHEDULER.scheduleWithFixedDelay(() -> {
+        auctionScheduler.scheduleWithFixedDelay(() -> {
             try {
-                ServiceRegistry.getEconomyService().sweepExpiredAuctions();
+                sweepExpiredAuctions();
             } catch (Throwable t) {
                 // 绝不让异常冒泡：一次失败不应终止后续所有 tick
                 LOG.warn("拍卖到期结算任务异常: " + t);
@@ -78,9 +89,11 @@ public class EconomyService implements EconomyApi {
         }, 30, AUCTION_SWEEP_SECONDS, TimeUnit.SECONDS);
     }
 
-    /** 停止拍卖结算任务（服务端关闭时调用）。 */
-    public static void shutdown() {
-        AUCTION_SCHEDULER.shutdown();
+    @Override
+    public synchronized void stopBackgroundTasks() {
+        if (auctionScheduler == null) return;
+        auctionScheduler.shutdown();
+        auctionScheduler = null;
     }
 
     /**
@@ -822,7 +835,7 @@ public class EconomyService implements EconomyApi {
 
         // 洞府灵气（"灵气"资源）
         long auraCost = PURIFY_AURA_COST[grade];
-        CaveService caveService = ServiceRegistry.getCaveService();
+        CaveService caveService = services.getCaveService();
         Cave cave = caveService.getCaveByPlayerId(playerId);
         if (cave == null) {
             return PurifyResult.rejected(I18n.t("economy.refining_spirit_stones_requires_cave"));

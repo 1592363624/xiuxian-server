@@ -26,7 +26,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import com.mtxgdn.api.TradeApi;
 
-public class TradeService implements TradeApi {
+public class TradeService implements TradeApi, com.mtxgdn.common.service.BackgroundTaskOwner {
 
     private static final GameLogger LOG = GameLogger.getLogger(TradeService.class);
 
@@ -49,12 +49,8 @@ public class TradeService implements TradeApi {
     private static final long DAY_MS = 24L * 60 * 60 * 1000;
 
     /** 坊市后台任务调度器：到期挂单回收（每 60s）+ 价格历史清理（每数小时）。 */
-    private static final ScheduledExecutorService scheduler =
-            Executors.newSingleThreadScheduledExecutor(r -> {
-                Thread t = new Thread(r, "trade-market-sweeper");
-                t.setDaemon(true); // 守护线程：不阻止 JVM 退出
-                return t;
-            });
+    /** 坊市后台任务调度器；生命周期归 {@link com.mtxgdn.common.service.ServiceContainer}。 */
+    private ScheduledExecutorService scheduler;
 
     /** 老库回填只做一次。 */
     private static final AtomicBoolean BACKFILL_DONE = new AtomicBoolean(false);
@@ -68,12 +64,15 @@ public class TradeService implements TradeApi {
     private static final int PRICE_HISTORY_CLEANUP_INTERVAL_HOURS =
             Math.max(1, AppConfig.getInt("market.price_history_cleanup_interval_hours", 6));
 
-    static {
+    @Override
+    public synchronized void startBackgroundTasks() {
+        if (scheduler != null) return;
+        scheduler = com.mtxgdn.util.Schedulers.newDaemonSingle("trade-market-sweeper");
+
         // 首个 tick 延迟 20s（等数据库初始化完成），之后每 60s 扫一次到期挂单。
         scheduler.scheduleAtFixedRate(() -> {
             try {
-                // 惰性构造，避免静态初始化期就依赖 ServiceRegistry 造成循环初始化。
-                ServiceRegistry.getTradeService().sweepExpiredListings();
+                sweepExpiredListings();
             } catch (Throwable t) {
                 // 绝不让异常冒泡：一次失败不应终止后续所有 tick
                 LOG.warn("坊市到期挂单回收任务异常: " + t);
@@ -85,7 +84,7 @@ public class TradeService implements TradeApi {
         long cleanupPeriodHours = PRICE_HISTORY_CLEANUP_INTERVAL_HOURS;
         scheduler.scheduleAtFixedRate(() -> {
             try {
-                int deleted = ServiceRegistry.getTradeService().cleanupPriceHistory();
+                int deleted = cleanupPriceHistory();
                 if (deleted > 0) {
                     LOG.info("坊市已清理过期价格历史 " + deleted + " 条（保留 " + PRICE_HISTORY_KEEP_DAYS + " 天）");
                 }
@@ -95,9 +94,11 @@ public class TradeService implements TradeApi {
         }, 5, cleanupPeriodHours * 60, TimeUnit.MINUTES);
     }
 
-    /** 停止到期回收任务（服务端关闭 / 测试清理时调用）。 */
-    public static void shutdown() {
+    @Override
+    public synchronized void stopBackgroundTasks() {
+        if (scheduler == null) return;
         scheduler.shutdown();
+        scheduler = null;
     }
 
     /** 配置的挂单时长（小时），供接口展示。 */
@@ -115,9 +116,18 @@ public class TradeService implements TradeApi {
 
     private static final TradeDAO TRADE_DAO = new TradeDAO();
 
+    /** 服务查询面：由容器注入。 */
+    private final com.mtxgdn.common.service.ServiceLookup services;
+
+    /** 兼容旧调用点的构造器：走当前容器。 */
     public TradeService() {
-        this.itemService = ServiceRegistry.getItemService();
-        this.playerService = ServiceRegistry.getPlayerService();
+        this(com.mtxgdn.common.service.ServiceRegistry.container());
+    }
+
+    public TradeService(com.mtxgdn.common.service.ServiceLookup services) {
+        this.services = services;
+        this.itemService = services.getItemService();
+        this.playerService = services.getPlayerService();
     }
 
     public TradeResult listItem(long playerId, String itemKey, int quantity, long priceSpiritStones) {

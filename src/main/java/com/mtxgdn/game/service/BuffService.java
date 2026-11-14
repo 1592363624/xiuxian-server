@@ -9,14 +9,25 @@ import com.mtxgdn.common.service.ServiceRegistry;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.*;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import com.mtxgdn.api.BuffApi;
 
-public class BuffService implements BuffApi {
+public class BuffService implements BuffApi, com.mtxgdn.common.service.BackgroundTaskOwner {
 
     private static final BuffDAO BUFF_DAO = new BuffDAO();
+
+    /** 服务查询面：由容器注入。 */
+    private final com.mtxgdn.common.service.ServiceLookup services;
+
+    /** 兼容旧调用点的构造器：走当前容器。 */
+    public BuffService() {
+        this(com.mtxgdn.common.service.ServiceRegistry.container());
+    }
+
+    public BuffService(com.mtxgdn.common.service.ServiceLookup services) {
+        this.services = services;
+    }
 
     private static final com.mtxgdn.util.GameLogger LOG =
             com.mtxgdn.util.GameLogger.getLogger(BuffService.class);
@@ -41,14 +52,19 @@ public class BuffService implements BuffApi {
     private static final int EXPIRE_SWEEP_SECONDS =
             Math.max(10, com.mtxgdn.util.AppConfig.getInt("buff.expire_sweep_seconds", 60));
 
-    private static final ScheduledExecutorService scheduler =
-            Executors.newSingleThreadScheduledExecutor(r -> {
-                Thread t = new Thread(r, "buff-expire-sweeper");
-                t.setDaemon(true); // 守护线程：不阻止 JVM 退出
-                return t;
-            });
+    /**
+     * 过期增益回收调度器。
+     *
+     * <p><b>实例字段而不是静态块</b>：调度器的启动/停止归
+     * {@link com.mtxgdn.common.service.ServiceContainer}（见 {@link com.mtxgdn.common.service.BackgroundTaskOwner}）。
+     * 构造本类不起线程，测试里 {@code new BuffService()} 不会凭空多一个后台任务。</p>
+     */
+    private ScheduledExecutorService scheduler;
 
-    static {
+    @Override
+    public synchronized void startBackgroundTasks() {
+        if (scheduler != null) return;
+        scheduler = com.mtxgdn.util.Schedulers.newDaemonSingle("buff-expire-sweeper");
         // 首个 tick 延迟 30 秒，避开数据库初始化与启动高峰
         scheduler.scheduleAtFixedRate(() -> {
             try {
@@ -62,8 +78,11 @@ public class BuffService implements BuffApi {
         scheduler.scheduleAtFixedRate(BuffService::cleanupExpiredMemoryBuffs, 30, 30, TimeUnit.SECONDS);
     }
 
-    public static void shutdownScheduler() {
+    @Override
+    public synchronized void stopBackgroundTasks() {
+        if (scheduler == null) return;
         scheduler.shutdown();
+        scheduler = null;
     }
 
     private static void cleanupExpiredMemoryBuffs() {
@@ -176,7 +195,7 @@ public class BuffService implements BuffApi {
         BUFF_DAO.insertBuff(conn, playerId, buffId,
                 attackBonus, defenseBonus, speedBonus, spiritBonus, expireTime);
 
-        PlayerService playerService = ServiceRegistry.getPlayerService();
+        PlayerService playerService = services.getPlayerService();
         if (attackBonus != 0) playerService.addAttack(conn, playerId, attackBonus);
         if (defenseBonus != 0) playerService.addDefense(conn, playerId, defenseBonus);
         if (speedBonus != 0) playerService.addSpeed(conn, playerId, speedBonus);
@@ -191,7 +210,7 @@ public class BuffService implements BuffApi {
 
             BUFF_DAO.deleteBuff(conn, playerId, buffId);
 
-            PlayerService playerService = ServiceRegistry.getPlayerService();
+            PlayerService playerService = services.getPlayerService();
             if (bonuses.attack != 0) playerService.addAttack(conn, playerId, -bonuses.attack);
             if (bonuses.defense != 0) playerService.addDefense(conn, playerId, -bonuses.defense);
             if (bonuses.speed != 0) playerService.addSpeed(conn, playerId, -bonuses.speed);
@@ -235,11 +254,11 @@ public class BuffService implements BuffApi {
      * 只有真正删掉这一行的调用方才回退属性，因此两个请求线程并发触发、
      * 或与兜底任务撞车时都不会重复扣减。</p>
      */
-    private static void expirePlayerBuffs(Connection conn, long playerId, long now) throws SQLException {
+    private void expirePlayerBuffs(Connection conn, long playerId, long now) throws SQLException {
         List<BuffDAO.ExpiredBuffRow> expired = BUFF_DAO.findExpiredBuffsForPlayer(conn, playerId, now);
         if (expired.isEmpty()) return;
 
-        PlayerService playerService = ServiceRegistry.getPlayerService();
+        PlayerService playerService = services.getPlayerService();
         for (BuffDAO.ExpiredBuffRow row : expired) {
             rollbackIfClaimed(conn, playerId, row.buffId,
                     row.attackBonus, row.defenseBonus, row.speedBonus, row.spiritBonus,
@@ -273,7 +292,7 @@ public class BuffService implements BuffApi {
      * <p>它只负责「离线玩家」这一类惰性路径覆盖不到的情况；在线玩家在访问 Buff 时
      * 就已经被 {@link #expirePlayerBuffs} 即时处理过了。</p>
      */
-    private static void checkExpiredBuffs() {
+    private void checkExpiredBuffs() {
         // 内置模块门控：Buff 模块停用后暂停过期增益清理
         if (!com.mtxgdn.plugin.BuiltInPluginRegistry.getInstance().isEnabledOrUnknown("buff")) return;
         long now = System.currentTimeMillis();
@@ -281,7 +300,7 @@ public class BuffService implements BuffApi {
         if (expiredList.isEmpty()) return;
 
         DatabaseManager.runTransaction(conn -> {
-            PlayerService playerService = ServiceRegistry.getPlayerService();
+            PlayerService playerService = services.getPlayerService();
             for (BuffDAO.ExpiredBuffRow row : expiredList) {
                 rollbackIfClaimed(conn, row.playerId, row.buffId,
                         row.attackBonus, row.defenseBonus, row.speedBonus, row.spiritBonus,
@@ -299,7 +318,7 @@ public class BuffService implements BuffApi {
 
             BUFF_DAO.deleteAllBuffs(conn, playerId);
 
-            PlayerService playerService = ServiceRegistry.getPlayerService();
+            PlayerService playerService = services.getPlayerService();
             if (total.attack != 0) playerService.addAttack(conn, playerId, -total.attack);
             if (total.defense != 0) playerService.addDefense(conn, playerId, -total.defense);
             if (total.speed != 0) playerService.addSpeed(conn, playerId, -total.speed);
@@ -347,7 +366,7 @@ public class BuffService implements BuffApi {
             expirePlayerBuffs(conn, playerId, now);
             BuffDAO.BonusSum total = BUFF_DAO.sumStillValidBonuses(conn, playerId, now);
 
-            PlayerService playerService = ServiceRegistry.getPlayerService();
+            PlayerService playerService = services.getPlayerService();
             if (total.attack != 0) playerService.addAttack(conn, playerId, total.attack);
             if (total.defense != 0) playerService.addDefense(conn, playerId, total.defense);
             if (total.speed != 0) playerService.addSpeed(conn, playerId, total.speed);

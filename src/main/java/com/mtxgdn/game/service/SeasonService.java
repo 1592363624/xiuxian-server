@@ -6,7 +6,6 @@ import com.mtxgdn.util.AppConfig;
 import com.mtxgdn.util.GameLogger;
 
 import java.util.Calendar;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
@@ -37,27 +36,38 @@ public class SeasonService {
 
     private static volatile Consumer<Season> changeListener;
 
-    private static final ScheduledExecutorService scheduler =
-            Executors.newSingleThreadScheduledExecutor(r -> {
-                Thread t = new Thread(r, "global-season-tick");
-                t.setDaemon(true);
-                return t;
-            });
+    /**
+     * 天象刷新调度器。
+     *
+     * <p>本类目前是"全局时钟"：季节状态与查询方法全是 static（48 处静态调用点），
+     * 还没有收编成容器里的实例服务。调度器的<b>启停权</b>已经交给
+     * {@link com.mtxgdn.common.service.ServiceContainer}（{@link #startScheduler()} /
+     * {@link #stopScheduler()}），所以"一套容器对应一批后台线程"这条规则对它同样成立；
+     * 等它变成实例服务时，这两个方法会自然并进 {@code BackgroundTaskOwner}。</p>
+     */
+    private static ScheduledExecutorService scheduler;
 
     static {
+        // 季节是纯计算（读配置 + 系统时钟），不碰数据库、不起线程，所以可以安全地
+        // 在类初始化时算一次：这样"查询当前季节"在任何启动路径下都不会拿到 null。
+        // 注意调度器<b>不</b>在这里启动 —— 启停权归 ServiceContainer.startBackgroundTasks()。
+        recompute(System.currentTimeMillis(), true);
+    }
+
+    /** 由 {@code ServiceContainer.startBackgroundTasks()} 调用；幂等。 */
+    public static synchronized void startScheduler() {
+        if (scheduler != null) return;
+        scheduler = com.mtxgdn.util.Schedulers.newDaemonSingle("global-season-tick");
         recompute(System.currentTimeMillis(), true);
         scheduler.scheduleAtFixedRate(SeasonService::tick, 10, 10, TimeUnit.SECONDS);
         LOG.info("全局季节系统已启动（模式: " + (CYCLE_MODE ? "cycle/" + (CYCLE_DURATION_MS / 3600_000L) + "小时" : "calendar") + "），当前季节: " + currentSeason.getDisplayName());
     }
 
-    /**
-     * 停掉天象刷新任务。
-     *
-     * <p>以前这个类没有 shutdown：关服时定时器还活着，退出前那几秒仍在查
-     * 已经关掉的连接池，刷出一屏无意义异常。</p>
-     */
-    public static void shutdown() {
+    /** 由 {@code ServiceContainer.close()} 调用；幂等。 */
+    public static synchronized void stopScheduler() {
+        if (scheduler == null) return;
         scheduler.shutdown();
+        scheduler = null;
         LOG.info("全局季节刷新任务已停止");
     }
 

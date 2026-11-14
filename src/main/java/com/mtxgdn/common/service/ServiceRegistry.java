@@ -48,9 +48,12 @@ public final class ServiceRegistry {
     /**
      * 丢弃当前容器，下次访问时重建一套。
      *
-     * <p><b>注意</b>：服务类里的调度器是在 static 块里启动的，换容器不会停掉它们
-     * —— 停调度器仍然要显式调用各自的 shutdown（见 {@code TestBase}）。
-     * 这里只保证"服务实例本身"不再跨测试复用，以及旧容器的换库回调被摘掉。</p>
+     * <p>旧容器会被 {@link ServiceContainer#close()}：它启动过的后台任务按逆序停止，
+     * 换库回调也一并摘掉。因此 {@code reset()} 之后的进程是"零后台线程"状态 ——
+     * 测试里删库、重建连接池不会再被旧调度器插进来写。</p>
+     *
+     * <p>新容器<b>不会</b>自动启动后台任务：那是启动流程（{@code Main}）的事，
+     * 不是构造容器的事。需要任务时显式调 {@link ServiceContainer#startBackgroundTasks()}。</p>
      */
     public static void reset() {
         install(new ServiceContainer());

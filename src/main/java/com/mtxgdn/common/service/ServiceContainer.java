@@ -17,7 +17,18 @@ package com.mtxgdn.common.service;
 import com.mtxgdn.game.service.*;
 import com.mtxgdn.minecraft.adapter.MinecraftPlayerBindingService;
 
-public class ServiceContainer {
+public class ServiceContainer implements ServiceLookup {
+
+    /**
+     * 已经启动过后台任务的服务，按启动顺序记录，{@link #close()} 时逆序停止。
+     *
+     * <p>为什么必须记下来：调度器现在归实例所有（见 {@link BackgroundTaskOwner}），
+     * 容器被替换/关闭时如果不停，旧实例的线程会继续往新库写 —— 这正是
+     * {@code TestBase} 里那段"先停调度器、再删库"注释描述的故障。</p>
+     */
+    private final java.util.List<BackgroundTaskOwner> startedBackgroundTasks = new java.util.ArrayList<>();
+
+    private boolean backgroundTasksStarted = false;
 
     private volatile PlayerService playerService;
     private volatile RealmService realmService;
@@ -58,7 +69,7 @@ public class ServiceContainer {
         if (playerService == null) {
             synchronized (this) {
                 if (playerService == null) {
-                    playerService = new PlayerService();
+                    playerService = new PlayerService(this);
                 }
             }
         }
@@ -157,7 +168,7 @@ public class ServiceContainer {
         if (tradeService == null) {
             synchronized (this) {
                 if (tradeService == null) {
-                    tradeService = new TradeService();
+                    tradeService = new TradeService(this);
                 }
             }
         }
@@ -234,7 +245,7 @@ public class ServiceContainer {
         if (sectService == null) {
             synchronized (this) {
                 if (sectService == null) {
-                    sectService = new SectService();
+                    sectService = new SectService(this);
                 }
             }
         }
@@ -245,7 +256,7 @@ public class ServiceContainer {
         if (economyService == null) {
             synchronized (this) {
                 if (economyService == null) {
-                    economyService = new EconomyService();
+                    economyService = new EconomyService(this);
                 }
             }
         }
@@ -278,7 +289,7 @@ public class ServiceContainer {
         if (caveService == null) {
             synchronized (this) {
                 if (caveService == null) {
-                    caveService = new CaveService();
+                    caveService = new CaveService(this);
                 }
             }
         }
@@ -289,7 +300,7 @@ public class ServiceContainer {
         if (formationService == null) {
             synchronized (this) {
                 if (formationService == null) {
-                    formationService = new FormationService();
+                    formationService = new FormationService(this);
                 }
             }
         }
@@ -300,7 +311,7 @@ public class ServiceContainer {
         if (buffService == null) {
             synchronized (this) {
                 if (buffService == null) {
-                    buffService = new BuffService();
+                    buffService = new BuffService(this);
                 }
             }
         }
@@ -430,11 +441,67 @@ public class ServiceContainer {
     };
 
     /**
-     * 注销本容器的换库回调。
+     * 启动全部后台定时任务。
      *
-     * <p>换掉容器前必须调用，否则旧回调会一直挂在 {@code DatabaseManager} 上。</p>
+     * <p><b>由启动流程显式调用</b>（{@code Main} 在数据库初始化之后），不在构造函数里自动跑：
+     * 构造容器是测试里最常见的动作，构造函数有副作用的话，"拿一套干净实例"就变成了
+     * "顺手起七个线程"。{@code ServiceRegistry.reset()} 只换实例、不起任务，
+     * 于是测试进程里不再有横跨测试类的后台写库。</p>
+     *
+     * <p>重复调用幂等。</p>
+     */
+    public synchronized void startBackgroundTasks() {
+        if (backgroundTasksStarted) return;
+        backgroundTasksStarted = true;
+
+        startTask(getPlayerService());
+        startTask(getBuffService());
+        startTask(getCaveService());
+        startTask(getEconomyService());
+        startTask(getFormationService());
+        startTask(getSectService());
+        startTask(getTradeService());
+
+        // SeasonService 是"全局时钟"，状态与方法全是 static（48 处静态调用点），
+        // 还不是容器里的实例服务。它的调度器交给容器统一启停，等它变成实例服务
+        // 时这一段自然收编进 BackgroundTaskOwner。
+        SeasonService.startScheduler();
+    }
+
+    private void startTask(BackgroundTaskOwner owner) {
+        owner.startBackgroundTasks();
+        startedBackgroundTasks.add(owner);
+    }
+
+    /** 后台任务是否已启动（监控/测试断言用）。 */
+    public synchronized boolean areBackgroundTasksStarted() {
+        return backgroundTasksStarted;
+    }
+
+    /**
+     * 注销本容器的换库回调，并停止它启动过的后台任务。
+     *
+     * <p>顺序很重要：先停任务再摘回调。反过来的话，停任务的过程中若发生换库，
+     * 旧实例仍会被通知去清缓存。</p>
+     *
+     * <p>换掉容器前必须调用，否则旧回调会一直挂在 {@code DatabaseManager} 上，
+     * 旧调度线程也会继续跑。</p>
      */
     public void close() {
+        synchronized (this) {
+            for (int i = startedBackgroundTasks.size() - 1; i >= 0; i--) {
+                try {
+                    startedBackgroundTasks.get(i).stopBackgroundTasks();
+                } catch (Throwable t) {
+                    // 关服路径上单个任务停不掉不应阻断其余任务
+                }
+            }
+            startedBackgroundTasks.clear();
+            if (backgroundTasksStarted) {
+                SeasonService.stopScheduler();
+                backgroundTasksStarted = false;
+            }
+        }
         com.mtxgdn.db.DatabaseManager.removeReinitListener(reinitListener);
     }
 }

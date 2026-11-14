@@ -95,24 +95,14 @@ public class Main {
             if (motdServer != null) motdServer.stop();
         });
         hook.addTask(() -> {
-            com.mtxgdn.game.service.TradeService.shutdown();
-            LOG.info("坊市到期挂单回收与价格历史清理任务已停止");
-        });
-        hook.addTask(() -> {
-            com.mtxgdn.game.service.EconomyService.shutdown();
-            LOG.info("拍卖到期结算任务已停止");
+            // 所有后台定时任务的启停现在都归容器：这里一次关掉整套，
+            // 不需要（也不应该）逐个服务点 shutdown —— 漏一个就是关服后还在查已关闭的连接池。
+            com.mtxgdn.common.service.ServiceRegistry.container().close();
+            LOG.info("后台定时任务已全部停止");
         });
         hook.addTask(() -> {
             com.mtxgdn.playerdata.PlayerDataService.shutdown();
             LOG.info("玩家数据文件同步已完成");
-        });
-        hook.addTask(() -> {
-            // 这两个服务的定时任务以前没人停：关服后它们还会继续查已经关掉的
-            // 连接池，刷一屏 "Connection is closed"，把真正的关闭日志淹掉。
-            // （玩家/增益/洞府/阵法的停止已经在 ServerShutdownHook.createDefault 里）
-            com.mtxgdn.game.service.SeasonService.shutdown();
-            com.mtxgdn.game.service.SectService.shutdownSuccessionSweeper();
-            LOG.info("天象刷新与宗门换届巡检任务已停止");
         });
         hook.addTask(() -> {
             // 指令线程池：停止接收新任务，给已入队的指令 5 秒跑完再强制收尾。
@@ -167,6 +157,11 @@ public class Main {
         }
 
         initializeDatabase();
+
+        // 后台定时任务在数据库就绪之后启动，由容器统一持有启停权。
+        // 必须在服务真正被访问之前（下面的默认技能/功法/配方初始化就会触碰服务），
+        // 但也不能早于数据库 —— 它们第一个 tick 之前会检查 isReady()，早启动只是空转。
+        ServiceRegistry.container().startBackgroundTasks();
 
         LOG.info("正在初始化默认技能...");
         ServiceRegistry.getSkillService().insertDefaultSkills();

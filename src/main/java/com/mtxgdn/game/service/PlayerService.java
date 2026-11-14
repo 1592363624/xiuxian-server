@@ -43,22 +43,55 @@ import com.mtxgdn.api.PlayerApi;
  * 它们把连接原样交给 {@link PlayerDAO}，绝不会在事务里另开连接
  * （SQLite 下那会抛 {@code SQLITE_BUSY_SNAPSHOT} 或读到旧快照）。</p>
  */
-public class PlayerService implements PlayerApi {
+public class PlayerService implements PlayerApi, com.mtxgdn.common.service.BackgroundTaskOwner {
 
     private static final GameLogger LOG = GameLogger.getLogger(PlayerService.class);
 
     /** {@code players} 表的读写入口（无状态，可安全共享）。 */
     private static final PlayerDAO PLAYER_DAO = new PlayerDAO();
 
-    private static final ScheduledExecutorService scheduler = com.mtxgdn.util.Schedulers.newDaemonSingle("player-auto-heal");
+    /**
+     * 服务查询面：由容器注入。
+     *
+     * <p>本类是几乎所有服务的上游，反过来又要调 Buff / Map / Technique / Formation /
+     * Item / Durability —— 构造参数逐个传会成环。查询面让"用到时再取"成为默认，
+     * 环自然消失，而依赖仍然集中在这一行。</p>
+     */
+    private final com.mtxgdn.common.service.ServiceLookup services;
 
-    static {
+    /** 兼容旧调用点的构造器：走当前容器。生产代码由 {@code ServiceContainer} 注入。 */
+    public PlayerService() {
+        this(com.mtxgdn.common.service.ServiceRegistry.container());
+    }
+
+    public PlayerService(com.mtxgdn.common.service.ServiceLookup services) {
+        this.services = services;
+    }
+
+    /**
+     * 自动回血调度器。
+     *
+     * <p><b>为什么从 static 改成实例字段</b>：它原来在静态块里启动，导致"换容器
+     * 换不掉线程"——旧容器的服务实例被丢弃，线程还在往库里写。现在由
+     * {@link com.mtxgdn.common.service.ServiceContainer} 在启动时统一 start、
+     * 关闭时统一 stop，一套实例对应一批线程。构造本类<b>不会</b>起线程，
+     * 测试里 {@code new PlayerService()} 不再顺手多一个后台任务。</p>
+     */
+    private ScheduledExecutorService scheduler;
+
+    @Override
+    public synchronized void startBackgroundTasks() {
+        if (scheduler != null) return;
+        scheduler = com.mtxgdn.util.Schedulers.newDaemonSingle("player-auto-heal");
         scheduler.scheduleAtFixedRate(PlayerService::tickAutoHeal, 10, 10, TimeUnit.SECONDS);
         LOG.info("玩家自动回血任务已启动（每10秒回复1%最大生命值）");
     }
 
-    public static void shutdown() {
+    @Override
+    public synchronized void stopBackgroundTasks() {
+        if (scheduler == null) return;
         scheduler.shutdown();
+        scheduler = null;
         LOG.info("玩家自动回血任务已停止");
     }
 
@@ -196,7 +229,7 @@ public class PlayerService implements PlayerApi {
         long playerId = PLAYER_DAO.insertPlayer(userId, safeName, root, (conn, newPlayerId) -> {
             NewbieRewardConfig rewardConfig = GameConfigLoader.getNewbieRewardConfig();
             if (rewardConfig.isEnabled()) {
-                ItemService itemService = ServiceRegistry.getItemService();
+                ItemService itemService = services.getItemService();
 
                 if (rewardConfig.getGoldReward() > 0) {
                     PLAYER_DAO.addGold(conn, newPlayerId, rewardConfig.getGoldReward());
@@ -313,7 +346,7 @@ public class PlayerService implements PlayerApi {
         if (player != null) {
             exp = (long) (exp * getFinalExpBonus(player));
             // 经验翻倍丹等 Buff 加成
-            double buffMult = ServiceRegistry.getBuffService().getExpMultiplier(playerId);
+            double buffMult = services.getBuffService().getExpMultiplier(playerId);
             if (buffMult > 1.0) {
                 exp = (long) (exp * buffMult);
             }
@@ -362,7 +395,7 @@ public class PlayerService implements PlayerApi {
         double base = GameConfigLoader.getCultivationMultiplier(player.getRealm())
                 * GameConfigLoader.getCultivationBaseValue();
         double seasonMultiplier = SeasonService.getCultivationMultiplier();
-        double locationMultiplier = ServiceRegistry.getMapService().getCultivationBonus(player.getCurrentLocationId());
+        double locationMultiplier = services.getMapService().getCultivationBonus(player.getCurrentLocationId());
 
         double mult = base * seasonMultiplier * locationMultiplier;
 
@@ -376,7 +409,7 @@ public class PlayerService implements PlayerApi {
         mult *= com.mtxgdn.game.service.DailyService.getTodayPhenomenonStatic().getCultivationMultiplier();
 
         // 功法修炼速度（已装备功法的 cultivation_speed_bonus 之和）
-        double techniqueBonus = ServiceRegistry.getTechniqueService().getEquippedCultivationSpeedBonus(player.getId());
+        double techniqueBonus = services.getTechniqueService().getEquippedCultivationSpeedBonus(player.getId());
         if (techniqueBonus > 0) {
             mult *= (1 + techniqueBonus);
         }
@@ -385,7 +418,7 @@ public class PlayerService implements PlayerApi {
         mult *= getFinalCultivationSpeed(player);
 
         // 洞府/阵法修炼加成（聚灵阵等）
-        int formationBonus = ServiceRegistry.getFormationService().getTotalCultivationBonus(player.getId());
+        int formationBonus = services.getFormationService().getTotalCultivationBonus(player.getId());
         if (formationBonus > 0) {
             mult *= (1 + formationBonus / 100.0);
         }
@@ -428,8 +461,8 @@ public class PlayerService implements PlayerApi {
                 SeasonService.getCurrentSeason().name(),
                 SeasonService.getCultivationMultiplier(),
                 locationId,
-                ServiceRegistry.getMapService().getLocationName(locationId),
-                ServiceRegistry.getMapService().getCultivationBonus(locationId));
+                services.getMapService().getLocationName(locationId),
+                services.getMapService().getCultivationBonus(locationId));
     }
 
     /**
@@ -456,7 +489,7 @@ public class PlayerService implements PlayerApi {
         int perSecond = calculateCultivationPerSecond(player);
         long rawExpGained = calculateCultivationExp(player, elapsedSeconds);
         double seasonMultiplier = SeasonService.getCultivationMultiplier();
-        double locationMultiplier = ServiceRegistry.getMapService().getCultivationBonus(player.getCurrentLocationId());
+        double locationMultiplier = services.getMapService().getCultivationBonus(player.getCurrentLocationId());
 
         long locationId = player.getCurrentLocationId();
         return FinishCultivationResult.finished(
@@ -464,7 +497,7 @@ public class PlayerService implements PlayerApi {
                 elapsedSeconds, perSecond, rawExpGained,
                 SeasonService.getCurrentSeason().name(), seasonMultiplier,
                 locationId,
-                ServiceRegistry.getMapService().getLocationName(locationId),
+                services.getMapService().getLocationName(locationId),
                 locationMultiplier);
     }
 
@@ -537,7 +570,7 @@ public class PlayerService implements PlayerApi {
         }
 
         long cost = (player.getRealm() + 1) * 50L;
-        long currentStones = ServiceRegistry.getItemService().getSpiritStoneCount(playerId);
+        long currentStones = services.getItemService().getSpiritStoneCount(playerId);
 
         if (currentStones < cost) {
             return HealResult.notEnoughStones(
@@ -545,7 +578,7 @@ public class PlayerService implements PlayerApi {
                     cost, currentStones);
         }
 
-        if (!ServiceRegistry.getItemService().removeSpiritStones(playerId, cost)) {
+        if (!services.getItemService().removeSpiritStones(playerId, cost)) {
             return HealResult.rejected(I18n.t("player.failed_to_deduct_spirit_stones"));
         }
 
@@ -737,7 +770,7 @@ public class PlayerService implements PlayerApi {
      * 修理完耐久回到满值，惩罚自然归零，不存在记账不一致。</p>
      */
     private int[] getBrokenPenalty(long playerId) {
-        return com.mtxgdn.common.service.ServiceRegistry.getDurabilityService().getBrokenPenalty(playerId);
+        return services.getDurabilityService().getBrokenPenalty(playerId);
     }
 
     /**
@@ -783,7 +816,7 @@ public class PlayerService implements PlayerApi {
     public double getFinalExpBonus(Player player) {
         // 称号经验加成 + 已装备功法经验加成（exp_bonus），两者均为经验获取倍率的增量
         double bonus = applyTitleBonus(player, 1.0, t -> t.getExpBonus());
-        bonus += ServiceRegistry.getTechniqueService().getEquippedExpBonus(player.getId());
+        bonus += services.getTechniqueService().getEquippedExpBonus(player.getId());
         return bonus;
     }
 

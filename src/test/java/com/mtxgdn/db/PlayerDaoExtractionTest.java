@@ -92,13 +92,27 @@ class PlayerDaoExtractionTest extends TestBase {
 
     /**
      * {@code javap -public -classpath target/classes com.mtxgdn.game.service.PlayerService}
-     * 在<b>重构前</b>导出的公开成员清单（逐字抄录，去掉行尾分号与 {@code throws} 子句，
+     * 导出的公开成员清单（逐字抄录，去掉行尾分号与 {@code throws} 子句，
      * 与 {@link #describePublicApi(Class)} 的输出格式一致）。
+     *
+     * <p><b>相对重构前有意变化的三处</b>（本次"调度器生命周期归容器"改动）：</p>
+     * <ul>
+     *   <li>{@code public static void shutdown()} 删除 —— 调度器不再由服务自己启停，
+     *       静态 shutdown 正是"换容器换不掉线程"的根源；</li>
+     *   <li>{@code public PlayerService(ServiceLookup)} 新增 —— 容器注入服务查询面的入口，
+     *       无参构造保留给测试与旧调用点；</li>
+     *   <li>{@code startBackgroundTasks()} / {@code stopBackgroundTasks()} 新增 ——
+     *       {@code BackgroundTaskOwner} 契约，由 {@code ServiceContainer} 统一调用。</li>
+     * </ul>
+     * <p>除此之外一个方法都没动：REST / WebSocket / 指令 / 插件 / 其它服务的调用方
+     * 仍然按原签名编译。</p>
      */
     private static final List<String> GOLDEN_SERVICE_API = List.of(
             "public static final int MAX_PLAYER_NAME_LENGTH",
             "public com.mtxgdn.game.service.PlayerService()",
-            "public static void shutdown()",
+            "public com.mtxgdn.game.service.PlayerService(com.mtxgdn.common.service.ServiceLookup)",
+            "public void startBackgroundTasks()",
+            "public void stopBackgroundTasks()",
             "public com.mtxgdn.game.entity.PlayerInfo getPlayerByUserId(long)",
             "public com.mtxgdn.entity.Player getPlayerById(long)",
             "public com.mtxgdn.game.entity.PlayerInfo getPlayerInfoById(long)",

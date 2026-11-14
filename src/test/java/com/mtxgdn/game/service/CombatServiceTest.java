@@ -61,7 +61,7 @@ class CombatServiceTest {
 
     @AfterAll
     static void tearDownAll() {
-        try { PlayerService.shutdown(); } catch (Exception ignored) {}
+        com.mtxgdn.common.service.ServiceRegistry.reset();
         DatabaseManager.shutdown();
         new java.io.File("test_combat.db").delete();
     }

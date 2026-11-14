@@ -21,25 +21,45 @@ import com.mtxgdn.i18n.I18n;
 import java.sql.SQLException;
 import com.mtxgdn.api.FormationApi;
 
-public class FormationService implements FormationApi {
+public class FormationService implements FormationApi, com.mtxgdn.common.service.BackgroundTaskOwner {
 
     private static final GameLogger LOG = GameLogger.getLogger(FormationService.class);
-
-    private final PlayerService playerService = ServiceRegistry.getPlayerService();
-    private final ItemService itemService = ServiceRegistry.getItemService();
 
     /** {@code formations} 的读写入口（无状态，可共享）。 */
     private static final FormationDAO FORMATION_DAO = new FormationDAO();
 
-    private static final ScheduledExecutorService scheduler = com.mtxgdn.util.Schedulers.newDaemonSingle("formation-tick");
+    /** 服务查询面：由容器注入。 */
+    private final com.mtxgdn.common.service.ServiceLookup services;
+    private final PlayerService playerService;
+    private final ItemService itemService;
 
-    static {
+    /** 阵法定时检查调度器；生命周期归 {@link com.mtxgdn.common.service.ServiceContainer}。 */
+    private ScheduledExecutorService scheduler;
+
+    /** 兼容旧调用点的构造器：走当前容器。 */
+    public FormationService() {
+        this(com.mtxgdn.common.service.ServiceRegistry.container());
+    }
+
+    public FormationService(com.mtxgdn.common.service.ServiceLookup services) {
+        this.services = services;
+        this.playerService = services.getPlayerService();
+        this.itemService = services.getItemService();
+    }
+
+    @Override
+    public synchronized void startBackgroundTasks() {
+        if (scheduler != null) return;
+        scheduler = com.mtxgdn.util.Schedulers.newDaemonSingle("formation-tick");
         scheduler.scheduleAtFixedRate(FormationService::tickFormations, 60, 60, TimeUnit.SECONDS);
         LOG.info("阵法定时检查任务已启动");
     }
 
-    public static void shutdown() {
+    @Override
+    public synchronized void stopBackgroundTasks() {
+        if (scheduler == null) return;
         scheduler.shutdown();
+        scheduler = null;
         LOG.info("阵法定时检查任务已停止");
     }
 
@@ -60,7 +80,7 @@ public class FormationService implements FormationApi {
             return OperationResult.fail(I18n.t("formation.character_not_found"));
         }
 
-        if (com.mtxgdn.common.service.ServiceRegistry.getCaveService().getCaveByPlayerId(playerId) == null) {
+        if (services.getCaveService().getCaveByPlayerId(playerId) == null) {
             return OperationResult.fail(I18n.t("formation.you_do"));
         }
 
@@ -201,7 +221,7 @@ public class FormationService implements FormationApi {
         if (formationKey == null) {
             return UseItemResult.rejected(I18n.t("formation.this_is_not_a_formation"));
         }
-        if (com.mtxgdn.common.service.ServiceRegistry.getCaveService().getCaveByPlayerId(playerId) == null) {
+        if (services.getCaveService().getCaveByPlayerId(playerId) == null) {
             return UseItemResult.rejected(I18n.t("formation.you_do"));
         }
         if (getActiveFormation(playerId) != null) {

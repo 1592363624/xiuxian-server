@@ -1,10 +1,5 @@
 package com.mtxgdn.server;
 
-import com.mtxgdn.game.service.BuffService;
-import com.mtxgdn.game.service.CaveService;
-import com.mtxgdn.game.service.FarmService;
-import com.mtxgdn.game.service.FormationService;
-import com.mtxgdn.game.service.PlayerService;
 import com.mtxgdn.plugin.PluginManager;
 import com.mtxgdn.util.GameLogger;
 
@@ -50,11 +45,9 @@ public class ServerShutdownHook {
 
         hook.addTask(() -> PluginManager.getInstance().disablePlugins());
         hook.addTask(() -> PluginManager.getInstance().stopFileWatcher());
-        hook.addTask(PlayerService::shutdown);
-        hook.addTask(FormationService::shutdown);
-        hook.addTask(FarmService::shutdownScheduler);
-        hook.addTask(CaveService::shutdown);
-        hook.addTask(BuffService::shutdownScheduler);
+        // 后台定时任务的停止统一由 ServiceContainer.close() 负责（Main 的关服钩子里调用）：
+        // 逐个服务点 shutdown 的写法漏过 Economy/Season/Sect/Trade，表现为关服后
+        // 这些任务还在查已关闭的连接池。容器持有"启动过哪些任务"的清单，不会漏。
 
         return hook;
     }

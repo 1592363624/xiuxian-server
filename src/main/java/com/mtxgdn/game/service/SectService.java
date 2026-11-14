@@ -68,7 +68,7 @@ import com.mtxgdn.api.SectApi;
  * 而不是某个业务域 —— 它要调的是本门面的公开方法，放这里才不会被误当成域内逻辑。
  * 首个 tick 的延迟与间隔、守护线程名、异常吞掉的方式都与拆分前逐字相同。</p>
  */
-public class SectService implements SectApi {
+public class SectService implements SectApi, com.mtxgdn.common.service.BackgroundTaskOwner {
 
     /** 宗主争夺战局数（三局两胜）。 */
     public static final int CONTEST_ROUNDS = 3;
@@ -90,37 +90,21 @@ public class SectService implements SectApi {
      * <p>只负责两件低频维护：把"长期不活跃的宗主"标记为缺位、清理到期的竞争期。
      * 主动退位走的是同步路径，不依赖这个任务。</p>
      */
-    private static final ScheduledExecutorService successionScheduler =
-            Executors.newSingleThreadScheduledExecutor(r -> {
-                Thread t = new Thread(r, "sect-succession-sweeper");
-                t.setDaemon(true); // 守护线程：不阻止 JVM 退出
-                return t;
-            });
+    /** 继位扫描与工资结算共用的调度器；生命周期归 {@link com.mtxgdn.common.service.ServiceContainer}。 */
+    private ScheduledExecutorService successionScheduler;
 
-    static {
-        // 首个 tick 延迟 45s（等数据库与服务注册表就绪），之后按配置间隔扫一次。
-        successionScheduler.scheduleAtFixedRate(() -> {
-            try {
-                ServiceRegistry.getSectService().sweepLeaderSuccession(System.currentTimeMillis());
-            } catch (Throwable t) {
-                // 绝不让异常冒泡：一次失败不应终止后续所有 tick
-                SectSupport.LOG.warn("宗门宗主继位扫描任务异常: " + t);
-            }
-        }, 45, successionSweepSeconds(), TimeUnit.SECONDS);
+    /** 服务查询面：由容器注入。 */
+    private final com.mtxgdn.common.service.ServiceLookup services;
 
-        // 工资结算：与继位扫描共用同一个单线程调度器（都是低频 DB 操作，串行反而省连接）
-        successionScheduler.scheduleAtFixedRate(() -> {
-            try {
-                ServiceRegistry.getSectService().sweepSalaries(System.currentTimeMillis());
-            } catch (Throwable t) {
-                SectSupport.LOG.warn("宗门工资结算任务异常: " + t);
-            }
-        }, 60, salarySweepSeconds(), TimeUnit.SECONDS);
+    /** 兼容旧调用点的构造器：走当前容器。 */
+    public SectService() {
+        this(com.mtxgdn.common.service.ServiceRegistry.container());
     }
 
-    public SectService() {
-        PlayerService playerService = ServiceRegistry.getPlayerService();
-        ItemService itemService = ServiceRegistry.getItemService();
+    public SectService(com.mtxgdn.common.service.ServiceLookup services) {
+        this.services = services;
+        PlayerService playerService = services.getPlayerService();
+        ItemService itemService = services.getItemService();
 
         this.queryDomain = new SectQueryDomain();
         this.duelDomain = new SectDuelDomain();
@@ -132,9 +116,36 @@ public class SectService implements SectApi {
         this.treasuryDomain = new SectTreasuryDomain(itemService, queryDomain, membershipDomain);
     }
 
-    /** 停止继位扫描任务（服务端关闭 / 测试清理时调用）。 */
-    public static void shutdownSuccessionSweeper() {
+    @Override
+    public synchronized void startBackgroundTasks() {
+        if (successionScheduler != null) return;
+        successionScheduler = com.mtxgdn.util.Schedulers.newDaemonSingle("sect-succession-sweeper");
+
+        // 首个 tick 延迟 45s（等数据库与服务注册表就绪），之后按配置间隔扫一次。
+        successionScheduler.scheduleAtFixedRate(() -> {
+            try {
+                sweepLeaderSuccession(System.currentTimeMillis());
+            } catch (Throwable t) {
+                // 绝不让异常冒泡：一次失败不应终止后续所有 tick
+                SectSupport.LOG.warn("宗门宗主继位扫描任务异常: " + t);
+            }
+        }, 45, successionSweepSeconds(), TimeUnit.SECONDS);
+
+        // 工资结算：与继位扫描共用同一个单线程调度器（都是低频 DB 操作，串行反而省连接）
+        successionScheduler.scheduleAtFixedRate(() -> {
+            try {
+                sweepSalaries(System.currentTimeMillis());
+            } catch (Throwable t) {
+                SectSupport.LOG.warn("宗门工资结算任务异常: " + t);
+            }
+        }, 60, salarySweepSeconds(), TimeUnit.SECONDS);
+    }
+
+    @Override
+    public synchronized void stopBackgroundTasks() {
+        if (successionScheduler == null) return;
         successionScheduler.shutdown();
+        successionScheduler = null;
     }
 
     /** 宗主连续不活跃多少天判定弃坑；0 = 关闭该判定（只保留主动退位路径）。 */

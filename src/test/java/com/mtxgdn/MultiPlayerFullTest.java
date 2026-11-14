@@ -155,8 +155,8 @@ public class MultiPlayerFullTest {
 
     @AfterAll
     static void tearDownAll() {
-        try { PlayerService.shutdown(); } catch (Exception ignored) {}
-        try { BuffService.shutdownScheduler(); } catch (Exception ignored) {}
+        // 后台任务归容器所有：reset() 会 close() 旧容器并停掉它启动过的全部任务。
+        com.mtxgdn.common.service.ServiceRegistry.reset();
         try { FarmService.shutdownScheduler(); } catch (Exception ignored) {}
         DatabaseManager.shutdown();
         TestBase.testDbFile("test_full.db").delete();

@@ -60,13 +60,20 @@ class SectServiceSplitTest extends TestBase {
 
     /**
      * {@code javap -public -classpath target/classes com.mtxgdn.game.service.SectService}
-     * 在<b>拆分前</b>导出的公开成员清单（逐字抄录；返回类型已随 DTO 化同步更新）。
+     * 导出的公开成员清单（逐字抄录；返回类型已随 DTO 化同步更新）。
+     *
+     * <p><b>相对拆分前有意变化的三处</b>（"调度器生命周期归容器"改动）：
+     * {@code shutdownSuccessionSweeper()} 删除（改由容器 {@code close()} 统一停），
+     * 新增 {@code SectService(ServiceLookup)} 与 {@code startBackgroundTasks()/stopBackgroundTasks()}。
+     * 新增成员只影响构造与生命周期，门面的业务方法一个没动。</p>
      */
     private static final List<String> GOLDEN_FACADE_API = List.of(
             "public static final int CONTEST_ROUNDS",
             "public static final int CONTEST_WINS_NEEDED",
             "public com.mtxgdn.game.service.SectService()",
-            "public static void shutdownSuccessionSweeper()",
+            "public com.mtxgdn.game.service.SectService(com.mtxgdn.common.service.ServiceLookup)",
+            "public void startBackgroundTasks()",
+            "public void stopBackgroundTasks()",
             "public static int leaderAbsentDays()",
             "public static int contestDays()",
             "public static int contestLevelGap()",

@@ -22,24 +22,49 @@ import java.util.concurrent.TimeUnit;
 import com.mtxgdn.i18n.I18n;
 import com.mtxgdn.api.CaveApi;
 
-public class CaveService implements CaveApi {
+public class CaveService implements CaveApi, com.mtxgdn.common.service.BackgroundTaskOwner {
 
     private static final GameLogger LOG = GameLogger.getLogger(CaveService.class);
 
     private static final CaveDAO CAVE_DAO = new CaveDAO();
 
-    private final PlayerService playerService = ServiceRegistry.getPlayerService();
-    private final ItemService itemService = ServiceRegistry.getItemService();
+    /** 服务查询面：由容器注入，替代原来对 {@code ServiceRegistry} 静态方法的调用。 */
+    private final com.mtxgdn.common.service.ServiceLookup services;
+    private final PlayerService playerService;
+    private final ItemService itemService;
 
-    private static final ScheduledExecutorService scheduler = com.mtxgdn.util.Schedulers.newDaemonSingle("cave-spirit-energy");
+    /** 洞府灵气自动增长调度器；生命周期归 {@link com.mtxgdn.common.service.ServiceContainer}。 */
+    private ScheduledExecutorService scheduler;
 
-    static {
+    /**
+     * 兼容旧调用点的构造器：走当前容器。
+     *
+     * <p>生产代码一律用 {@link #CaveService(com.mtxgdn.common.service.ServiceLookup)}，
+     * 由 {@code ServiceContainer} 显式注入。</p>
+     */
+    public CaveService() {
+        this(com.mtxgdn.common.service.ServiceRegistry.container());
+    }
+
+    public CaveService(com.mtxgdn.common.service.ServiceLookup services) {
+        this.services = services;
+        this.playerService = services.getPlayerService();
+        this.itemService = services.getItemService();
+    }
+
+    @Override
+    public synchronized void startBackgroundTasks() {
+        if (scheduler != null) return;
+        scheduler = com.mtxgdn.util.Schedulers.newDaemonSingle("cave-spirit-energy");
         scheduler.scheduleAtFixedRate(CaveService::tickSpiritEnergy, 10, 10, TimeUnit.SECONDS);
         LOG.info("洞府灵气自动增长任务已启动");
     }
 
-    public static void shutdown() {
+    @Override
+    public synchronized void stopBackgroundTasks() {
+        if (scheduler == null) return;
         scheduler.shutdown();
+        scheduler = null;
         LOG.info("洞府灵气自动增长任务已停止");
     }
 
@@ -132,7 +157,7 @@ public class CaveService implements CaveApi {
             CAVE_DAO.resetSpiritEnergy(conn, cave.getId(), now);
 
             // 在事务内发放灵石，确保灵能重置和灵石发放原子性
-            int formationBoost = com.mtxgdn.common.service.ServiceRegistry.getFormationService().getTotalSpiritEnergyBoost(playerId);
+            int formationBoost = services.getFormationService().getTotalSpiritEnergyBoost(playerId);
             long boostedEnergy = spiritEnergy;
             if (formationBoost > 0) {
                 boostedEnergy = spiritEnergy * (100 + formationBoost) / 100;
@@ -169,14 +194,14 @@ public class CaveService implements CaveApi {
         }
 
         int caveBonus = cave.getCultivationBonus();
-        int formationBonus = com.mtxgdn.common.service.ServiceRegistry.getFormationService().getTotalCultivationBonus(playerId);
+        int formationBonus = services.getFormationService().getTotalCultivationBonus(playerId);
         int totalBonus = caveBonus + formationBonus;
         long expGain = 100 + (long) totalBonus * 10;
 
-        int formationResist = com.mtxgdn.common.service.ServiceRegistry.getFormationService().getTotalHeartDemonResist(playerId);
+        int formationResist = services.getFormationService().getTotalHeartDemonResist(playerId);
         int totalCaveLevelForHeartDemon = cave.getLevel() + (formationResist / 2);
 
-        HeartDemonService heartDemonService = ServiceRegistry.getHeartDemonService();
+        HeartDemonService heartDemonService = services.getHeartDemonService();
         HeartDemonResult heartDemon = heartDemonService.processCultivationWithCave(playerId, expGain, 30, totalCaveLevelForHeartDemon);
 
         if (heartDemon.triggered) {

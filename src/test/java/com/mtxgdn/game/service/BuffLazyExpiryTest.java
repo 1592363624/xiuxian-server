@@ -222,6 +222,6 @@ class BuffLazyExpiryTest extends TestBase {
     private static void invokeSweep() throws Exception {
         Method m = BuffService.class.getDeclaredMethod("checkExpiredBuffs");
         m.setAccessible(true);
-        m.invoke(null);
+        m.invoke(buffService);
     }
 }
