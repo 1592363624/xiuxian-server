@@ -96,6 +96,13 @@ public class DatabaseManager {
         dbUrl = url;
         dbUser = user;
         dbPassword = password;
+        // 换库必须让"表名白名单缓存"失效。
+        // 这个缓存只按 30 秒 TTL 刷新，如果测试/运行时在 TTL 内切过库，校验会拿
+        // 旧库的表清单去判断新库的表 —— 表现为"表在 sqlite_master 里明明存在，
+        // 却报「表不存在」"，而且只有在同一 JVM 里换过库才复现。
+        // 同类缺陷的说明见 DatabaseReinitInvalidatesCachesTest。
+        tableNameCache = null;
+        tableNameCacheTime = 0L;
         IS_SQLITE = url.startsWith("jdbc:sqlite:");
         DIALECT = IS_SQLITE ? new SQLiteDialect() : new MySQLDialect();
         try {
@@ -762,6 +769,9 @@ public class DatabaseManager {
             dataSource = null;
             logger.info("数据库连接池已关闭");
         }
+        // 池已关闭：表名缓存对应的库可能马上被删/被换，不能留给下一次 init
+        tableNameCache = null;
+        tableNameCacheTime = 0L;
     }
 
     /**

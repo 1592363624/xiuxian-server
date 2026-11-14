@@ -83,6 +83,31 @@ class DatabaseReinitInvalidatesCachesTest extends TestBase {
                 "换库后重新加载权限组不得失败（旧实现会拿着已关闭连接池的缓存）");
     }
 
+    @Test
+    @DisplayName("换库后表名白名单缓存必须失效（否则会报「表不存在」）")
+    void tableNameCacheIsInvalidatedOnReinit() throws SQLException {
+        File altFile = TestBase.testDbFile(ALT_DB);
+        if (altFile.exists() && !altFile.delete()) {
+            fail("无法删除旧的重 Init 测试库: " + altFile.getAbsolutePath());
+        }
+
+        // ① 在备用库里删掉一张表，再把「备用库的表清单」灌进缓存
+        DatabaseManager.init(TestBase.testDbUrl(ALT_DB), "", "");
+        try (Connection conn = DatabaseManager.getConnection();
+             Statement st = conn.createStatement()) {
+            st.execute("DROP TABLE farm_plots");
+        }
+        assertThrows(IllegalArgumentException.class,
+                () -> DatabaseManager.assertSafeTableName("farm_plots"),
+                "前置条件：备用库里 farm_plots 已被删掉，应当校验失败");
+
+        // ② 换回主库：缓存必须失效，否则会拿备用库的表清单判断主库
+        DatabaseManager.init(TestBase.testDbUrl("xiuxian_test.db"), "", "");
+        assertDoesNotThrow(() -> DatabaseManager.assertSafeTableName("farm_plots"),
+                "换库后表名缓存没失效 —— 主库里明明有 farm_plots，却会报「表不存在」。"
+                        + "这正是全量测试里偶发失败的形态");
+    }
+
     /** 直接查库数地点行数，绕开缓存。 */
     private int locationCount() throws SQLException {
         try (Connection conn = DatabaseManager.getConnection();
