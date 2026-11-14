@@ -1,18 +1,26 @@
 package com.mtxgdn.common.service;
 
 import com.mtxgdn.game.service.*;
-import com.mtxgdn.minecraft.adapter.MinecraftPlayerBindingService;
 import com.mtxgdn.util.GameLogger;
 
 /**
- * 服务访问的静态门面。
+ * 容器的静态门面。
  *
- * <p>服务的构造与接线已经搬到 {@link ServiceContainer}，这里只剩一层委托。
- * 保留静态方法是为了不让四百多处调用点在同一次改动里全部重写，
- * 但它同时是<b>技术债</b>：静态状态让测试之间互相污染、让依赖关系看不出来。</p>
+ * <p><b>只剩三个方法</b>：{@link #container()} / {@link #install(ServiceContainer)} /
+ * {@link #reset()}。历史上这里还有 30 个 {@code getXxxService()} 静态 delegator，
+ * 四百多个调用点靠它们拿服务 —— 那是一层看不见的全局状态，测试之间互相污染、
+ * 依赖关系也看不出来。迁移后：</p>
  *
- * <p>迁移方向：新代码通过构造参数或 {@link ServiceContainer} 拿服务；
- * 老代码保持不动，直到被改到为止。</p>
+ * <ul>
+ *   <li>服务之间、指令、REST 资源、WebSocket、适配器、物品效果都通过
+ *       {@link ServiceLookup}（构造参数或框架边界的显式绑定）取服务；</li>
+ *   <li>静态门面只给"进程级单例"用：启动流程、框架边界、测试夹具。
+ *       业务代码里再出现 {@code ServiceRegistry.container()} 应被视为异常。</li>
+ * </ul>
+ *
+ * <p>为什么连静态 getter 一起删掉，而不是留着"方便"：只要还留着一个
+ * {@code getXxxService()}，新代码就会继续用它，迁移会永远停在半路。
+ * 删掉之后，任何绕过注入的写法在编译期就过不去。</p>
  */
 public final class ServiceRegistry {
 
@@ -57,126 +65,6 @@ public final class ServiceRegistry {
      */
     public static void reset() {
         install(new ServiceContainer());
-    }
-
-    public static PlayerService getPlayerService() {
-        return current.getPlayerService();
-    }
-
-    public static RealmService getRealmService() {
-        return current.getRealmService();
-    }
-
-    public static ItemService getItemService() {
-        return current.getItemService();
-    }
-
-    public static SecretRealmService getSecretRealmService() {
-        return current.getSecretRealmService();
-    }
-
-    public static ExplorationService getExplorationService() {
-        return current.getExplorationService();
-    }
-
-    public static NewbieGuideService getGuideService() {
-        return current.getGuideService();
-    }
-
-    public static SkillService getSkillService() {
-        return current.getSkillService();
-    }
-
-    public static CombatService getCombatService() {
-        return current.getCombatService();
-    }
-
-    public static DailyService getDailyService() {
-        return current.getDailyService();
-    }
-
-    public static TradeService getTradeService() {
-        return current.getTradeService();
-    }
-
-    public static HeartDemonService getHeartDemonService() {
-        return current.getHeartDemonService();
-    }
-
-    public static ChatService getChatService() {
-        return current.getChatService();
-    }
-
-    public static FriendService getFriendService() {
-        return current.getFriendService();
-    }
-
-    public static EnhanceService getEnhanceService() {
-        return current.getEnhanceService();
-    }
-
-    public static CraftingService getCraftingService() {
-        return current.getCraftingService();
-    }
-
-    public static TechniqueService getTechniqueService() {
-        return current.getTechniqueService();
-    }
-
-    public static SectService getSectService() {
-        return current.getSectService();
-    }
-
-    public static EconomyService getEconomyService() {
-        return current.getEconomyService();
-    }
-
-    public static EnergyService getEnergyService() {
-        return current.getEnergyService();
-    }
-
-    public static TitleService getTitleService() {
-        return current.getTitleService();
-    }
-
-    public static CaveService getCaveService() {
-        return current.getCaveService();
-    }
-
-    public static FormationService getFormationService() {
-        return current.getFormationService();
-    }
-
-    public static BuffService getBuffService() {
-        return current.getBuffService();
-    }
-
-    public static FarmService getFarmService() {
-        return current.getFarmService();
-    }
-
-    public static MinecraftPlayerBindingService getMcBindingService() {
-        return current.getMcBindingService();
-    }
-
-    public static MapService getMapService() {
-        return current.getMapService();
-    }
-
-    public static WorldBossService getWorldBossService() {
-        return current.getWorldBossService();
-    }
-
-    public static DurabilityService getDurabilityService() {
-        return current.getDurabilityService();
-    }
-
-    public static OfflineRewardService getOfflineRewardService() {
-        return current.getOfflineRewardService();
-    }
-
-    public static RedeemCodeService getRedeemCodeService() {
-        return current.getRedeemCodeService();
     }
 
 }
