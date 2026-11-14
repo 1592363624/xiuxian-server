@@ -141,9 +141,13 @@ SectQueryApi sect = ctx.getService(SectQueryApi.class);           // 消费，�
 ### 2.7 服务容器
 
 - **`ServiceContainer`**：构造与接线集中在这里，一个实例一套服务
-- **`ServiceRegistry`**：静态门面，每个方法一行 `return current.getXxx();`
-- **`install()` / `reset()`**：换容器、重建一套
-- **`TestBase` 在停完调度器后调 `reset()`**：每个测试类拿干净实例
+- **`ServiceLookup`**：只读服务查询面（容器实现）。业务代码通过**构造参数**
+  拿它，不调静态方法
+- **`ServiceRegistry`**：只剩 `container()` / `install()` / `reset()` 三个方法的静态门面，
+  给启动流程、框架边界、测试夹具用
+- **`install()` / `reset()`**：换容器、重建一套；旧容器 `close()` 会停掉它启动过的
+  全部后台任务并摘掉换库回调
+- **`TestBase` 只调 `reset()`**：换实例 + 停旧后台线程一次完成，不再逐个服务 shutdown
 
 **顺手修掉一个真 bug**：换库清缓存的回调原本是静态块，注册后永不注销。
 容器可替换之后，每换一次容器就多一个指向废弃实例的回调——换库时对着旧实例清缓存，
@@ -160,43 +164,47 @@ SectQueryApi sect = ctx.getService(SectQueryApi.class);           // 消费，�
 - 29 个服务接口：全部 `implements` 成立，编译器保证
 - `PluginContext` 20 个 getter 返回接口
 - 服务容器可实例化、可替换、可重置，`TestBase` 已用上
+- **450 处 `ServiceRegistry.getXxxService()` 全部迁移完毕**，30 个静态 getter 已删除
+  （见 3.1）
+- **8 个服务（实为 7 个实例服务 + `SeasonService`）的调度器生命周期归容器**
+  （见 3.2）
 
 ### 开了头的（**这是交接的重点**）
 
-#### 1. 450 处 `ServiceRegistry.getXxxService()` 一处都没改
+#### 1. ~~450 处 `ServiceRegistry.getXxxService()`~~ —— 已完成
 
-真正"消灭静态单例"要求把服务作为构造参数一路传下去，涉及 140 个文件。
-这次只做了前提（容器），没做迁移。
+迁移后的约定（改动见提交 `refactor: 服务获取从静态门面迁移到构造注入` 与
+`refactor: 删除 ServiceRegistry 的 30 个静态 getter`）：
 
-**剩余分布（供排期）**：
+- **服务、指令、REST 资源、WebSocket、适配器、物品效果**都通过
+  `ServiceLookup` 取服务；服务之间的环（`cave` ↔ `formation`、
+  `player` 是几乎所有人的上游）用"查询面"而不是逐个实例传参来解，依赖仍集中
+  在字段声明处。
+- **服务不再有无参构造**：不回落静态容器，测试也显式传 `ServiceRegistry.container()`。
+- **指令**：`Command.services()`，由 `CommandScanner` 在注册边界注入
+  （反射无参构造拿不到参数）。
+- **REST**：资源继承 `BaseResource`（Jersey 反射创建）。
+- **框架边界**：`ServiceRegistry.container()` 只允许出现在
+  `ServiceInjectionMigrationTest.CONTAINER_ALLOWLIST` 列出的 19 个文件里；
+  往清单里加一项要能回答"为什么它不能通过构造参数拿到服务"。
+- **守护测试**：`ServiceInjectionMigrationTest` 钉住"门面只有三个方法""没有
+  静态 getter""业务类不直接取容器""服务纯构造注入""不自行 new 服务"五条，
+  想绕过注入的写法会在编译期或测试里失败。
+- 顺手修掉一类隐蔽 bug：生产代码里 `new TitleService()` / `new ItemService()`
+  这样的临时实例，会造出与容器不一致的第二份状态。
 
-| 包 | 调用点 |
-|---|---|
-| `game.service`（服务间互调） | 132 |
-| `rest` | 53 |
-| `game.command.economy` | 44 |
-| `plugin` | 42（其中 31 处是 `CoreServices`，**合法，别动**） |
-| `game.command.admin` | 21 |
-| `game.command.item` | 21 |
-| `websocket` | 11 |
-| 其余 | ~126 |
+#### 2. ~~8 个服务在 static 块里启动调度器~~ —— 已完成
 
-合计 450。
-
-**建议从 `plugin` 开始**：它本来就该走 `PluginServiceRegistry`。
-`CoreServices` 那 31 处是**唯一合法**的（它就是在做登记），别动。
-`PluginContext` 的 5 处是回落路径，等 20 个 getter 删掉后自然消失。
-
-#### 2. 8 个服务在 static 块里启动调度器
-
-`BuffService` `CaveService` `EconomyService` `FormationService`
-`PlayerService` `SeasonService` `SectService` `TradeService`
-
-这是"换容器不彻底"的最后一块：换容器不会停掉旧容器的调度线程。
-`TestBase` 里那一大段 `stopBackgroundSchedulers()` 的注释就是讲这个——
-它现在仍然必要，因为**停调度器还得显式调用各自的 `shutdown`**。
-
-要做彻底，得把调度器生命周期挪进容器（构造时启动、`close()` 时停）。
+- 新增 `BackgroundTaskOwner`（`startBackgroundTasks` / `stopBackgroundTasks`，
+  要求幂等），7 个实例服务实现它；`SeasonService` 仍是全局静态时钟（48 处静态
+  调用点），暴露 `startScheduler()` / `stopScheduler()` 交给容器调用。
+- 调度器从 `static final` 字段改成实例字段，静态块删除：构造实例不再有"起线程"
+  的副作用。`ServiceContainer` 启动时统一 start、`close()` 按逆序 stop，
+  `reset()` 因此真正等于"换一套实例 + 停掉旧线程"。
+- `Main` 在数据库就绪后显式 `startBackgroundTasks()`；关服钩子改为
+  `container().close()` 一次关掉。
+- 守护测试：`ScheduledTaskLifecycleTest`（源码契约）+ `BackgroundTaskLifecycleTest`
+  （运行时：close 后线程必须消失、重复启停幂等、reset 停旧容器）。
 
 #### 3. 接口是镜像，需要收窄
 
@@ -296,8 +304,12 @@ Remove-Item commitmsg.txt
 
 ## 七、如果只能记住三件事
 
-1. **`.\mvnw.cmd`、不 clean、不并发、三批跑，基线 1320。**
+1. **`.\mvnw.cmd`、不 clean、不并发、分批发跑，基线 1332。**
+   内存够（16GB）时两批即可：批 1 `-Dtest=!com.mtxgdn.db.**,!com.mtxgdn.game.**`（577），
+   批 2 `-Dtest=com.mtxgdn.db.**,com.mtxgdn.game.**`（755）。
 2. **`cave` 和 `formation` 之间只能声明一个方向的依赖**，否则两个模块一起消失。
    原因在 `CavePlugin` 的类注释里。
-3. **`ServiceRegistry` 现在只是门面**，构造在 `ServiceContainer`。
-   新代码请通过构造参数或 `PluginServiceRegistry` 拿服务，别再往门面上加东西。
+3. **`ServiceRegistry` 现在只剩 `container()/install()/reset()` 三个方法**，
+   构造在 `ServiceContainer`。新代码请通过构造参数拿 `ServiceLookup`
+   （或 `PluginServiceRegistry`），别再往门面上加东西 ——
+   `ServiceInjectionMigrationTest` 会拦住你。
