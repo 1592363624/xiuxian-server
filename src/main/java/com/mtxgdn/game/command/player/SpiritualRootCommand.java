@@ -4,7 +4,6 @@ import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandContext;
 import com.mtxgdn.game.entity.PlayerInfo;
 import com.mtxgdn.game.entity.SpiritualRoot;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.util.LangManager;
 import com.mtxgdn.i18n.I18n;
 
@@ -82,7 +81,7 @@ public class SpiritualRootCommand extends Command {
             return;
         }
 
-        var itemService = ServiceRegistry.getItemService();
+        var itemService = services().getItemService();
         if (!itemService.hasItem(p.getId(), QIANKUN_DAN_KEY, 1)) {
             ctx.reply(I18n.t("player.reforging_your_spiritual_root_requires_2"));
             return;
@@ -103,7 +102,7 @@ public class SpiritualRootCommand extends Command {
 
         SpiritualRoot oldRoot = p.getSpiritualRoot();
         SpiritualRoot newRoot = SpiritualRoot.drawRandomForRecast(new java.util.Random());
-        var playerService = ServiceRegistry.getPlayerService();
+        var playerService = services().getPlayerService();
         playerService.updateSpiritualRoot(p.getId(), newRoot);
 
         StringBuilder sb = new StringBuilder();

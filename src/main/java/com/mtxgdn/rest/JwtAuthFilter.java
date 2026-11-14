@@ -1,12 +1,12 @@
 package com.mtxgdn.rest;
-
 import com.mtxgdn.util.JwtUtil;
 import com.mtxgdn.util.TokenBlacklist;
+import jakarta.ws.rs.core.Response;
+
 import jakarta.annotation.Priority;
 import jakarta.ws.rs.Priorities;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.container.ContainerRequestFilter;
-import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.Provider;
 
 /**

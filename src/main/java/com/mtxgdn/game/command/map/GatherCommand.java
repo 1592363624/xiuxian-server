@@ -5,7 +5,6 @@ import com.google.gson.JsonObject;
 import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandContext;
 import com.mtxgdn.common.command.RouteDefinition;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.game.entity.PlayerInfo;
 import com.mtxgdn.game.service.MapService;
 import com.mtxgdn.i18n.I18n;
@@ -18,7 +17,7 @@ import com.mtxgdn.i18n.I18n;
  */
 public class GatherCommand extends Command {
 
-    private final MapService mapService = ServiceRegistry.getMapService();
+    private final MapService mapService = services().getMapService();
 
     public GatherCommand() {
         super(new String[]{"采集", "gather", "collect"}, "在野外采集资源",

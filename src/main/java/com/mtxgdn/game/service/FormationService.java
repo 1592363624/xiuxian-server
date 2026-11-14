@@ -2,7 +2,6 @@ package com.mtxgdn.game.service;
 
 import com.mtxgdn.game.item.UseItemResult;
 import com.mtxgdn.common.result.OperationResult;
-import com.mtxgdn.common.service.ServiceRegistry;
 
 import com.mtxgdn.db.DatabaseManager;
 import com.mtxgdn.db.FormationDAO;
@@ -11,9 +10,6 @@ import com.mtxgdn.game.entity.Formation;
 import com.mtxgdn.game.formation.FormationUpgradeResult;
 import com.mtxgdn.util.GameLogger;
 
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import com.mtxgdn.i18n.I18n;
@@ -35,11 +31,6 @@ public class FormationService implements FormationApi, com.mtxgdn.common.service
 
     /** 阵法定时检查调度器；生命周期归 {@link com.mtxgdn.common.service.ServiceContainer}。 */
     private ScheduledExecutorService scheduler;
-
-    /** 兼容旧调用点的构造器：走当前容器。 */
-    public FormationService() {
-        this(com.mtxgdn.common.service.ServiceRegistry.container());
-    }
 
     public FormationService(com.mtxgdn.common.service.ServiceLookup services) {
         this.services = services;

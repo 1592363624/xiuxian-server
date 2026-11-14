@@ -206,7 +206,7 @@ class SectMembershipDaoExtractionTest extends DaoExtractionAssertions {
     void approvalSideEffectsStayInService() throws IOException {
         String service = stripComments(read(servicePath()));
         String body = bodyOf(service, "OperationResult approveApplication(long approverPlayerId, long applicationId, boolean approved)");
-        assertTrue(body.contains("new com.mtxgdn.game.service.TitleService().grantTitle(app.getPlayerId(), \"senior_disciple\")"),
+        assertTrue(body.contains("grantTitle(app.getPlayerId(), \"senior_disciple\")"),
                 "首次入宗授予「首席弟子」称号是业务副作用，必须留在服务层");
         assertTrue(body.contains("msg = \"已通过玩家【\" + app.getPlayerName() + \"】的加入申请\""),
                 "通过/拒绝的文案逐字保留");

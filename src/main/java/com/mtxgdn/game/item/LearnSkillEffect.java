@@ -1,6 +1,5 @@
 package com.mtxgdn.game.item;
 
-import com.mtxgdn.common.service.ServiceRegistry;
 
 import com.mtxgdn.game.service.ItemService;
 import com.mtxgdn.game.service.PlayerService;
@@ -26,8 +25,9 @@ public class LearnSkillEffect extends ItemEffect {
     }
 
     @Override
-    public String execute(long playerId, PlayerService playerService, ItemService itemService) {
-        SkillService skillService = ServiceRegistry.getSkillService();
+    public String execute(long playerId, PlayerService playerService, ItemService itemService,
+                          com.mtxgdn.common.service.ServiceLookup services) {
+        SkillService skillService = services.getSkillService();
         var result = skillService.learnSkillFromBook(playerId, skillId);
         return result.message();
     }

@@ -44,7 +44,7 @@ class HeartDemonChanceTest extends TestBase {
         int n = SEQ.incrementAndGet();
         long playerId = createPlayer("heartdemon" + n, "心魔测试" + n);
 
-        HeartDemonService service = ServiceRegistry.getHeartDemonService();
+        HeartDemonService service = ServiceRegistry.container().getHeartDemonService();
         int triggered = 0;
         for (int i = 0; i < TRIALS; i++) {
             HeartDemonResult result =
@@ -76,7 +76,7 @@ class HeartDemonChanceTest extends TestBase {
         long exposed = createPlayer("heartdemon_exposed" + n, "无洞府" + n);
         long sheltered = createPlayer("heartdemon_sheltered" + n, "有洞府" + n);
 
-        HeartDemonService service = ServiceRegistry.getHeartDemonService();
+        HeartDemonService service = ServiceRegistry.container().getHeartDemonService();
         int exposedHits = countTriggers(service, exposed, 0);
         // 洞府 3 级 → 抗性 9 个百分点，超过 8% 的基础概率，应当完全压到 0
         int shelteredHits = countTriggers(service, sheltered, 3);

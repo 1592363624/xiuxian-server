@@ -1,4 +1,5 @@
 package com.mtxgdn.game.service;
+import java.util.Map;
 
 import com.mtxgdn.db.PlayerDAO;
 import com.mtxgdn.entity.Player;
@@ -8,16 +9,12 @@ import com.mtxgdn.game.entity.PlayerInfo;
 import com.mtxgdn.game.entity.SpiritualRoot;
 import com.mtxgdn.game.entity.Title;
 import com.mtxgdn.game.title.TitleRegistry;
-import com.mtxgdn.common.service.ServiceRegistry;
 
 import com.mtxgdn.util.GameLogger;
 
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import com.mtxgdn.game.cultivation.BeginCultivationResult;
@@ -58,11 +55,6 @@ public class PlayerService implements PlayerApi, com.mtxgdn.common.service.Backg
      * 环自然消失，而依赖仍然集中在这一行。</p>
      */
     private final com.mtxgdn.common.service.ServiceLookup services;
-
-    /** 兼容旧调用点的构造器：走当前容器。生产代码由 {@code ServiceContainer} 注入。 */
-    public PlayerService() {
-        this(com.mtxgdn.common.service.ServiceRegistry.container());
-    }
 
     public PlayerService(com.mtxgdn.common.service.ServiceLookup services) {
         this.services = services;
@@ -254,7 +246,7 @@ public class PlayerService implements PlayerApi, com.mtxgdn.common.service.Backg
         // 新玩家自动获得「初入仙途」称号
         if (created != null) {
             try {
-                new com.mtxgdn.game.service.TitleService().grantTitle(playerId, "beginner");
+                services.getTitleService().grantTitle(playerId, "beginner");
             } catch (Exception ignored) {
                 // 称号授予失败不影响创建
             }
@@ -406,7 +398,7 @@ public class PlayerService implements PlayerApi, com.mtxgdn.common.service.Backg
         }
 
         // 天象修炼加成（紫气东来 +30% 等）
-        mult *= com.mtxgdn.game.service.DailyService.getTodayPhenomenonStatic().getCultivationMultiplier();
+        mult *= services.getDailyService().getTodayPhenomenon().getCultivationMultiplier();
 
         // 功法修炼速度（已装备功法的 cultivation_speed_bonus 之和）
         double techniqueBonus = services.getTechniqueService().getEquippedCultivationSpeedBonus(player.getId());

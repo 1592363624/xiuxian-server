@@ -28,7 +28,7 @@ import com.mtxgdn.i18n.I18n;
  * </ul>
  */
 @Path("/install")
-public class InstallResource {
+public class InstallResource extends BaseResource {
 
     private static final SecureRandom RANDOM = new SecureRandom();
     /** JWT 密钥最少 48 字节（384 位），高于 HMAC-SHA256 的 32 字节最低要求 */

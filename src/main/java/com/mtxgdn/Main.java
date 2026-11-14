@@ -13,10 +13,7 @@ import com.mtxgdn.plugin.PluginManager;
 import com.mtxgdn.plugin.PluginMaker;
 import com.mtxgdn.plugin.PluginWebManager;
 import com.mtxgdn.plugin.gui.PluginMakerGUI;
-import com.mtxgdn.game.service.CraftingService;
 import com.mtxgdn.game.service.EquipmentDataChecker;
-import com.mtxgdn.game.service.SkillService;
-import com.mtxgdn.game.service.TechniqueService;
 import com.mtxgdn.adapter.AdapterManager;
 import com.mtxgdn.minecraft.MinecraftMotdServer;
 import com.mtxgdn.server.AdminStaticFileHandler;
@@ -27,8 +24,6 @@ import com.mtxgdn.util.GameLogger;
 import com.mtxgdn.util.MySqlLauncher;
 import com.mtxgdn.websocket.GameWebSocketApp;
 import org.glassfish.grizzly.http.server.HttpServer;
-import org.glassfish.grizzly.http.server.NetworkListener;
-import org.glassfish.grizzly.websockets.WebSocketAddOn;
 import org.glassfish.grizzly.websockets.WebSocketEngine;
 import org.glassfish.jersey.grizzly2.httpserver.GrizzlyHttpServerFactory;
 import org.glassfish.jersey.server.ResourceConfig;
@@ -164,13 +159,13 @@ public class Main {
         ServiceRegistry.container().startBackgroundTasks();
 
         LOG.info("正在初始化默认技能...");
-        ServiceRegistry.getSkillService().insertDefaultSkills();
+        ServiceRegistry.container().getSkillService().insertDefaultSkills();
 
         LOG.info("正在初始化默认功法...");
-        ServiceRegistry.getTechniqueService().insertDefaultTechniques();
+        ServiceRegistry.container().getTechniqueService().insertDefaultTechniques();
 
         LOG.info("正在初始化默认配方...");
-        ServiceRegistry.getCraftingService().insertDefaultRecipes();
+        ServiceRegistry.container().getCraftingService().insertDefaultRecipes();
 
         LOG.info("正在扫描并注册物品...");
         ItemScanner.ScanResult scanResult = ItemScanner.scanAndRegister();
@@ -211,7 +206,7 @@ public class Main {
         LOG.info("正在初始化插件系统...");
         // 核心服务先登记到插件服务表：插件既能用 ctx.getService(XxxService.class)
         // 取核心能力，也能在需要时替换/包装某个核心服务（先登记者生效）。
-        com.mtxgdn.plugin.CoreServices.install();
+        com.mtxgdn.plugin.CoreServices.install(ServiceRegistry.container());
 
         PluginManager pm = PluginManager.getInstance();
         pm.init(new File("plugins"));
@@ -319,7 +314,7 @@ public class Main {
             }
             // 野外地图到期后换一批（内部只在"已过期/为空"时才真的重建，故可高频调用）
             try {
-                com.mtxgdn.common.service.ServiceRegistry.getMapService().maintainWildernessIfNeeded();
+                ServiceRegistry.container().getMapService().maintainWildernessIfNeeded();
             } catch (Throwable ignored) {
             }
         }, 5, 5, java.util.concurrent.TimeUnit.MINUTES);

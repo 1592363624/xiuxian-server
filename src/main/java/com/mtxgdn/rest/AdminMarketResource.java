@@ -2,7 +2,6 @@ package com.mtxgdn.rest;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.db.PlayerDAO;
 import com.mtxgdn.game.item.Item;
 import com.mtxgdn.game.item.ItemRegistry;
@@ -40,7 +39,7 @@ import static com.mtxgdn.rest.AdminSupport.gson;
  * 逐字一致（Jersey 的路径拼接规则）。</p>
  */
 @Path("/admin")
-public class AdminMarketResource {
+public class AdminMarketResource extends BaseResource {
 
     private static final PlayerDAO PLAYER_DAO = new PlayerDAO();
 
@@ -60,7 +59,7 @@ public class AdminMarketResource {
     public Response getMarketListings() {
         JsonObject out = new JsonObject();
         try {
-            var listings = ServiceRegistry.getTradeService().getActiveListings();
+            var listings = services.getTradeService().getActiveListings();
             // 一次性查出卖家名，避免逐行查库（挂单可能有上百条）
             Map<Long, String> sellerNames = loadPlayerNames(
                     listings.stream().map(l -> l.sellerPlayerId).distinct().toList());
@@ -129,7 +128,7 @@ public class AdminMarketResource {
             }
         }
         try {
-            MarketQuote quote = ServiceRegistry.getTradeService().getPriceHistory(key, days);
+            MarketQuote quote = services.getTradeService().getPriceHistory(key, days);
             out.addProperty("code", quote.success() ? 200 : 400);
             out.addProperty("message", quote.message() != null ? quote.message() : "");
             // 与原 Map 逐键搬运保持同样的字段集与类型：Gson 默认跳过 null 分量，

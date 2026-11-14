@@ -4,7 +4,6 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.mtxgdn.common.GameErrorCode;
 import com.mtxgdn.common.GameMessage;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.game.entity.PlayerInfo;
 import com.mtxgdn.game.entity.Title;
 import com.mtxgdn.game.service.TitleService;
@@ -36,7 +35,7 @@ import static com.mtxgdn.rest.GameSupport.playerService;
  * <p>{@code titleService()} 与 {@code toTitleJson} 只被本域用到，跟着搬进来。</p>
  */
 @Path("/game")
-public class GameTitleResource {
+public class GameTitleResource extends BaseResource {
 
     @Context
     private ContainerRequestContext requestContext;
@@ -48,7 +47,7 @@ public class GameTitleResource {
 
     // ==================== 称号系统 ====================
 
-    private TitleService titleService() { return ServiceRegistry.getTitleService(); }
+    private TitleService titleService() { return services.getTitleService(); }
 
     @GET
     @Path("/title/all")

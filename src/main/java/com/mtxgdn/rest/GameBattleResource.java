@@ -6,7 +6,6 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.mtxgdn.common.GameErrorCode;
 import com.mtxgdn.common.GameMessage;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.game.entity.PlayerInfo;
 import com.mtxgdn.game.secretrealm.SecretRealm;
 import com.mtxgdn.game.service.CombatService;
@@ -45,13 +44,13 @@ import static com.mtxgdn.rest.GameSupport.getPlayerIdByUserId;
  * <p>{@code getRealmName} 只被副本列表用来把境界 id 翻译成中文名，跟着本域搬进来。</p>
  */
 @Path("/game")
-public class GameBattleResource {
+public class GameBattleResource extends BaseResource {
 
-    private static final SecretRealmService secretRealmService = ServiceRegistry.getSecretRealmService();
+    private final SecretRealmService secretRealmService = services.getSecretRealmService();
 
-    private static final ExplorationService explorationService = ServiceRegistry.getExplorationService();
+    private final ExplorationService explorationService = services.getExplorationService();
 
-    private static final CombatService combatService = ServiceRegistry.getCombatService();
+    private final CombatService combatService = services.getCombatService();
 
     @Context
     private ContainerRequestContext requestContext;

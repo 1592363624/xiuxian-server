@@ -15,6 +15,14 @@ public class CommandScanner {
     }
 
     public static ScanResult scanAndRegister(String packageName) {
+        return scanAndRegister(packageName, null);
+    }
+
+    /**
+     * @param services 服务查询面；{@code null} 表示注册时取当前容器（兼容旧调用点）
+     */
+    public static ScanResult scanAndRegister(String packageName,
+                                             com.mtxgdn.common.service.ServiceLookup services) {
         List<String> registered = new ArrayList<>();
         List<String> skipped = new ArrayList<>();
         List<String> failed = new ArrayList<>();
@@ -46,7 +54,11 @@ public class CommandScanner {
                     continue;
                 }
 
-                clazz.getDeclaredConstructor().newInstance();
+                Command command = (Command) clazz.getDeclaredConstructor().newInstance();
+                // 指令由反射构造，无法声明构造参数：在扫描边界补一次显式注入。
+                command.bindServices(services != null
+                        ? services
+                        : com.mtxgdn.common.service.ServiceRegistry.container());
                 registered.add(clazz.getSimpleName());
             } catch (NoSuchMethodException e) {
                 failed.add(clazz.getSimpleName() + " (缺少无参构造)");

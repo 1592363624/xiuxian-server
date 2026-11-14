@@ -18,7 +18,6 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -46,7 +45,7 @@ class WorldBossTest extends TestBase {
     private static final AtomicInteger SEQ = new AtomicInteger();
     private static final long HOUR_MS = 3600_000L;
 
-    private final WorldBossService worldBossService = new WorldBossService();
+    private final WorldBossService worldBossService = new WorldBossService(ServiceRegistry.container());
 
     @BeforeAll
     static void registerItems() {
@@ -464,12 +463,12 @@ class WorldBossTest extends TestBase {
         WorldBoss boss = worldBossService.getPool(scope, now).get(0);
         overrideBoss(boss.getId(), 0, 1000, 1000, 10_000, 10_000);
         long playerId = createPlayer(0, 0, 1_000_000, 1_000_000, 10_000);
-        long before = ServiceRegistry.getItemService().getSpiritStoneCount(playerId);
+        long before = ServiceRegistry.container().getItemService().getSpiritStoneCount(playerId);
 
         WorldBossChallengeResult result = worldBossService.challenge(playerId, scope, "1", now);
 
         assertTrue(result.success(), result.message());
-        long gained = ServiceRegistry.getItemService().getSpiritStoneCount(playerId) - before;
+        long gained = ServiceRegistry.container().getItemService().getSpiritStoneCount(playerId) - before;
         assertEquals(result.stones(), gained,
                 "战报里的灵石数必须与实际入账一致");
     }

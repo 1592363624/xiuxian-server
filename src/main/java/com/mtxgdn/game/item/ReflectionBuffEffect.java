@@ -1,8 +1,7 @@
 package com.mtxgdn.game.item;
-
-import com.mtxgdn.common.service.ServiceRegistry;
-
 import com.mtxgdn.game.service.BuffService;
+
+
 import com.mtxgdn.game.service.ItemService;
 import com.mtxgdn.game.service.PlayerService;
 
@@ -31,8 +30,9 @@ public class ReflectionBuffEffect extends ItemEffect {
     public void setDurationSeconds(int durationSeconds) { this.durationSeconds = durationSeconds; }
 
     @Override
-    public String execute(long playerId, PlayerService playerService, ItemService itemService) {
-        ServiceRegistry.getBuffService().addReflectionBuff(playerId, percent, durationSeconds);
+    public String execute(long playerId, PlayerService playerService, ItemService itemService,
+                          com.mtxgdn.common.service.ServiceLookup services) {
+        services.getBuffService().addReflectionBuff(playerId, percent, durationSeconds);
         return "获得伤害反弹 " + percent + "%（持续 " + durationSeconds + " 秒），";
     }
 

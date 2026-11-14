@@ -7,10 +7,8 @@ import com.mtxgdn.game.entity.Friend;
 import com.mtxgdn.game.entity.PlayerInfo;
 import com.mtxgdn.game.service.FriendService;
 import com.mtxgdn.game.service.PlayerService;
-import com.mtxgdn.common.service.ServiceRegistry;
 
 import java.util.List;
-import java.util.Map;
 import com.mtxgdn.i18n.I18n;
 
 /**
@@ -46,8 +44,8 @@ public class FriendCommand extends Command {
         String sub = parts[0];
         String param = parts.length > 1 ? parts[1] : null;
 
-        FriendService friendService = ServiceRegistry.getFriendService();
-        PlayerService playerService = ServiceRegistry.getPlayerService();
+        FriendService friendService = services().getFriendService();
+        PlayerService playerService = services().getPlayerService();
 
         switch (sub) {
             case "add" -> {

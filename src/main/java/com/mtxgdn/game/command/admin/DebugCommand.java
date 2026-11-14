@@ -9,7 +9,6 @@ import com.mtxgdn.common.command.RouteDefinition;
 import com.mtxgdn.game.entity.PlayerInfo;
 import com.mtxgdn.permission.PermissionService;
 import com.mtxgdn.identity.QqBinding;
-import com.mtxgdn.identity.QqBindingService;
 
 import java.util.List;
 import com.mtxgdn.i18n.GameLanguage;
@@ -132,7 +131,7 @@ public class DebugCommand extends Command {
                 return;
             }
 
-            PlayerInfo player = com.mtxgdn.common.service.ServiceRegistry.getPlayerService().getPlayerByUserId(b.getUserId());
+            PlayerInfo player = services().getPlayerService().getPlayerByUserId(b.getUserId());
             if (player == null) {
                 ctx.reply(I18n.t("admin.test_failed_2"));
                 return;
@@ -277,7 +276,7 @@ public class DebugCommand extends Command {
                 return result;
             }
 
-            PlayerInfo player = com.mtxgdn.common.service.ServiceRegistry.getPlayerService().getPlayerByUserId(userId);
+            PlayerInfo player = services().getPlayerService().getPlayerByUserId(userId);
             if (player == null) {
                 result.addProperty("code", 400);
                 result.addProperty("message", I18n.t("admin.player_character_not_found"));

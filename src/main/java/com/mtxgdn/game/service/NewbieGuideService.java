@@ -2,7 +2,6 @@ package com.mtxgdn.game.service;
 import com.mtxgdn.game.entity.GuideResult;
 
 
-import com.mtxgdn.common.service.ServiceRegistry;
 
 import com.mtxgdn.game.entity.PlayerInfo;
 import com.mtxgdn.game.entity.SpiritualRoot;
@@ -10,7 +9,15 @@ import com.mtxgdn.api.GuideApi;
 
 public class NewbieGuideService implements GuideApi {
 
-    private final PlayerService playerService = ServiceRegistry.getPlayerService();
+    /** 服务查询面：由容器注入，替代 ServiceRegistry 静态调用。 */
+    private final com.mtxgdn.common.service.ServiceLookup services;
+
+    public NewbieGuideService(com.mtxgdn.common.service.ServiceLookup services) {
+        this.services = services;
+        this.playerService = services.getPlayerService();
+    }
+
+    private final PlayerService playerService;
 
     private static final int GUIDE_COMPLETE = -1;
 
@@ -260,7 +267,7 @@ public class NewbieGuideService implements GuideApi {
             💡 签到和日常不会显得突兀——它们本身就是天道的一部分！""";
     }
 
-    private String buildCreateMessage(PlayerInfo player) {
+    public String buildCreateMessage(PlayerInfo player) {
         SpiritualRoot root = player.getSpiritualRoot();
         StringBuilder sb = new StringBuilder();
         sb.append("✨ 角色创建成功！\n\n");
@@ -295,10 +302,6 @@ public class NewbieGuideService implements GuideApi {
         sb.append("7️⃣ 修士，出师了！/帮助\n");
         sb.append("\n遇到 💡 的提示时，可以停下来自己探索哦。");
         return sb.toString();
-    }
-
-    public static String getWelcomeMessage(PlayerInfo player) {
-        return ServiceRegistry.getGuideService().buildCreateMessage(player);
     }
 
     private void advanceStep(long playerId, int step) {

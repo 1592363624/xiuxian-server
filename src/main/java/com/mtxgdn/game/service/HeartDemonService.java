@@ -2,7 +2,6 @@ package com.mtxgdn.game.service;
 import com.mtxgdn.game.entity.HeartDemonResult;
 
 
-import com.mtxgdn.common.service.ServiceRegistry;
 
 import com.mtxgdn.entity.Player;
 import com.mtxgdn.game.entity.SpiritualRoot;
@@ -11,6 +10,14 @@ import java.util.Random;
 import com.mtxgdn.api.HeartDemonApi;
 
 public class HeartDemonService implements HeartDemonApi {
+
+    /** 服务查询面：由容器注入，替代 ServiceRegistry 静态调用。 */
+    private final com.mtxgdn.common.service.ServiceLookup services;
+
+    public HeartDemonService(com.mtxgdn.common.service.ServiceLookup services) {
+        this.services = services;
+        this.playerService = services.getPlayerService();
+    }
 
     /**
      * 每小时基础心魔概率，<b>单位是百分点</b>（8.0 表示每小时 8%）。
@@ -29,7 +36,7 @@ public class HeartDemonService implements HeartDemonApi {
 
     private static final Random RANDOM = new Random();
 
-    private final PlayerService playerService = ServiceRegistry.getPlayerService();
+    private final PlayerService playerService;
 
 
     public HeartDemonResult processCultivation(long playerId, long rawExpGained, int elapsedSeconds) {

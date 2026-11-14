@@ -7,7 +7,6 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.mtxgdn.common.GameErrorCode;
 import com.mtxgdn.common.GameMessage;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.game.entity.Sect;
 import com.mtxgdn.game.entity.SectApplication;
 import com.mtxgdn.game.entity.SectMember;
@@ -24,7 +23,6 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
 import java.util.List;
-import java.util.Map;
 
 import static com.mtxgdn.rest.GameSupport.gson;
 import static com.mtxgdn.rest.GameSupport.actionLog;
@@ -53,9 +51,9 @@ import static com.mtxgdn.rest.GameSupport.getPlayerIdByUserId;
  * 未使用辅助方法，为保持"一行功能都不删"跟着本域搬进来，未做任何修改。</p>
  */
 @Path("/game")
-public class GameSectResource {
+public class GameSectResource extends BaseResource {
 
-    private static final SectService sectService = ServiceRegistry.getSectService();
+    private final SectService sectService = services.getSectService();
 
     @Context
     private ContainerRequestContext requestContext;

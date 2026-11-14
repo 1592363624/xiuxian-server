@@ -6,7 +6,6 @@ import com.mtxgdn.plugin.BuiltInPluginRegistry;
 import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandContext;
 import com.mtxgdn.common.command.RouteDefinition;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.game.entity.PlayerInfo;
 import com.mtxgdn.game.item.Item;
 import com.mtxgdn.game.item.ItemRegistry;
@@ -75,8 +74,8 @@ public class ExchangeCommand extends Command {
     }
 
     private void doConvertItemToEnergy(CommandContext ctx, PlayerInfo p, String itemInput, int quantity) {
-        ItemService itemService = ServiceRegistry.getItemService();
-        EnergyService energyService = ServiceRegistry.getEnergyService();
+        ItemService itemService = services().getItemService();
+        EnergyService energyService = services().getEnergyService();
 
         Item item = ItemRegistry.resolve(itemInput);
         if (item == null) {
@@ -130,8 +129,8 @@ public class ExchangeCommand extends Command {
             return;
         }
 
-        ItemService itemService = ServiceRegistry.getItemService();
-        EnergyService energyService = ServiceRegistry.getEnergyService();
+        ItemService itemService = services().getItemService();
+        EnergyService energyService = services().getEnergyService();
 
         Item item = ItemRegistry.resolve(itemInput);
         if (item == null) {
@@ -205,7 +204,7 @@ public class ExchangeCommand extends Command {
             ctx.reply(I18n.t("economy.the_energy_conversion_system_2"));
             return;
         }
-        EnergyService energyService = ServiceRegistry.getEnergyService();
+        EnergyService energyService = services().getEnergyService();
         long energy = energyService.getEnergy(p.getId());
 
         ctx.reply(I18n.t("economy.energy_conversion_system_ncurrent_energy", energy));
@@ -242,8 +241,8 @@ public class ExchangeCommand extends Command {
             }
 
             int playerId = ctx.playerId();
-            ItemService itemService = ServiceRegistry.getItemService();
-            EnergyService energyService = ServiceRegistry.getEnergyService();
+            ItemService itemService = services().getItemService();
+            EnergyService energyService = services().getEnergyService();
 
             Item item = ItemRegistry.resolve(itemKey);
             if (item == null) {
@@ -314,8 +313,8 @@ public class ExchangeCommand extends Command {
             }
 
             int playerId = ctx.playerId();
-            ItemService itemService = ServiceRegistry.getItemService();
-            EnergyService energyService = ServiceRegistry.getEnergyService();
+            ItemService itemService = services().getItemService();
+            EnergyService energyService = services().getEnergyService();
 
             Item item = ItemRegistry.resolve(itemKey);
             if (item == null) {
@@ -410,7 +409,7 @@ public class ExchangeCommand extends Command {
             }
 
             int playerId = ctx.playerId();
-            EnergyService energyService = ServiceRegistry.getEnergyService();
+            EnergyService energyService = services().getEnergyService();
             long energy = energyService.getEnergy(playerId);
 
             result.addProperty("code", 200);

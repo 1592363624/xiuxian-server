@@ -8,7 +8,8 @@ public class EmptyEffect extends ItemEffect {
     public static final EmptyEffect INSTANCE = new EmptyEffect();
 
     @Override
-    public String execute(long playerId, PlayerService playerService, ItemService itemService) {
+    public String execute(long playerId, PlayerService playerService, ItemService itemService,
+                          com.mtxgdn.common.service.ServiceLookup services) {
         return null;
     }
 }

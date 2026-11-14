@@ -2,7 +2,6 @@ package com.mtxgdn.rest;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.db.DatabaseManager;
 import com.mtxgdn.game.entity.PlayerInfo;
 import com.mtxgdn.game.item.Item;
@@ -48,7 +47,7 @@ import static com.mtxgdn.rest.AdminSupport.playerService;
  * 行为轨迹是 {@code admin.logs.view} —— 拆分时顺手统一成新码会把现网管理员的权限悄悄改掉。</p>
  */
 @Path("/admin")
-public class AdminPlayersResource {
+public class AdminPlayersResource extends BaseResource {
 
     @GET
     @Path("/players")
@@ -380,7 +379,7 @@ public class AdminPlayersResource {
         JsonObject req = com.google.gson.JsonParser.parseString(body).getAsJsonObject();
         String titleKey = req.has("titleKey") ? req.get("titleKey").getAsString() : null;
 
-        var ts = ServiceRegistry.getTitleService();
+        var ts = services.getTitleService();
 
         if (titleKey == null || titleKey.isBlank()) {
             var result = ts.unequipTitle(playerId);
@@ -421,7 +420,7 @@ public class AdminPlayersResource {
             return Response.ok(gson.toJson(err)).build();
         }
 
-        var ts = ServiceRegistry.getTitleService();
+        var ts = services.getTitleService();
         var result = ts.grantTitle(playerId, titleKey);
 
         JsonObject resp = new JsonObject();
@@ -498,7 +497,7 @@ public class AdminPlayersResource {
             err.addProperty("message", I18n.t("admin.please_provide_a_title_key"));
             return Response.ok(gson.toJson(err)).build();
         }
-        var ts = ServiceRegistry.getTitleService();
+        var ts = services.getTitleService();
         var result = ts.grantTitle(playerId, titleKey);
         return Response.ok(gson.toJson(result)).build();
     }
@@ -508,7 +507,7 @@ public class AdminPlayersResource {
     @Produces(MediaType.APPLICATION_JSON)
     @RequirePermission("admin.titles.manage")
     public Response revokeTitle(@PathParam("playerId") long playerId, @PathParam("titleKey") String titleKey) {
-        var ts = ServiceRegistry.getTitleService();
+        var ts = services.getTitleService();
         var result = ts.revokeTitle(playerId, titleKey);
         return Response.ok(gson.toJson(result)).build();
     }
@@ -518,7 +517,7 @@ public class AdminPlayersResource {
     @Produces(MediaType.APPLICATION_JSON)
     @RequirePermission("admin.titles.manage")
     public Response getPlayerTitles(@PathParam("playerId") long playerId) {
-        var ts = ServiceRegistry.getTitleService();
+        var ts = services.getTitleService();
         var titles = ts.getPlayerTitles(playerId);
         var eq = ts.getEquippedTitle(playerId);
         JsonArray arr = new JsonArray();

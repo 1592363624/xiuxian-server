@@ -6,7 +6,6 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.mtxgdn.common.GameErrorCode;
 import com.mtxgdn.common.GameMessage;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.game.entity.MapLocation;
 import com.mtxgdn.game.entity.PlayerInfo;
 import com.mtxgdn.game.service.MapService;
@@ -51,9 +50,9 @@ import static com.mtxgdn.rest.GameSupport.getPlayerIdByUserId;
  * <p>{@code formatUptime} 只被 {@code /status} 用到，跟着搬进来。</p>
  */
 @Path("/game")
-public class GameSystemResource {
+public class GameSystemResource extends BaseResource {
 
-    private static final MapService mapService = ServiceRegistry.getMapService();
+    private final MapService mapService = services.getMapService();
 
     @Context
     private ContainerRequestContext requestContext;

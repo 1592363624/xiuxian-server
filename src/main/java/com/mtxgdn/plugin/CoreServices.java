@@ -1,36 +1,9 @@
 package com.mtxgdn.plugin;
+import com.mtxgdn.common.service.ServiceRegistry;
+import com.mtxgdn.game.service.PlayerService;
 
 import com.mtxgdn.api.*;
-import com.mtxgdn.common.service.ServiceRegistry;
-import com.mtxgdn.game.service.BuffService;
-import com.mtxgdn.game.service.CaveService;
-import com.mtxgdn.game.service.ChatService;
-import com.mtxgdn.game.service.CombatService;
-import com.mtxgdn.game.service.CraftingService;
-import com.mtxgdn.game.service.DailyService;
-import com.mtxgdn.game.service.DurabilityService;
-import com.mtxgdn.game.service.EconomyService;
-import com.mtxgdn.game.service.EnergyService;
-import com.mtxgdn.game.service.EnhanceService;
-import com.mtxgdn.game.service.ExplorationService;
-import com.mtxgdn.game.service.FarmService;
-import com.mtxgdn.game.service.FormationService;
-import com.mtxgdn.game.service.FriendService;
-import com.mtxgdn.game.service.HeartDemonService;
-import com.mtxgdn.game.service.ItemService;
-import com.mtxgdn.game.service.MapService;
-import com.mtxgdn.game.service.NewbieGuideService;
-import com.mtxgdn.game.service.OfflineRewardService;
-import com.mtxgdn.game.service.PlayerService;
-import com.mtxgdn.game.service.RealmService;
-import com.mtxgdn.game.service.RedeemCodeService;
-import com.mtxgdn.game.service.SecretRealmService;
-import com.mtxgdn.game.service.SectService;
-import com.mtxgdn.game.service.SkillService;
-import com.mtxgdn.game.service.TechniqueService;
-import com.mtxgdn.game.service.TitleService;
-import com.mtxgdn.game.service.TradeService;
-import com.mtxgdn.game.service.WorldBossService;
+import com.mtxgdn.common.service.ServiceLookup;
 import com.mtxgdn.util.GameLogger;
 
 /**
@@ -71,39 +44,42 @@ public final class CoreServices {
      *
      * @return 实际登记成功的数量
      */
-    public static synchronized int install() {
+    /**
+     * @param services 启动流程装配好的服务查询面；由 {@code Main} 显式传入
+     */
+    public static synchronized int install(ServiceLookup services) {
         if (installed) return 0;
         PluginServiceRegistry reg = PluginServiceRegistry.getInstance();
 
-        provide(reg, PlayerApi.class, ServiceRegistry.getPlayerService());
-        provide(reg, RealmApi.class, ServiceRegistry.getRealmService());
-        provide(reg, ItemApi.class, ServiceRegistry.getItemService());
-        provide(reg, SecretRealmApi.class, ServiceRegistry.getSecretRealmService());
-        provide(reg, ExplorationApi.class, ServiceRegistry.getExplorationService());
-        provide(reg, GuideApi.class, ServiceRegistry.getGuideService());
-        provide(reg, SkillApi.class, ServiceRegistry.getSkillService());
-        provide(reg, CombatApi.class, ServiceRegistry.getCombatService());
-        provide(reg, DailyApi.class, ServiceRegistry.getDailyService());
-        provide(reg, TradeApi.class, ServiceRegistry.getTradeService());
-        provide(reg, HeartDemonApi.class, ServiceRegistry.getHeartDemonService());
-        provide(reg, ChatApi.class, ServiceRegistry.getChatService());
-        provide(reg, FriendApi.class, ServiceRegistry.getFriendService());
-        provide(reg, EnhanceApi.class, ServiceRegistry.getEnhanceService());
-        provide(reg, CraftingApi.class, ServiceRegistry.getCraftingService());
-        provide(reg, TechniqueApi.class, ServiceRegistry.getTechniqueService());
-        provide(reg, SectApi.class, ServiceRegistry.getSectService());
-        provide(reg, EconomyApi.class, ServiceRegistry.getEconomyService());
-        provide(reg, EnergyApi.class, ServiceRegistry.getEnergyService());
-        provide(reg, TitleApi.class, ServiceRegistry.getTitleService());
-        provide(reg, CaveApi.class, ServiceRegistry.getCaveService());
-        provide(reg, FormationApi.class, ServiceRegistry.getFormationService());
-        provide(reg, BuffApi.class, ServiceRegistry.getBuffService());
-        provide(reg, FarmApi.class, ServiceRegistry.getFarmService());
-        provide(reg, MapApi.class, ServiceRegistry.getMapService());
-        provide(reg, WorldBossApi.class, ServiceRegistry.getWorldBossService());
-        provide(reg, DurabilityApi.class, ServiceRegistry.getDurabilityService());
-        provide(reg, OfflineRewardApi.class, ServiceRegistry.getOfflineRewardService());
-        provide(reg, RedeemCodeApi.class, ServiceRegistry.getRedeemCodeService());
+        provide(reg, PlayerApi.class, services.getPlayerService());
+        provide(reg, RealmApi.class, services.getRealmService());
+        provide(reg, ItemApi.class, services.getItemService());
+        provide(reg, SecretRealmApi.class, services.getSecretRealmService());
+        provide(reg, ExplorationApi.class, services.getExplorationService());
+        provide(reg, GuideApi.class, services.getGuideService());
+        provide(reg, SkillApi.class, services.getSkillService());
+        provide(reg, CombatApi.class, services.getCombatService());
+        provide(reg, DailyApi.class, services.getDailyService());
+        provide(reg, TradeApi.class, services.getTradeService());
+        provide(reg, HeartDemonApi.class, services.getHeartDemonService());
+        provide(reg, ChatApi.class, services.getChatService());
+        provide(reg, FriendApi.class, services.getFriendService());
+        provide(reg, EnhanceApi.class, services.getEnhanceService());
+        provide(reg, CraftingApi.class, services.getCraftingService());
+        provide(reg, TechniqueApi.class, services.getTechniqueService());
+        provide(reg, SectApi.class, services.getSectService());
+        provide(reg, EconomyApi.class, services.getEconomyService());
+        provide(reg, EnergyApi.class, services.getEnergyService());
+        provide(reg, TitleApi.class, services.getTitleService());
+        provide(reg, CaveApi.class, services.getCaveService());
+        provide(reg, FormationApi.class, services.getFormationService());
+        provide(reg, BuffApi.class, services.getBuffService());
+        provide(reg, FarmApi.class, services.getFarmService());
+        provide(reg, MapApi.class, services.getMapService());
+        provide(reg, WorldBossApi.class, services.getWorldBossService());
+        provide(reg, DurabilityApi.class, services.getDurabilityService());
+        provide(reg, OfflineRewardApi.class, services.getOfflineRewardService());
+        provide(reg, RedeemCodeApi.class, services.getRedeemCodeService());
 
         // 刻意不登记 MinecraftPlayerBindingService：它位于 com.mtxgdn.minecraft.adapter，
         // 登记它就等于让插件层重新依赖适配器层，与"适配器可插拔"的隔离方向相反。

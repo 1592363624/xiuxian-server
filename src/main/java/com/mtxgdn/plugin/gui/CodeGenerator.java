@@ -735,8 +735,10 @@ public final class CodeGenerator {
 
     /** 按方法环境给出「物品服务」的表达式。 */
     private static String itemServiceExpr(Mode mode) {
-        // 指令的 execute(CommandContext) 里没有 itemService 参数，走 ServiceRegistry
-        return mode == Mode.COMMAND ? "ServiceRegistry.getItemService()" : "itemService";
+        // 指令的 execute(CommandContext) 里没有 itemService 参数；指令基类 Command
+        // 提供了 services() 查询面（由 CommandScanner 注入），生成代码走它。
+        // 事件处理器的 generate(...) 本来就有 itemService 参数。
+        return mode == Mode.COMMAND ? "services().getItemService()" : "itemService";
     }
 
     /** 按方法环境生成「把一句话给到玩家」的代码。 */

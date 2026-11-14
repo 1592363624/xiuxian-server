@@ -1,5 +1,6 @@
 package com.mtxgdn.game.service;
 
+import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.TestBase;
 import com.mtxgdn.game.entity.CelestialPhenomenon;
 import org.junit.jupiter.api.DisplayName;
@@ -24,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p><b>缺陷形态</b>：{@code todayPhenomenon} / {@code phenomenonDate} 原来是<b>实例</b>字段，
  * 首次访问时用实例 {@code Random} 抽一个：</p>
  * <ul>
- *   <li><b>不全局</b>：{@code new DailyService()} 散布在 {@code OfflineRewardService}、
+ *   <li><b>不全局</b>：{@code new DailyService(ServiceRegistry.container())} 散布在 {@code OfflineRewardService}、
  *       {@code CombatService}、{@code ExplorationService}、{@code SkillService} 等处，
  *       每个新实例都从 {@code phenomenonDate == null} 开始，各自给"今天"抽一个不同的天象 ——
  *       同一时刻，界面显示的天象和掉落结算用的天象可以不是同一个。</li>
@@ -52,9 +53,9 @@ class DailyPhenomenonGlobalTest extends TestBase {
     @Test
     @DisplayName("不同实例拿到的今日天象必须相同")
     void allInstancesAgree() {
-        CelestialPhenomenon a = new DailyService().getTodayPhenomenon();
-        CelestialPhenomenon b = new DailyService().getTodayPhenomenon();
-        CelestialPhenomenon c = DailyService.getTodayPhenomenonStatic();
+        CelestialPhenomenon a = new DailyService(ServiceRegistry.container()).getTodayPhenomenon();
+        CelestialPhenomenon b = new DailyService(ServiceRegistry.container()).getTodayPhenomenon();
+        CelestialPhenomenon c = com.mtxgdn.common.service.ServiceRegistry.container().getDailyService().getTodayPhenomenon();
         assertEquals(a, b, "两个 DailyService 实例对今日天象的判断必须一致");
         assertEquals(a, c, "静态入口与实例入口必须一致");
     }
@@ -75,7 +76,7 @@ class DailyPhenomenonGlobalTest extends TestBase {
                         Thread.currentThread().interrupt();
                         return;
                     }
-                    seen.add(new DailyService().getTodayPhenomenon());
+                    seen.add(new DailyService(ServiceRegistry.container()).getTodayPhenomenon());
                 });
             }
             start.countDown();

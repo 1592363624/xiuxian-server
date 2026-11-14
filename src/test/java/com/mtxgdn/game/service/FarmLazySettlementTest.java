@@ -14,7 +14,6 @@ import org.junit.jupiter.api.Test;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -49,8 +48,8 @@ class FarmLazySettlementTest extends TestBase {
     static void setUpFarm() {
         try {
             com.mtxgdn.game.item.ItemScanner.scanAndRegister();
-            farmService = new FarmService();
-            itemService = ServiceRegistry.getItemService();
+            farmService = new FarmService(ServiceRegistry.container());
+            itemService = ServiceRegistry.container().getItemService();
             userService = new UserService();
             ready = true;
         } catch (Throwable t) {
@@ -71,7 +70,7 @@ class FarmLazySettlementTest extends TestBase {
         assertEquals(200, resp.getStatus(), "注册应成功");
         long userId = extractLong(resp.getEntity().toString(), "id");
         assertTrue(userId > 0, "userId 应大于 0");
-        var pi = ServiceRegistry.getPlayerService().createPlayer(userId, playerName);
+        var pi = ServiceRegistry.container().getPlayerService().createPlayer(userId, playerName);
         assertNotNull(pi, "角色创建不应为空");
         return pi.getId();
     }

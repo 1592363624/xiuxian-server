@@ -137,9 +137,14 @@ class MapDaoExtractionTest extends TestBase {
      *
      * <p>重构后同一命令的输出与本清单<b>逐字相同</b>（{@code Compare-Object} 差异为 0）——
      * 也就是说 REST / WebSocket / QQ 指令 / 插件 / 其它服务里的调用方一行都不用改。</p>
+     *
+     * <p><b>后续有意变化</b>：迁移"服务查询面注入"时新增了
+     * {@code MapService(ServiceLookup)} 构造器（容器与测试都显式传查询面，
+     * 无参构造已删除），所有公开业务方法一个没动。</p>
      */
     private static final List<String> GOLDEN_SERVICE_API = List.of(
-            "public com.mtxgdn.game.service.MapService()",
+            // 迁移后新增：容器注入服务查询面的构造器（无参构造保留给测试与旧调用点）。
+            "public com.mtxgdn.game.service.MapService(com.mtxgdn.common.service.ServiceLookup)",
             "public void ensureInitialized()",
             "public void invalidateCache()",
             "public void reload()",
@@ -312,7 +317,7 @@ class MapDaoExtractionTest extends TestBase {
     void setUp() {
         WildernessChunkStore.get().setRootForTest(wildernessDir);
         restoreSeededLocations();
-        mapService = ServiceRegistry.getMapService();
+        mapService = ServiceRegistry.container().getMapService();
         mapService.reload();
     }
 

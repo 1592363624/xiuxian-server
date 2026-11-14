@@ -7,9 +7,7 @@ import com.mtxgdn.common.command.CommandContext;
 import com.mtxgdn.game.entity.ExplorationResult;
 import com.mtxgdn.game.entity.PlayerInfo;
 import com.mtxgdn.game.entity.SpiritualRoot;
-import com.mtxgdn.game.service.NewbieGuideService;
 import com.mtxgdn.game.service.ExplorationService;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.util.PlayerActionLogger;
 
 public class ExploreCommand extends Command {
@@ -32,7 +30,7 @@ public class ExploreCommand extends Command {
         PlayerInfo p = requirePlayerInfo(ctx);
         if (p == null) return;
 
-        var explorationService = ServiceRegistry.getExplorationService();
+        var explorationService = services().getExplorationService();
         var actionLog = PlayerActionLogger.getInstance();
         Long userId = p.getUserId();
 
@@ -55,7 +53,7 @@ public class ExploreCommand extends Command {
         } else { sb.append(result.getMessage()); }
         ctx.reply(sb.toString());
 
-        GuideResult guide = ServiceRegistry.getGuideService()
+        GuideResult guide = services().getGuideService()
                 .checkAndAdvance((int) p.getId(), p, "explore");
         if (guide.message != null) ctx.reply(guide.message);
     }

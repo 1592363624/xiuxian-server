@@ -7,13 +7,9 @@ import com.mtxgdn.game.cultivation.FinishCultivationResult;
 import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandContext;
 import com.mtxgdn.game.entity.PlayerInfo;
-import com.mtxgdn.game.service.HeartDemonService;
-import com.mtxgdn.game.service.NewbieGuideService;
 import com.mtxgdn.game.service.SeasonService;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.util.PlayerActionLogger;
 
-import java.util.Map;
 import com.mtxgdn.i18n.I18n;
 
 public class CultivateStopCommand extends Command {
@@ -34,9 +30,9 @@ public class CultivateStopCommand extends Command {
         PlayerInfo p = requirePlayerInfo(ctx);
         if (p == null) return;
 
-        var playerService = ServiceRegistry.getPlayerService();
-        var heartDemonService = ServiceRegistry.getHeartDemonService();
-        var guideService = ServiceRegistry.getGuideService();
+        var playerService = services().getPlayerService();
+        var heartDemonService = services().getHeartDemonService();
+        var guideService = services().getGuideService();
         var actionLog = PlayerActionLogger.getInstance();
         Long userId = p.getUserId();
 

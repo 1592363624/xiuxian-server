@@ -1,4 +1,5 @@
 package com.mtxgdn.game.service;
+import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.game.entity.SuccessionOutcome;
 
 
@@ -64,13 +65,12 @@ class SectServiceSplitTest extends TestBase {
      *
      * <p><b>相对拆分前有意变化的三处</b>（"调度器生命周期归容器"改动）：
      * {@code shutdownSuccessionSweeper()} 删除（改由容器 {@code close()} 统一停），
-     * 新增 {@code SectService(ServiceLookup)} 与 {@code startBackgroundTasks()/stopBackgroundTasks()}。
+     * 新增 {@code SectService(ServiceLookup)}（无参构造已删除，不再回落静态容器）与 {@code startBackgroundTasks()/stopBackgroundTasks()}。
      * 新增成员只影响构造与生命周期，门面的业务方法一个没动。</p>
      */
     private static final List<String> GOLDEN_FACADE_API = List.of(
             "public static final int CONTEST_ROUNDS",
             "public static final int CONTEST_WINS_NEEDED",
-            "public com.mtxgdn.game.service.SectService()",
             "public com.mtxgdn.game.service.SectService(com.mtxgdn.common.service.ServiceLookup)",
             "public void startBackgroundTasks()",
             "public void stopBackgroundTasks()",
@@ -175,7 +175,7 @@ class SectServiceSplitTest extends TestBase {
     @Test
     @DisplayName("门面: 八个域对象全部接线，且转调真的能跑通")
     void facadeDelegatesToWiredDomains() throws Exception {
-        SectService facade = new SectService();
+        SectService facade = new SectService(ServiceRegistry.container());
         for (String name : DOMAIN_FIELDS) {
             Field field = SectService.class.getDeclaredField(name);
             field.setAccessible(true);

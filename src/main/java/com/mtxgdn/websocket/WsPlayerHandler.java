@@ -9,7 +9,6 @@ import com.mtxgdn.game.entity.PlayerInfo;
 import com.mtxgdn.game.entity.SpiritualRoot;
 import org.glassfish.grizzly.websockets.WebSocket;
 
-import java.util.Map;
 import java.util.Set;
 
 import static com.mtxgdn.websocket.WsSupport.gson;
@@ -65,7 +64,7 @@ final class WsPlayerHandler extends WsHandler {
             return;
         }
         MorningCultivationResult result =
-                new com.mtxgdn.game.service.DailyService().doMorningCultivation(player.getId());
+                com.mtxgdn.websocket.WsSupport.services().getDailyService().doMorningCultivation(player.getId());
         if (result.success()) {
             JsonObject data = gson.toJsonTree(result).getAsJsonObject();
             socket.send(GameMessage.ok(msgId, "morning_cultivation", result.message(), data).toJson());

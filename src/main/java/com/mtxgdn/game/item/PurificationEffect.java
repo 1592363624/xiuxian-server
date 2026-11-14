@@ -10,7 +10,8 @@ import com.mtxgdn.game.service.PlayerService;
 public class PurificationEffect extends ItemEffect {
 
     @Override
-    public String execute(long playerId, PlayerService playerService, ItemService itemService) {
+    public String execute(long playerId, PlayerService playerService, ItemService itemService,
+                          com.mtxgdn.common.service.ServiceLookup services) {
         int maxHp = playerService.getPlayerById(playerId) != null
                 ? playerService.getPlayerById(playerId).getMaxHp() : 100;
         int currentHp = playerService.getPlayerById(playerId) != null

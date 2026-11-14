@@ -5,9 +5,7 @@ import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandContext;
 import com.mtxgdn.common.command.CommandUtils;
 import com.mtxgdn.game.entity.PlayerInfo;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.util.PlayerActionLogger;
-import java.util.Map;
 import com.mtxgdn.i18n.I18n;
 
 public class ItemUseCommand extends Command {
@@ -28,8 +26,8 @@ public class ItemUseCommand extends Command {
             ctx.reply(I18n.t("item_use.usage"));
             return;
         }
-        var itemService = ServiceRegistry.getItemService();
-        var guideService = ServiceRegistry.getGuideService();
+        var itemService = services().getItemService();
+        var guideService = services().getGuideService();
         var actionLog = PlayerActionLogger.getInstance();
         UseItemResult useResult = itemService.useItem((int) p.getId(), itemKey);
         boolean success = useResult.success();

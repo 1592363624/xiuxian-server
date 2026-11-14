@@ -48,6 +48,21 @@ import org.glassfish.grizzly.websockets.WebSocket;
  */
 final class WsSupport {
 
+    /**
+     * 服务查询面：WebSocket 侧在类加载时绑定当前容器。
+     *
+     * <p>WS 处理器是包内静态类，用 {@code import static WsSupport.xxxService} 取服务，
+     * 没有构造参数可注入；这里是该边界的唯一一处容器引用。容器在
+     * {@code GameWebSocketApp} 创建前就已装好，因此拿到的正是启动流程那一套。</p>
+     */
+    private static final com.mtxgdn.common.service.ServiceLookup SERVICES =
+            ServiceRegistry.container();
+
+    /** 供同包处理器取服务（WS 侧没有实例可注入）。 */
+    static com.mtxgdn.common.service.ServiceLookup services() {
+        return SERVICES;
+    }
+
     /** 全 WebSocket 侧共用的 Gson 实例（Gson 无状态，可安全共享）。 */
     static final Gson gson = new Gson();
 
@@ -55,43 +70,43 @@ final class WsSupport {
     static final PlayerActionLogger actionLog = PlayerActionLogger.getInstance();
 
     /** 玩家服务单例（走注册表，保证与 REST / QQ / Minecraft 通道看到同一份实例）。 */
-    static final PlayerService playerService = ServiceRegistry.getPlayerService();
+    static final PlayerService playerService = SERVICES.getPlayerService();
 
     /** 境界/突破服务：拆分前就是就地构造，这里保持原样。 */
-    static final RealmService realmService = new RealmService(playerService);
+    static final RealmService realmService = new RealmService(SERVICES, playerService);
 
     /** 物品服务单例。 */
-    static final ItemService itemService = ServiceRegistry.getItemService();
+    static final ItemService itemService = SERVICES.getItemService();
 
     /** 秘境服务：拆分前就是就地构造，这里保持原样。 */
-    static final SecretRealmService secretRealmService = new SecretRealmService(playerService);
+    static final SecretRealmService secretRealmService = new SecretRealmService(SERVICES, playerService);
 
     /** 探索服务：拆分前就是就地构造，这里保持原样。 */
-    static final ExplorationService explorationService = new ExplorationService(playerService);
+    static final ExplorationService explorationService = new ExplorationService(SERVICES, playerService);
 
     /** 心魔服务单例。 */
-    static final HeartDemonService heartDemonService = ServiceRegistry.getHeartDemonService();
+    static final HeartDemonService heartDemonService = SERVICES.getHeartDemonService();
 
     /** 功法服务单例。 */
-    static final TechniqueService techniqueService = ServiceRegistry.getTechniqueService();
+    static final TechniqueService techniqueService = SERVICES.getTechniqueService();
 
     /** 炼制服务单例。 */
-    static final CraftingService craftingService = ServiceRegistry.getCraftingService();
+    static final CraftingService craftingService = SERVICES.getCraftingService();
 
     /** 强化服务单例。 */
-    static final EnhanceService enhanceService = ServiceRegistry.getEnhanceService();
+    static final EnhanceService enhanceService = SERVICES.getEnhanceService();
 
     /** 聊天服务单例。 */
-    static final ChatService chatService = ServiceRegistry.getChatService();
+    static final ChatService chatService = SERVICES.getChatService();
 
     /** 好友服务单例。 */
-    static final FriendService friendService = ServiceRegistry.getFriendService();
+    static final FriendService friendService = SERVICES.getFriendService();
 
     /** 宗门服务单例。 */
-    static final SectService sectService = ServiceRegistry.getSectService();
+    static final SectService sectService = SERVICES.getSectService();
 
     /** 地图服务单例（拆分前用的是全限定名调用，这里逐字保留）。 */
-    static final MapService mapService = com.mtxgdn.common.service.ServiceRegistry.getMapService();
+    static final MapService mapService = SERVICES.getMapService();
 
     /** 排行榜默认返回条数。 */
     static final int DEFAULT_RANKING_LIMIT = 20;

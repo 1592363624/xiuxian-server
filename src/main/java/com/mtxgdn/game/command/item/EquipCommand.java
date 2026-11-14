@@ -5,7 +5,6 @@ import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandContext;
 import com.mtxgdn.common.command.CommandUtils;
 import com.mtxgdn.game.entity.PlayerInfo;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.i18n.I18n;
 
 public class EquipCommand extends Command {
@@ -27,10 +26,10 @@ public class EquipCommand extends Command {
             return;
         }
 
-        EquipResult result = ServiceRegistry.getItemService().equipItem((int) p.getId(), parts[0].trim(), parts[1].trim().toLowerCase());
+        EquipResult result = services().getItemService().equipItem((int) p.getId(), parts[0].trim(), parts[1].trim().toLowerCase());
         String msg = result.message() != null ? result.message() : "";
         if (msg.isEmpty()) msg = "装备失败，请检查物品key和部位是否正确。";
-        String discTip = ServiceRegistry.getGuideService().checkDiscovery((int) p.getId(), p, "equip");
+        String discTip = services().getGuideService().checkDiscovery((int) p.getId(), p, "equip");
         if (discTip != null) msg += "\n\n" + discTip;
         ctx.reply(msg);
     }

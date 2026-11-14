@@ -42,8 +42,8 @@ class BreakthroughPityTest extends TestBase {
 
     private static final AtomicInteger SEQ = new AtomicInteger();
 
-    private final RealmService realmService = new RealmService(ServiceRegistry.getPlayerService());
-    private final PlayerService playerService = ServiceRegistry.getPlayerService();
+    private final RealmService realmService = new RealmService(ServiceRegistry.container());
+    private final PlayerService playerService = ServiceRegistry.container().getPlayerService();
 
     @BeforeAll
     static void registerItems() {
@@ -419,7 +419,7 @@ class BreakthroughPityTest extends TestBase {
         // 在持有连接时嵌套取连接会把连接池耗死。
         RealmConfig next = GameConfigLoader.getNextRealmConfig(realm, subRealm);
         if (next != null && next.getRequiredSpiritStones() > 0) {
-            ServiceRegistry.getItemService()
+            ServiceRegistry.container().getItemService()
                     .addSpiritStones(playerId, next.getRequiredSpiritStones() * 2);
         }
         return userId;

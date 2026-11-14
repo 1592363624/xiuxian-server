@@ -46,8 +46,8 @@ class ExplorationEventSqlPortabilityTest extends TestBase {
 
     private static final AtomicInteger SEQ = new AtomicInteger();
 
-    private final PlayerService playerService = ServiceRegistry.getPlayerService();
-    private final ItemService itemService = ServiceRegistry.getItemService();
+    private final PlayerService playerService = ServiceRegistry.container().getPlayerService();
+    private final ItemService itemService = ServiceRegistry.container().getItemService();
 
     @BeforeAll
     static void registerItems() {

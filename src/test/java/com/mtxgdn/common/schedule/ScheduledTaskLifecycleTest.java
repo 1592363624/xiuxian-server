@@ -1,5 +1,6 @@
 package com.mtxgdn.common.schedule;
 
+import com.mtxgdn.common.service.ServiceRegistry;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -29,7 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *       线程还活着，继续往"正在重建的库"里写；{@code TestBase} 里那段
  *       "先逐个 stop、再删库"的注释就是这个问题的症状；</li>
  *   <li>启动时机由"类第一次被加载"决定，而不是由启动流程决定，测试里
- *       {@code new PlayerService()} 也会顺手起一个后台线程；</li>
+ *       {@code new PlayerService(ServiceRegistry.container())} 也会顺手起一个后台线程；</li>
  *   <li>关服钩子只停了 3 个服务，其余没人停，关服后继续查已关闭的连接池，
  *       刷一屏 "Connection is closed" 把真正的关闭日志淹掉。</li>
  * </ul>

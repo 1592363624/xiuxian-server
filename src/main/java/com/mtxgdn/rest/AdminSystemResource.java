@@ -47,7 +47,7 @@ import static com.mtxgdn.rest.AdminSupport.playerService;
  * 逐字一致（Jersey 的路径拼接规则）。</p>
  */
 @Path("/admin")
-public class AdminSystemResource {
+public class AdminSystemResource extends BaseResource {
 
     @GET
     @Path("/status")

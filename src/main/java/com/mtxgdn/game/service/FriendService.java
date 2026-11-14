@@ -7,26 +7,27 @@ import com.mtxgdn.game.entity.RealmConfig;
 import com.mtxgdn.game.entity.Friend;
 import com.mtxgdn.entity.Player;
 import com.mtxgdn.common.result.OperationResult;
-import com.mtxgdn.common.service.ServiceRegistry;
 
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import com.mtxgdn.i18n.I18n;
 import com.mtxgdn.api.FriendApi;
 
 public class FriendService implements FriendApi {
 
+    /** 服务查询面：由容器注入，替代 ServiceRegistry 静态调用。 */
+    private final com.mtxgdn.common.service.ServiceLookup services;
+
     private final PlayerService playerService;
     private static final FriendDAO FRIEND_DAO = new FriendDAO();
 
-    public FriendService() {
-        this.playerService = ServiceRegistry.getPlayerService();
+    public FriendService(com.mtxgdn.common.service.ServiceLookup services) {
+        this.services = services;
+        this.playerService = services.getPlayerService();
     }
 
     public Friend sendRequest(long playerId, long targetPlayerId) {
@@ -162,7 +163,7 @@ public class FriendService implements FriendApi {
         long friendStones = (friend.getRealm() + 1L) * 5L;
 
         playerService.addExperience(playerId, myExp);
-        com.mtxgdn.game.service.ItemService itemService = ServiceRegistry.getItemService();
+        com.mtxgdn.game.service.ItemService itemService = services.getItemService();
         itemService.addSpiritStones(playerId, myStones);
         playerService.addExperience(friendPlayerId, friendExp);
         itemService.addSpiritStones(friendPlayerId, friendStones);

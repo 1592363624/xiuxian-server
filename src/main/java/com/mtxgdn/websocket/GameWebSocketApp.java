@@ -5,9 +5,7 @@ import com.mtxgdn.game.entity.OfflineRewardResult;
 import com.google.gson.JsonObject;
 import com.mtxgdn.common.GameErrorCode;
 import com.mtxgdn.common.GameMessage;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.game.entity.PlayerInfo;
-import com.mtxgdn.game.service.OfflineRewardService;
 import com.mtxgdn.i18n.I18n;
 import com.mtxgdn.util.JwtUtil;
 import com.mtxgdn.util.RateLimiter;
@@ -297,7 +295,7 @@ public class GameWebSocketApp extends WebSocketApplication implements WsContext 
                             .build());
 
             OfflineRewardResult offlineReward =
-                    ServiceRegistry.getOfflineRewardService().processOfflineRewards(userId);
+                    WsSupport.services().getOfflineRewardService().processOfflineRewards(userId);
 
             JsonObject welcomeData = new JsonObject();
             welcomeData.addProperty("userId", userId);

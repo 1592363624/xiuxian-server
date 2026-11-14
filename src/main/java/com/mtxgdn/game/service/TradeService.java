@@ -10,7 +10,6 @@ import com.mtxgdn.entity.Player;
 import com.mtxgdn.game.entity.SpiritualRoot;
 import com.mtxgdn.game.item.Item;
 import com.mtxgdn.game.item.ItemRegistry;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.i18n.I18n;
 import com.mtxgdn.util.AppConfig;
 import com.mtxgdn.util.GameLogger;
@@ -19,8 +18,6 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -118,11 +115,6 @@ public class TradeService implements TradeApi, com.mtxgdn.common.service.Backgro
 
     /** 服务查询面：由容器注入。 */
     private final com.mtxgdn.common.service.ServiceLookup services;
-
-    /** 兼容旧调用点的构造器：走当前容器。 */
-    public TradeService() {
-        this(com.mtxgdn.common.service.ServiceRegistry.container());
-    }
 
     public TradeService(com.mtxgdn.common.service.ServiceLookup services) {
         this.services = services;

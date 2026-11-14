@@ -6,8 +6,6 @@ import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandContext;
 import com.mtxgdn.game.entity.PlayerInfo;
 import com.mtxgdn.game.item.Item;
-import com.mtxgdn.game.service.ItemService;
-import com.mtxgdn.common.service.ServiceRegistry;
 import java.util.List;
 
 public class BackpackCommand extends Command {
@@ -23,8 +21,8 @@ public class BackpackCommand extends Command {
         PlayerInfo p = requirePlayerInfo(ctx);
         if (p == null) return;
 
-        var guideService = ServiceRegistry.getGuideService();
-        var itemService = ServiceRegistry.getItemService();
+        var guideService = services().getGuideService();
+        var itemService = services().getItemService();
         List<InventoryEntry> inventory = itemService.getInventory((int) p.getId());
         int usedSlots = itemService.getInventoryUsedSlots((int) p.getId());
         int capacity = itemService.getInventoryCapacity((int) p.getId());

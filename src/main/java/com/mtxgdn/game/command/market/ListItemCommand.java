@@ -4,7 +4,6 @@ import com.mtxgdn.game.trade.TradeResult;
 import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandContext;
 import com.mtxgdn.game.entity.PlayerInfo;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.i18n.I18n;
 
 public class ListItemCommand extends Command {
@@ -29,7 +28,7 @@ public class ListItemCommand extends Command {
         catch (NumberFormatException e) { ctx.reply(I18n.t("market.the_amount_must")); return; }
         try { price = Long.parseLong(parts[2]); }
         catch (NumberFormatException e) { ctx.reply(I18n.t("market.the_price_must")); return; }
-        TradeResult result = ServiceRegistry.getTradeService().listItem(p.getId(), parts[0], quantity, price);
+        TradeResult result = services().getTradeService().listItem(p.getId(), parts[0], quantity, price);
         ctx.reply(result.message() != null ? result.message() : I18n.t("market.list_failed"));
     }
 }

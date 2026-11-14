@@ -1,4 +1,5 @@
 package com.mtxgdn.game.service;
+import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.game.entity.CombatResult;
 
 
@@ -49,7 +50,7 @@ class MapServiceTest extends TestBase {
     @BeforeEach
     void setUp() throws SQLException {
         resetSeededMapData();
-        mapService = new MapService();
+        mapService = new MapService(ServiceRegistry.container());
         mapService.ensureInitialized();
     }
 
@@ -277,14 +278,14 @@ class MapServiceTest extends TestBase {
     void testTeleportHonoursDestination() throws SQLException {
         long playerId = createPlayer(9, QINGYUN_VILLAGE);
 
-        assertTrue(TeleportEffect.to("万妖谷").execute(playerId, null, null).startsWith("传送成功"));
+        assertTrue(TeleportEffect.to("万妖谷").execute(playerId, null, null, ServiceRegistry.container()).startsWith("传送成功"));
         assertEquals(WANYAO_VALLEY, mapService.getPlayerLocationId(playerId), "目的地参数必须真正生效");
 
-        assertTrue(TeleportEffect.to("主城").execute(playerId, null, null).startsWith("传送成功"));
+        assertTrue(TeleportEffect.to("主城").execute(playerId, null, null, ServiceRegistry.container()).startsWith("传送成功"));
         assertEquals(TAIXU_CITY, mapService.getPlayerLocationId(playerId), "「主城」别名应解析为太虚城");
 
         // 无法解析的目的地回落主城，而不是静默失败
-        assertTrue(TeleportEffect.to("不存在的地方").execute(playerId, null, null).startsWith("传送成功"));
+        assertTrue(TeleportEffect.to("不存在的地方").execute(playerId, null, null, ServiceRegistry.container()).startsWith("传送成功"));
         assertEquals(TAIXU_CITY, mapService.getPlayerLocationId(playerId));
     }
 
@@ -293,7 +294,7 @@ class MapServiceTest extends TestBase {
     void testTeleportStillGatedByRealm() throws SQLException {
         long playerId = createPlayer(0, QINGYUN_VILLAGE);
 
-        String outcome = TeleportEffect.to("万妖谷").execute(playerId, null, null);
+        String outcome = TeleportEffect.to("万妖谷").execute(playerId, null, null, ServiceRegistry.container());
 
         assertTrue(outcome.startsWith("传送失败"), outcome);
         assertEquals(QINGYUN_VILLAGE, mapService.getPlayerLocationId(playerId));
@@ -307,7 +308,7 @@ class MapServiceTest extends TestBase {
         long challenger = createPlayer(3, TAIXU_CITY);
         long target = createPlayer(3, QINGYUN_MOUNTAIN);
 
-        CombatResult result = new CombatService().createChallenge(challenger, target);
+        CombatResult result = new CombatService(ServiceRegistry.container()).createChallenge(challenger, target);
 
         assertFalse(result.isSuccess());
         assertTrue(result.getMessage().contains("安全区"), result.getMessage());
@@ -319,7 +320,7 @@ class MapServiceTest extends TestBase {
         long challenger = createPlayer(3, QINGYUN_MOUNTAIN);
         long target = createPlayer(3, LINGYAO_VALLEY);
 
-        CombatResult result = new CombatService().createChallenge(challenger, target);
+        CombatResult result = new CombatService(ServiceRegistry.container()).createChallenge(challenger, target);
 
         assertTrue(result.isSuccess(), result.getMessage());
     }

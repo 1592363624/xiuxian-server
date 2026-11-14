@@ -1,6 +1,6 @@
 package com.mtxgdn.plugin.builtin;
-
 import com.mtxgdn.common.service.ServiceRegistry;
+
 import com.mtxgdn.game.entity.Sect;
 import com.mtxgdn.game.entity.SectMember;
 import com.mtxgdn.game.service.SectService;
@@ -20,7 +20,7 @@ import java.util.List;
 final class SectQueryProvider implements SectQueryApi {
 
     private static SectService sectService() {
-        return ServiceRegistry.getSectService();
+        return com.mtxgdn.common.service.ServiceRegistry.container().getSectService();
     }
 
     @Override

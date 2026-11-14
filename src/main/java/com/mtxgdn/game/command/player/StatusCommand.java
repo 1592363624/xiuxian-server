@@ -7,8 +7,6 @@ import com.mtxgdn.common.command.CommandContext;
 import com.mtxgdn.common.command.CommandUtils;
 import com.mtxgdn.game.entity.PlayerInfo;
 import com.mtxgdn.game.entity.Title;
-import com.mtxgdn.game.service.OfflineRewardService;
-import com.mtxgdn.common.service.ServiceRegistry;
 
 public class StatusCommand extends Command {
 
@@ -30,11 +28,11 @@ public class StatusCommand extends Command {
 
         Long userId = ctx.requireBinding();
         OfflineRewardResult offlineReward =
-                ServiceRegistry.getOfflineRewardService().processOfflineRewards(userId);
+                services().getOfflineRewardService().processOfflineRewards(userId);
 
         StringBuilder sb = new StringBuilder();
 
-        Title activeTitle = ServiceRegistry.getTitleService().getEquippedTitle(p.getId());
+        Title activeTitle = services().getTitleService().getEquippedTitle(p.getId());
         if (activeTitle != null) {
             sb.append("称号: ").append(activeTitle.getRarityColor())
               .append(activeTitle.getName()).append(" [").append(activeTitle.getRarityLabel()).append("]\n");

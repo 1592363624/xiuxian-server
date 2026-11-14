@@ -7,7 +7,6 @@ import com.mtxgdn.common.command.RouteDefinition;
 import com.mtxgdn.game.entity.PlayerInfo;
 import com.mtxgdn.game.item.Item;
 import com.mtxgdn.game.item.ItemRegistry;
-import com.mtxgdn.common.service.ServiceRegistry;
 
 import java.util.List;
 import com.mtxgdn.i18n.I18n;
@@ -63,7 +62,7 @@ public class ItemGiveCommand extends Command {
         }
 
         // 查找目标玩家
-        var playerService = ServiceRegistry.getPlayerService();
+        var playerService = services().getPlayerService();
         List<PlayerInfo> found = playerService.searchPlayersByName(targetName, 1, 0);
         if (found.isEmpty()) {
             ctx.reply(I18n.t("item_give.player_not_found", targetName));
@@ -79,7 +78,7 @@ public class ItemGiveCommand extends Command {
         }
 
         // 发放
-        var itemService = ServiceRegistry.getItemService();
+        var itemService = services().getItemService();
         itemService.addItem(target.getId(), item.getFullKey(), quantity);
 
         ctx.reply(I18n.t("item_give.issued", target.getName(), item.getName(), quantity));
@@ -106,7 +105,7 @@ public class ItemGiveCommand extends Command {
                 return result;
             }
 
-            var playerService = ServiceRegistry.getPlayerService();
+            var playerService = services().getPlayerService();
             PlayerInfo target;
             List<PlayerInfo> found = playerService.searchPlayersByName(targetName, 1, 0);
             if (found.isEmpty()) {
@@ -123,7 +122,7 @@ public class ItemGiveCommand extends Command {
                 return result;
             }
 
-            var itemService = ServiceRegistry.getItemService();
+            var itemService = services().getItemService();
             itemService.addItem(target.getId(), item.getFullKey(), quantity);
 
             result.addProperty("code", 200);

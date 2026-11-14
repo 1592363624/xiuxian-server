@@ -49,7 +49,7 @@ class DatabaseReinitInvalidatesCachesTest extends TestBase {
     @Test
     @DisplayName("换库后地图缓存必须失效：新库的地图数据要重新播种，而不是沿用旧库")
     void mapCacheIsInvalidatedOnReinit() throws SQLException {
-        MapService mapService = ServiceRegistry.getMapService();
+        MapService mapService = ServiceRegistry.container().getMapService();
         mapService.ensureInitialized();
         assertTrue(mapService.getLocation(1L) != null,
                 "前置条件：主库应已有出厂地点（id=1）");

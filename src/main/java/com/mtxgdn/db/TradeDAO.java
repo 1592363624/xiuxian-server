@@ -1,8 +1,8 @@
 package com.mtxgdn.db;
+import com.mtxgdn.game.service.TradeService;
 import com.mtxgdn.game.entity.TradeListing;
 
 
-import com.mtxgdn.game.service.TradeService;
 import com.mtxgdn.util.GameLogger;
 
 import java.sql.Connection;

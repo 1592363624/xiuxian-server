@@ -1,7 +1,6 @@
 package com.mtxgdn.game.service;
 
 import com.mtxgdn.common.result.OperationResult;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.db.DatabaseManager;
 import com.mtxgdn.db.TechniqueDAO;
 import com.mtxgdn.entity.Player;
@@ -28,14 +27,23 @@ import com.mtxgdn.api.TechniqueApi;
  */
 public class TechniqueService implements TechniqueApi {
 
+    /** 服务查询面：由容器注入，替代 ServiceRegistry 静态调用。 */
+    private final com.mtxgdn.common.service.ServiceLookup services;
+
+    public TechniqueService(com.mtxgdn.common.service.ServiceLookup services) {
+        this.services = services;
+        this.playerService = services.getPlayerService();
+        this.itemService = services.getItemService();
+    }
+
     private static final GameLogger LOG = GameLogger.getLogger(TechniqueService.class);
     private static final int MAX_EQUIPPED = 3;
 
     /** {@code techniques} / {@code players_techniques} 的读写入口（无状态，可共享）。 */
     private static final TechniqueDAO TECHNIQUE_DAO = new TechniqueDAO();
 
-    private final PlayerService playerService = ServiceRegistry.getPlayerService();
-    private final ItemService itemService = ServiceRegistry.getItemService();
+    private final PlayerService playerService;
+    private final ItemService itemService;
 
     public Technique getTechniqueById(long techniqueId) {
         return TECHNIQUE_DAO.findById(techniqueId);

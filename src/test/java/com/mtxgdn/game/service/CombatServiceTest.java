@@ -1,4 +1,5 @@
 package com.mtxgdn.game.service;
+import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.game.entity.PendingChallenge;
 
 
@@ -32,8 +33,8 @@ class CombatServiceTest {
         if (dbFile.exists()) dbFile.delete();
         DatabaseManager.init(com.mtxgdn.TestBase.testDbUrl("test_combat.db"), "", "");
 
-        combatService = new CombatService();
-        playerService = new PlayerService();
+        combatService = new CombatService(ServiceRegistry.container());
+        playerService = new PlayerService(ServiceRegistry.container());
 
         // 先建用户再建角色（外键约束生效）
         long uid1 = createUser("combat_user1");

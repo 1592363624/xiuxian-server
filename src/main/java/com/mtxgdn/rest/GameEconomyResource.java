@@ -5,7 +5,6 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.mtxgdn.common.GameErrorCode;
 import com.mtxgdn.common.GameMessage;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.game.entity.PlayerInfo;
 import com.mtxgdn.game.item.Item;
 import com.mtxgdn.game.item.ItemRegistry;
@@ -21,7 +20,6 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
-import java.util.Map;
 
 import static com.mtxgdn.rest.GameSupport.gson;
 import static com.mtxgdn.rest.GameSupport.playerService;
@@ -45,9 +43,9 @@ import static com.mtxgdn.rest.GameSupport.getPlayerIdByUserId;
  * 跟着本域搬进来。</p>
  */
 @Path("/game")
-public class GameEconomyResource {
+public class GameEconomyResource extends BaseResource {
 
-    private static final TradeService tradeService = ServiceRegistry.getTradeService();
+    private final TradeService tradeService = services.getTradeService();
 
     @Context
     private ContainerRequestContext requestContext;
@@ -243,7 +241,7 @@ public class GameEconomyResource {
             return Response.ok(GameMessage.restError(GameErrorCode.PARAM_MISSING).toString()).build();
         }
 
-        EconomyService economyService = ServiceRegistry.getEconomyService();
+        EconomyService economyService = services.getEconomyService();
         CurrencyExchangeResult result;
         switch (type) {
             case "goldToStones" -> result = economyService.exchangeGoldToStones(player.getId(), amount);

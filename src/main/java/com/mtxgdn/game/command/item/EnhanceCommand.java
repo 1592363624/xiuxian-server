@@ -4,9 +4,7 @@ import com.mtxgdn.game.item.EnhanceResult;
 import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandContext;
 import com.mtxgdn.game.entity.PlayerInfo;
-import com.mtxgdn.common.service.ServiceRegistry;
 
-import java.util.Map;
 import com.mtxgdn.i18n.I18n;
 
 public class EnhanceCommand extends Command {
@@ -46,7 +44,7 @@ public class EnhanceCommand extends Command {
             return;
         }
 
-        var enhanceService = ServiceRegistry.getEnhanceService();
+        var enhanceService = services().getEnhanceService();
         EnhanceResult result = enhanceService.enhanceItem((long) p.getId(), slot);
 
         StringBuilder sb = new StringBuilder();

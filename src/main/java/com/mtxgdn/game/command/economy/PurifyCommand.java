@@ -5,11 +5,9 @@ import com.google.gson.JsonObject;
 import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandContext;
 import com.mtxgdn.common.command.RouteDefinition;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.game.entity.PlayerInfo;
 import com.mtxgdn.game.service.EconomyService;
 
-import java.util.Map;
 import com.mtxgdn.i18n.I18n;
 
 /**
@@ -19,7 +17,7 @@ import com.mtxgdn.i18n.I18n;
 public class PurifyCommand extends Command {
 
     private EconomyService economyService() {
-        return ServiceRegistry.getEconomyService();
+        return services().getEconomyService();
     }
 
     public PurifyCommand() {
@@ -81,7 +79,7 @@ public class PurifyCommand extends Command {
                 result.addProperty("message", I18n.t("economy.please_provide_a_valid_grade"));
                 return result;
             }
-            PurifyResult data = ServiceRegistry.getEconomyService().purifySpiritStone(ctx.playerId(), grade);
+            PurifyResult data = services().getEconomyService().purifySpiritStone(ctx.playerId(), grade);
             result.addProperty("code", data.success() ? 200 : 400);
             result.addProperty("success", data.success());
             result.addProperty("purifySuccess", Boolean.TRUE.equals(data.purifySuccess()));

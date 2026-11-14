@@ -1,11 +1,11 @@
 package com.mtxgdn.minecraft.adapter;
+import com.mtxgdn.common.service.ServiceRegistry;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.mtxgdn.adapter.AdapterConfig;
 import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandRegistry;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.permission.PermissionService;
 import com.mtxgdn.util.GameLogger;
 import com.mtxgdn.util.RateLimiter;
@@ -29,6 +29,13 @@ import java.util.concurrent.ConcurrentHashMap;
  * 登录：自动检测 auth 插件，首次使用 /reg、后续使用 /l 自动登录。
  */
 public class MinecraftPlayerAdapter implements MinecraftMessageSender {
+    /**
+     * 服务查询面：本类由 {@code AdapterManager} 在启动期装配，容器已就绪；
+     * 这里是该适配器边界唯一的一处容器引用。
+     */
+    private final com.mtxgdn.common.service.ServiceLookup services =
+            com.mtxgdn.common.service.ServiceRegistry.container();
+
 
     private static final GameLogger log = GameLogger.getLogger("McPlayerAdapter");
     private static final Gson gson = new Gson();
@@ -47,7 +54,7 @@ public class MinecraftPlayerAdapter implements MinecraftMessageSender {
     // ---- 组件 ----
     private MinecraftClient client;
     private final MinecraftAuthService authService = new MinecraftAuthService();
-    private final MinecraftPlayerBindingService bindingService = ServiceRegistry.getMcBindingService();
+    private final MinecraftPlayerBindingService bindingService = services.getMcBindingService();
 
     // ---- 状态 ----
     private final Map<String, AuthPendingSession> pendingSessions = new ConcurrentHashMap<>();

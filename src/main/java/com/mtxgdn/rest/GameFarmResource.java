@@ -5,7 +5,6 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.mtxgdn.common.GameErrorCode;
 import com.mtxgdn.common.GameMessage;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.game.entity.FarmPlot;
 import com.mtxgdn.game.entity.Season;
 import com.mtxgdn.game.service.FarmService;
@@ -19,7 +18,6 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
 import java.util.List;
-import java.util.Map;
 
 import static com.mtxgdn.rest.GameSupport.gson;
 import static com.mtxgdn.rest.GameSupport.getPlayerIdByUserId;
@@ -38,7 +36,7 @@ import static com.mtxgdn.rest.GameSupport.getPlayerIdByUserId;
  * {@code game.player.info} 与季节端点的"无权限码"状态都保持原样，返回结构未动。</p>
  */
 @Path("/game")
-public class GameFarmResource {
+public class GameFarmResource extends BaseResource {
 
     @Context
     private ContainerRequestContext requestContext;
@@ -58,7 +56,7 @@ public class GameFarmResource {
         Long userId = getCurrentUserId();
         long playerId = getPlayerIdByUserId(userId);
 
-        FarmService farmService = ServiceRegistry.getFarmService();
+        FarmService farmService = services.getFarmService();
         List<FarmPlot> plots = farmService.getPlots(playerId);
 
         JsonArray plotArray = new JsonArray();
@@ -114,7 +112,7 @@ public class GameFarmResource {
             return Response.ok(GameMessage.restError(GameErrorCode.PARAM_MISSING).toString()).build();
         }
 
-        FarmService farmService = ServiceRegistry.getFarmService();
+        FarmService farmService = services.getFarmService();
         FarmResult result = farmService.plant(playerId, plotIndex, seedKey);
 
         if (result.success()) {
@@ -139,7 +137,7 @@ public class GameFarmResource {
             return Response.ok(GameMessage.restError(GameErrorCode.PARAM_MISSING).toString()).build();
         }
 
-        FarmService farmService = ServiceRegistry.getFarmService();
+        FarmService farmService = services.getFarmService();
         FarmResult result = farmService.water(playerId, plotIndex);
 
         if (result.success()) {
@@ -164,7 +162,7 @@ public class GameFarmResource {
             return Response.ok(GameMessage.restError(GameErrorCode.PARAM_MISSING).toString()).build();
         }
 
-        FarmService farmService = ServiceRegistry.getFarmService();
+        FarmService farmService = services.getFarmService();
         FarmResult result = farmService.fertilize(playerId, plotIndex);
 
         if (result.success()) {
@@ -189,7 +187,7 @@ public class GameFarmResource {
             return Response.ok(GameMessage.restError(GameErrorCode.PARAM_MISSING).toString()).build();
         }
 
-        FarmService farmService = ServiceRegistry.getFarmService();
+        FarmService farmService = services.getFarmService();
         FarmResult result = farmService.harvest(playerId, plotIndex);
 
         if (result.success()) {
@@ -214,7 +212,7 @@ public class GameFarmResource {
             return Response.ok(GameMessage.restError(GameErrorCode.PARAM_MISSING).toString()).build();
         }
 
-        FarmService farmService = ServiceRegistry.getFarmService();
+        FarmService farmService = services.getFarmService();
         FarmResult result = farmService.clearPlot(playerId, plotIndex);
 
         if (result.success()) {
@@ -231,7 +229,7 @@ public class GameFarmResource {
         Long userId = getCurrentUserId();
         long playerId = getPlayerIdByUserId(userId);
 
-        FarmService farmService = ServiceRegistry.getFarmService();
+        FarmService farmService = services.getFarmService();
         FarmResult result = farmService.expandPlot(playerId);
 
         if (result.success()) {
@@ -248,7 +246,7 @@ public class GameFarmResource {
         Long userId = getCurrentUserId();
         long playerId = getPlayerIdByUserId(userId);
 
-        FarmService farmService = ServiceRegistry.getFarmService();
+        FarmService farmService = services.getFarmService();
         FarmResult result = farmService.waterAll(playerId);
 
         if (result.success()) {
@@ -269,7 +267,7 @@ public class GameFarmResource {
         JsonObject json = gson.fromJson(body, JsonObject.class);
         String fertilizerKey = json.has("fertilizerKey") ? json.get("fertilizerKey").getAsString() : "mtxgdn:low_grade_fertilizer";
 
-        FarmService farmService = ServiceRegistry.getFarmService();
+        FarmService farmService = services.getFarmService();
         FarmResult result = farmService.fertilizeAll(playerId, fertilizerKey);
 
         if (result.success()) {
@@ -286,7 +284,7 @@ public class GameFarmResource {
         Long userId = getCurrentUserId();
         long playerId = getPlayerIdByUserId(userId);
 
-        FarmService farmService = ServiceRegistry.getFarmService();
+        FarmService farmService = services.getFarmService();
         FarmResult result = farmService.harvestAll(playerId);
 
         if (result.success()) {
@@ -311,7 +309,7 @@ public class GameFarmResource {
             return Response.ok(GameMessage.restError(GameErrorCode.PARAM_MISSING).toString()).build();
         }
 
-        FarmService farmService = ServiceRegistry.getFarmService();
+        FarmService farmService = services.getFarmService();
         FarmResult result = farmService.usePesticide(playerId, plotIndex);
 
         if (result.success()) {

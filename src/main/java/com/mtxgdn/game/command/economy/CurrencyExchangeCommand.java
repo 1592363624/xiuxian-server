@@ -1,7 +1,6 @@
 package com.mtxgdn.game.command.economy;
 
 import com.mtxgdn.game.economy.CurrencyExchangeResult;
-import com.mtxgdn.common.service.ServiceRegistry;
 
 import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandContext;
@@ -11,7 +10,6 @@ import com.mtxgdn.game.service.EconomyService;
 import com.mtxgdn.game.service.ItemService;
 import com.mtxgdn.game.service.PlayerService;
 
-import java.util.Map;
 import com.mtxgdn.i18n.I18n;
 
 /**
@@ -21,9 +19,9 @@ import com.mtxgdn.i18n.I18n;
  */
 public class CurrencyExchangeCommand extends Command {
 
-    private final EconomyService economyService = ServiceRegistry.getEconomyService();
-    private final PlayerService playerService = ServiceRegistry.getPlayerService();
-    private final ItemService itemService = ServiceRegistry.getItemService();
+    private final EconomyService economyService = services().getEconomyService();
+    private final PlayerService playerService = services().getPlayerService();
+    private final ItemService itemService = services().getItemService();
 
     public CurrencyExchangeCommand() {
         super(new String[]{"货币兑换", "币兑", "currency_exchange"}, "金币与下品灵石双向兑换",

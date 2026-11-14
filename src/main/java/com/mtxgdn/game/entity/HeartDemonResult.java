@@ -1,10 +1,5 @@
 package com.mtxgdn.game.entity;
 
-import com.mtxgdn.api.HeartDemonApi;
-import com.mtxgdn.common.service.ServiceRegistry;
-import com.mtxgdn.entity.Player;
-import com.mtxgdn.game.entity.SpiritualRoot;
-import java.util.Random;
 
 /**
  * 由 {HeartDemonService} 的内部嵌套类提取而来。

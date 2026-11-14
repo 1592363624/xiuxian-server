@@ -34,7 +34,7 @@ class SpiritStoneGradeTest extends TestBase {
 
     private static final AtomicInteger SEQ = new AtomicInteger();
 
-    private final ItemService itemService = ServiceRegistry.getItemService();
+    private final ItemService itemService = ServiceRegistry.container().getItemService();
 
     @BeforeAll
     static void registerItems() {

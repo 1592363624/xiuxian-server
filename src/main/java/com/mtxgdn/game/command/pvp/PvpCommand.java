@@ -2,7 +2,6 @@ package com.mtxgdn.game.command.pvp;
 import com.mtxgdn.game.entity.CombatResult;
 
 
-import com.mtxgdn.common.service.ServiceRegistry;
 
 import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandContext;
@@ -53,8 +52,8 @@ public class PvpCommand extends Command {
         
         setI18nKeys("cmd.pvp.desc", "cmd.pvp.usage");
     setModule("pvp");
-        this.combatService = ServiceRegistry.getCombatService();
-        this.playerService = ServiceRegistry.getPlayerService();
+        this.combatService = services().getCombatService();
+        this.playerService = services().getPlayerService();
     }
 
     @Override

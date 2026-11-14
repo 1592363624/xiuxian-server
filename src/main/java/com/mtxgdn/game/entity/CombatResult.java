@@ -2,19 +2,6 @@ package com.mtxgdn.game.entity;
 import java.util.List;
 
 
-import com.mtxgdn.api.CombatApi;
-import com.mtxgdn.common.service.ServiceRegistry;
-import com.mtxgdn.db.CombatDAO;
-import com.mtxgdn.entity.Player;
-import com.mtxgdn.game.entity.BossForm;
-import com.mtxgdn.game.entity.MapLocation;
-import com.mtxgdn.game.entity.Monster;
-import com.mtxgdn.game.entity.PveCombatResult;
-import com.mtxgdn.game.entity.RaidCombatResult;
-import com.mtxgdn.game.entity.Skill;
-import com.mtxgdn.game.entity.SpiritualRoot;
-import com.mtxgdn.game.item.ItemRegistry;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 由 {CombatService} 的内部嵌套类提取而来。

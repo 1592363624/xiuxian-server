@@ -11,21 +11,28 @@ import com.mtxgdn.game.entity.CelestialPhenomenon;
 import com.mtxgdn.game.entity.Season;
 import com.mtxgdn.game.entity.SpiritualRoot;
 import com.mtxgdn.i18n.I18n;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.util.GameLogger;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.util.Map;
 import java.util.Random;
 import com.mtxgdn.i18n.I18n;
 import com.mtxgdn.api.DailyApi;
 
 public class DailyService implements DailyApi {
 
+    /** 服务查询面：由容器注入，替代 ServiceRegistry 静态调用。 */
+    private final com.mtxgdn.common.service.ServiceLookup services;
+
+    public DailyService(com.mtxgdn.common.service.ServiceLookup services) {
+        this.services = services;
+        this.playerService = services.getPlayerService();
+        this.itemService = services.getItemService();
+    }
+
     private static final GameLogger LOG = GameLogger.getLogger(DailyService.class);
-    private final PlayerService playerService = ServiceRegistry.getPlayerService();
-    private final ItemService itemService = ServiceRegistry.getItemService();
+    private final PlayerService playerService;
+    private final ItemService itemService;
     private final Random random = new Random();
     /** {@code player_daily} 的读写入口（无状态，可共享）。 */
     private static final DailyDAO DAILY_DAO = new DailyDAO();
@@ -77,16 +84,6 @@ public class DailyService implements DailyApi {
     static CelestialPhenomenon pickPhenomenonFor(LocalDate date) {
         CelestialPhenomenon[] values = CelestialPhenomenon.values();
         return values[new Random(date.toEpochDay()).nextInt(values.length)];
-    }
-
-    /**
-     * 静态入口：获取今日天象（供修炼/掉落等全局结算使用）。
-     *
-     * <p>现在"全局"和"线程安全"都是真的：缓存本身是 static 的，
-     * 任意实例、任意线程拿到的都是同一个值。</p>
-     */
-    public static CelestialPhenomenon getTodayPhenomenonStatic() {
-        return ServiceRegistry.getDailyService().getTodayPhenomenon();
     }
 
     public MorningCultivationResult doMorningCultivation(long playerId) {
@@ -173,11 +170,6 @@ public class DailyService implements DailyApi {
     public void ensureDailyReset(long playerId) {
         String today = LocalDate.now().toString();
         DAILY_DAO.resetDaily(playerId, today);
-    }
-
-    /** 静态入口：供 CombatService 等跨系统在读取/累加 PVP 次数前调用，保证 player_daily 全行按日复位。 */
-    public static void ensureDailyResetStatic(long playerId) {
-        ServiceRegistry.getDailyService().ensureDailyReset(playerId);
     }
 
     public void onExplore(long playerId, String eventType) {

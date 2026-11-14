@@ -3,7 +3,6 @@ import com.mtxgdn.game.entity.CombatResult;
 import com.mtxgdn.game.entity.PendingChallenge;
 
 
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.db.CombatDAO;
 import com.mtxgdn.entity.Player;
 import com.mtxgdn.game.entity.BossForm;
@@ -22,6 +21,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import com.mtxgdn.api.CombatApi;
 
 public class CombatService implements CombatApi {
+
+    /** 服务查询面：由容器注入，替代 ServiceRegistry 静态调用。 */
+    private final com.mtxgdn.common.service.ServiceLookup services;
 
     private final PlayerService playerService;
     private final SkillService skillService;
@@ -77,34 +79,35 @@ public class CombatService implements CombatApi {
     /** {@code player_daily} 的读写入口（无状态，可共享）。 */
     private static final CombatDAO COMBAT_DAO = new CombatDAO();
 
-    private static boolean canParticipatePvp(long playerId) {
+    private boolean canParticipatePvp(long playerId) {
         int count = getDailyPvpCount(playerId);
         return count < DAILY_PVP_LIMIT;
     }
 
-    private static void recordPvpParticipation(long playerId) {
+    private void recordPvpParticipation(long playerId) {
         incrementDailyPvpCount(playerId);
     }
 
     /** 读取玩家今日PVP次数（跨天自动清零） */
-    private static int getDailyPvpCount(long playerId) {
+    private int getDailyPvpCount(long playerId) {
         // 先执行 player_daily 行级按日复位，保证 PVP 次数在跨天后从 0 开始
-        ServiceRegistry.getDailyService().ensureDailyReset(playerId);
+        services.getDailyService().ensureDailyReset(playerId);
         String today = java.time.LocalDate.now().toString();
         return COMBAT_DAO.getDailyPvpCount(playerId, today);
     }
 
     /** 原子递增玩家今日PVP次数（跨天自动重置为1） */
-    private static void incrementDailyPvpCount(long playerId) {
+    private void incrementDailyPvpCount(long playerId) {
         // 先执行行级按日复位，确保上一日的 last_daily_reset 已刷新到今天（否则共享行会导致其它列跨日失效）
-        ServiceRegistry.getDailyService().ensureDailyReset(playerId);
+        services.getDailyService().ensureDailyReset(playerId);
         String today = java.time.LocalDate.now().toString();
         COMBAT_DAO.incrementDailyPvpCount(playerId, today);
     }
 
-    public CombatService() {
-        this.playerService = ServiceRegistry.getPlayerService();
-        this.skillService = ServiceRegistry.getSkillService();
+    public CombatService(com.mtxgdn.common.service.ServiceLookup services) {
+        this.services = services;
+        this.playerService = services.getPlayerService();
+        this.skillService = services.getSkillService();
     }
 
     /**
@@ -125,7 +128,7 @@ public class CombatService implements CombatApi {
      * @return null 表示允许切磋；否则返回可直接回复玩家的原因
      */
     private String checkSafeZone(long challengerPlayerId, long targetPlayerId) {
-        MapService mapService = ServiceRegistry.getMapService();
+        MapService mapService = services.getMapService();
 
         MapLocation challengerZone = mapService.getLocation(mapService.getPlayerLocationId(challengerPlayerId));
         if (challengerZone != null && challengerZone.isSafeZone()) {
@@ -155,11 +158,11 @@ public class CombatService implements CombatApi {
     private long grantDangerZonePvpLoot(Player winner, Player loser, BattleLogGenerator logGenerator) {
         if (winner == null || loser == null) return 0;
 
-        MapService mapService = ServiceRegistry.getMapService();
+        MapService mapService = services.getMapService();
         int danger = mapService.getDangerLevel(mapService.getPlayerLocationId(winner.getId()));
         if (danger < PK_LOOT_MIN_DANGER) return 0;
 
-        ItemService itemService = ServiceRegistry.getItemService();
+        ItemService itemService = services.getItemService();
         long loserStones = itemService.getSpiritStoneCount(loser.getId());
         if (loserStones <= 0) return 0;
 
@@ -280,12 +283,12 @@ public class CombatService implements CombatApi {
         SkillCooldown targetCooldown = new SkillCooldown();
 
         // 双方真实 HP/MP 状态（回合内实时修改）；功法战斗加成战前各取一次，避免每回合查库
-        double chalDmgMult = 1 + ServiceRegistry.getTechniqueService().getEquippedCombatDamageBonus(challenger.getId());
-        double chalRed = ServiceRegistry.getTechniqueService().getEquippedDamageReduction(challenger.getId());
-        int chalFormationRed = ServiceRegistry.getFormationService().getTotalDefenseBonus(challenger.getId());
-        double tgtDmgMult = 1 + ServiceRegistry.getTechniqueService().getEquippedCombatDamageBonus(target.getId());
-        double tgtRed = ServiceRegistry.getTechniqueService().getEquippedDamageReduction(target.getId());
-        int tgtFormationRed = ServiceRegistry.getFormationService().getTotalDefenseBonus(target.getId());
+        double chalDmgMult = 1 + services.getTechniqueService().getEquippedCombatDamageBonus(challenger.getId());
+        double chalRed = services.getTechniqueService().getEquippedDamageReduction(challenger.getId());
+        int chalFormationRed = services.getFormationService().getTotalDefenseBonus(challenger.getId());
+        double tgtDmgMult = 1 + services.getTechniqueService().getEquippedCombatDamageBonus(target.getId());
+        double tgtRed = services.getTechniqueService().getEquippedDamageReduction(target.getId());
+        int tgtFormationRed = services.getFormationService().getTotalDefenseBonus(target.getId());
         BattleState challengerState = new BattleState(challenger.getHp(), challenger.getMp(), 0, chalDmgMult, chalRed, chalFormationRed);
         BattleState targetState = new BattleState(target.getHp(), target.getMp(), 0, tgtDmgMult, tgtRed, tgtFormationRed);
 
@@ -352,8 +355,8 @@ public class CombatService implements CombatApi {
         long goldReward = actualWinner != null ? random.nextLong(50, 200) : 0;
         // 今日天象战斗收益倍率（星辰耀天 ×1.2 / 血月当空 ×1.3 / 万籁俱寂 ×1.05）
         if (actualWinner != null) {
-            expReward = com.mtxgdn.game.service.DailyService.getTodayPhenomenonStatic().applyCombat(expReward);
-            goldReward = com.mtxgdn.game.service.DailyService.getTodayPhenomenonStatic().applyCombat(goldReward);
+            expReward = services.getDailyService().getTodayPhenomenon().applyCombat(expReward);
+            goldReward = services.getDailyService().getTodayPhenomenon().applyCombat(goldReward);
         }
 
         if (actualWinner != null && expReward > 0) playerService.addExperience(actualWinner.getId(), expReward);
@@ -370,7 +373,7 @@ public class CombatService implements CombatApi {
             try {
                 playerService.incrementPvpWins(actualWinner.getId());
                 actualWinner.setPvpWins(actualWinner.getPvpWins() + 1);
-                new com.mtxgdn.game.service.TitleService().checkAndGrantTitles(actualWinner);
+                services.getTitleService().checkAndGrantTitles(actualWinner);
             } catch (Exception ignored) {
             }
         }
@@ -378,13 +381,13 @@ public class CombatService implements CombatApi {
         addSkillProficiency(challenger.getId(), challengerUsedSkillIds);
         addSkillProficiency(target.getId(), targetUsedSkillIds);
 
-        ServiceRegistry.getDailyService().onBattle(challenger.getId());
-        ServiceRegistry.getDailyService().onBattle(target.getId());
+        services.getDailyService().onBattle(challenger.getId());
+        services.getDailyService().onBattle(target.getId());
 
         // 装备磨损：PVP 对双方都扣耐久
         try {
-            ServiceRegistry.getDurabilityService().applyWear(challenger.getId(), DurabilityService.getPvpWear());
-            ServiceRegistry.getDurabilityService().applyWear(target.getId(), DurabilityService.getPvpWear());
+            services.getDurabilityService().applyWear(challenger.getId(), DurabilityService.getPvpWear());
+            services.getDurabilityService().applyWear(target.getId(), DurabilityService.getPvpWear());
         } catch (Exception ignored) {
         }
 
@@ -459,7 +462,7 @@ public class CombatService implements CombatApi {
         }
 
         // 伤害反弹：防守方带反弹 Buff 时反弹部分伤害给攻击方
-        int reflectPercent = ServiceRegistry.getBuffService().getReflectionPercent(defender.getId());
+        int reflectPercent = services.getBuffService().getReflectionPercent(defender.getId());
         if (reflectPercent > 0 && damage > 0) {
             int reflected = Math.max(1, damage * reflectPercent / 100);
             attackerState.playerHp -= reflected;
@@ -705,9 +708,9 @@ public class CombatService implements CombatApi {
         SkillCooldown cooldown = new SkillCooldown();
 
         // 真实战斗状态：HP/MP 在回合中实时更新，避免值拷贝导致判定失效；功法/阵法加成战前取一次
-        double playerDmgMult = 1 + ServiceRegistry.getTechniqueService().getEquippedCombatDamageBonus(player.getId());
-        double playerRed = ServiceRegistry.getTechniqueService().getEquippedDamageReduction(player.getId());
-        int playerFormationRed = ServiceRegistry.getFormationService().getTotalDefenseBonus(player.getId());
+        double playerDmgMult = 1 + services.getTechniqueService().getEquippedCombatDamageBonus(player.getId());
+        double playerRed = services.getTechniqueService().getEquippedDamageReduction(player.getId());
+        int playerFormationRed = services.getFormationService().getTotalDefenseBonus(player.getId());
         BattleState state = new BattleState(player.getHp(), player.getMp(), monster.getHp(), playerDmgMult, playerRed, playerFormationRed);
         int initialHp = player.getHp();
         int initialMp = player.getMp();
@@ -753,7 +756,7 @@ public class CombatService implements CombatApi {
 
         // 装备磨损：打一场扣一次耐久（PVE 与 PVP 消耗量分开配置）
         try {
-            ServiceRegistry.getDurabilityService().applyWear(playerId, DurabilityService.getPveWear());
+            services.getDurabilityService().applyWear(playerId, DurabilityService.getPveWear());
         } catch (Exception ignored) {
         }
 
@@ -896,7 +899,7 @@ public class CombatService implements CombatApi {
     /** 伤害反弹：将怪物造成的部分伤害反弹给怪物，返回怪物是否被反杀 */
     private boolean reflectMonsterDamage(Player player, Monster monster, int mDamage,
                                          BattleState state, BattleLogGenerator logGenerator) {
-        int reflectPercent = ServiceRegistry.getBuffService().getReflectionPercent(player.getId());
+        int reflectPercent = services.getBuffService().getReflectionPercent(player.getId());
         if (reflectPercent <= 0 || state.monsterHp <= 0 || mDamage <= 0) {
             return false;
         }
@@ -1008,12 +1011,12 @@ public class CombatService implements CombatApi {
         result.setMonsterHpRemaining(Math.max(0, monsterHp));
         result.setTotalRounds(rounds);
 
-        ItemService itemService = ServiceRegistry.getItemService();
+        ItemService itemService = services.getItemService();
 
         if (playerWon) {
             result.setPlayerWon(true);
 
-            long expReward = com.mtxgdn.game.service.DailyService.getTodayPhenomenonStatic()
+            long expReward = services.getDailyService().getTodayPhenomenon()
                     .applyCombat(monster.getExpReward());
             SpiritualRoot root = player.getSpiritualRoot();
             if (root != null && root.hasEffect(SpiritualRoot.SpecialEffect.MONSTER_EXP)) {
@@ -1022,14 +1025,14 @@ public class CombatService implements CombatApi {
             playerService.addExperience(player.getId(), expReward);
             result.setExpGained(expReward);
 
-            long goldReward = com.mtxgdn.game.service.DailyService.getTodayPhenomenonStatic()
+            long goldReward = services.getDailyService().getTodayPhenomenon()
                     .applyCombat(monster.getGoldReward());
             if (goldReward > 0) {
                 playerService.addGold(player.getId(), goldReward);
                 result.setGoldGained(goldReward);
             }
 
-            long ssReward = com.mtxgdn.game.service.DailyService.getTodayPhenomenonStatic()
+            long ssReward = services.getDailyService().getTodayPhenomenon()
                     .applySpiritStone(monster.getSpiritStoneReward());
             if (root != null && root.hasEffect(SpiritualRoot.SpecialEffect.SPIRIT_STONE_DROP)) {
                 ssReward = (long)(ssReward * (1 + root.getEffectValue()));
@@ -1185,7 +1188,7 @@ public class CombatService implements CombatApi {
         // 装备磨损：团队副本按 PVP 消耗对每位参战者结算
         try {
             for (long pid : playerIds) {
-                ServiceRegistry.getDurabilityService().applyWear(pid, DurabilityService.getPvpWear());
+                services.getDurabilityService().applyWear(pid, DurabilityService.getPvpWear());
             }
         } catch (Exception ignored) {
         }
@@ -1277,9 +1280,9 @@ public class CombatService implements CombatApi {
     private Map<Long, double[]> initPlayerTechMap(List<Player> players) {
         Map<Long, double[]> map = new HashMap<>();
         for (Player p : players) {
-            double dmgMult = 1 + ServiceRegistry.getTechniqueService().getEquippedCombatDamageBonus(p.getId());
-            double red = ServiceRegistry.getTechniqueService().getEquippedDamageReduction(p.getId());
-            double formationPct = ServiceRegistry.getFormationService().getTotalDefenseBonus(p.getId());
+            double dmgMult = 1 + services.getTechniqueService().getEquippedCombatDamageBonus(p.getId());
+            double red = services.getTechniqueService().getEquippedDamageReduction(p.getId());
+            double formationPct = services.getFormationService().getTotalDefenseBonus(p.getId());
             map.put(p.getId(), new double[]{dmgMult, red, formationPct});
         }
         return map;

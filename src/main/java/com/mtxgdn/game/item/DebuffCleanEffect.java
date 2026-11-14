@@ -24,7 +24,8 @@ public class DebuffCleanEffect extends ItemEffect {
     }
 
     @Override
-    public String execute(long playerId, PlayerService playerService, ItemService itemService) {
+    public String execute(long playerId, PlayerService playerService, ItemService itemService,
+                          com.mtxgdn.common.service.ServiceLookup services) {
         return "使用净化丹药，清除所有负面状态";
     }
 

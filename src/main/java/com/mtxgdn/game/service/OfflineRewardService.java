@@ -4,15 +4,16 @@ import com.mtxgdn.game.entity.OfflineRewardResult;
 import com.mtxgdn.game.entity.HeartDemonResult;
 
 
-import com.mtxgdn.common.service.ServiceRegistry;
 
 import com.mtxgdn.entity.Player;
-import com.mtxgdn.game.config.GameConfigLoader;
 import com.mtxgdn.game.entity.CelestialPhenomenon;
 import com.mtxgdn.game.entity.SpiritualRoot;
 import com.mtxgdn.api.OfflineRewardApi;
 
 public class OfflineRewardService implements OfflineRewardApi {
+
+    /** 服务查询面：由容器注入，替代 ServiceRegistry 静态调用。 */
+    private final com.mtxgdn.common.service.ServiceLookup services;
 
     private static final int MAX_OFFLINE_SECONDS = 8 * 3600;
     private static final double OFFLINE_CULTIVATION_RATE = 0.50;
@@ -22,10 +23,11 @@ public class OfflineRewardService implements OfflineRewardApi {
     private final DailyService dailyService;
     private final HeartDemonService heartDemonService;
 
-    public OfflineRewardService() {
-        this.playerService = ServiceRegistry.getPlayerService();
-        this.dailyService = ServiceRegistry.getDailyService();
-        this.heartDemonService = ServiceRegistry.getHeartDemonService();
+    public OfflineRewardService(com.mtxgdn.common.service.ServiceLookup services) {
+        this.services = services;
+        this.playerService = services.getPlayerService();
+        this.dailyService = services.getDailyService();
+        this.heartDemonService = services.getHeartDemonService();
     }
 
     public OfflineRewardResult processOfflineRewards(long userId) {

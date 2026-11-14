@@ -44,7 +44,7 @@ class AdminMapEventBiasResourceTest extends TestBase {
     void setUp() throws SQLException {
         // 测试库跨轮次复用，map_locations 可能是空的；不灌出厂数据的话
         // existsLocation 一律 false，所有 upsert 都会以"地点不存在"被拒。
-        ServiceRegistry.getMapService().ensureInitialized();
+        ServiceRegistry.container().getMapService().ensureInitialized();
         clearBias();
     }
 

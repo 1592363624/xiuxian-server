@@ -1,4 +1,5 @@
 package com.mtxgdn.game.service;
+import java.util.Map;
 import com.mtxgdn.game.entity.SuccessionOutcome;
 
 
@@ -10,7 +11,6 @@ import com.mtxgdn.game.sect.StepDownResult;
 import com.mtxgdn.game.sect.WarResult;
 import com.mtxgdn.game.sect.WarehouseDonateResult;
 import com.mtxgdn.game.sect.SectActionResult;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.game.entity.Sect;
 import com.mtxgdn.game.entity.SectApplication;
 import com.mtxgdn.game.entity.SectMember;
@@ -19,8 +19,6 @@ import com.mtxgdn.game.entity.SectWarehouseItem;
 import com.mtxgdn.game.item.Item;
 
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import com.mtxgdn.api.SectApi;
@@ -96,11 +94,6 @@ public class SectService implements SectApi, com.mtxgdn.common.service.Backgroun
     /** 服务查询面：由容器注入。 */
     private final com.mtxgdn.common.service.ServiceLookup services;
 
-    /** 兼容旧调用点的构造器：走当前容器。 */
-    public SectService() {
-        this(com.mtxgdn.common.service.ServiceRegistry.container());
-    }
-
     public SectService(com.mtxgdn.common.service.ServiceLookup services) {
         this.services = services;
         PlayerService playerService = services.getPlayerService();
@@ -108,8 +101,8 @@ public class SectService implements SectApi, com.mtxgdn.common.service.Backgroun
 
         this.queryDomain = new SectQueryDomain();
         this.duelDomain = new SectDuelDomain();
-        this.membershipDomain = new SectMembershipDomain(playerService, queryDomain);
-        this.registryDomain = new SectRegistryDomain(playerService, itemService, queryDomain);
+        this.membershipDomain = new SectMembershipDomain(services, playerService, queryDomain);
+        this.registryDomain = new SectRegistryDomain(services, playerService, itemService, queryDomain);
         this.warehouseDomain = new SectWarehouseDomain(itemService, queryDomain);
         this.warDomain = new SectWarDomain(playerService, itemService, queryDomain, duelDomain);
         this.successionDomain = new SectSuccessionDomain(playerService, queryDomain, duelDomain);

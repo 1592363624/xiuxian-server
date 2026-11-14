@@ -1,4 +1,5 @@
 package com.mtxgdn.game.service;
+import java.util.Map;
 
 import com.mtxgdn.game.sect.SectActionResult;
 import com.mtxgdn.db.DatabaseManager;
@@ -10,7 +11,6 @@ import com.mtxgdn.game.entity.SectMember;
 import com.mtxgdn.i18n.I18n;
 
 import java.sql.SQLException;
-import java.util.Map;
 
 /**
  * 宗门建档域：创建、解散、升级、宗主转让。
@@ -37,7 +37,10 @@ final class SectRegistryDomain {
     /** {@code sects} 建档/升级/转让/解散的读写入口（无状态，可共享）。 */
     private static final SectRegistryDAO REGISTRY_DAO = new SectRegistryDAO();
 
-    SectRegistryDomain(PlayerService playerService, ItemService itemService, SectQueryDomain queryDomain) {
+    private final com.mtxgdn.common.service.ServiceLookup services;
+
+    SectRegistryDomain(com.mtxgdn.common.service.ServiceLookup services, PlayerService playerService, ItemService itemService, SectQueryDomain queryDomain) {
+        this.services = services;
         this.playerService = playerService;
         this.itemService = itemService;
         this.queryDomain = queryDomain;
@@ -107,7 +110,7 @@ final class SectRegistryDomain {
         }
         // 创建宗门授予「开山祖师」称号
         try {
-            new com.mtxgdn.game.service.TitleService().grantTitle(playerId, "sect_founder");
+            services.getTitleService().grantTitle(playerId, "sect_founder");
         } catch (Exception ignored) {
         }
         return SectActionResult.created(

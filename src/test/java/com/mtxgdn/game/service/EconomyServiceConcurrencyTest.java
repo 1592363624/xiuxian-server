@@ -11,7 +11,6 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
@@ -46,8 +45,8 @@ class EconomyServiceConcurrencyTest extends TestBase {
     static void setUpEconomy() {
         try {
             com.mtxgdn.game.item.ItemScanner.scanAndRegister();
-            economyService = new EconomyService();
-            itemService = ServiceRegistry.getItemService();
+            economyService = new EconomyService(ServiceRegistry.container());
+            itemService = ServiceRegistry.container().getItemService();
             userService = new UserService();
             runner = Executors.newFixedThreadPool(4);
             ready = true;
@@ -66,7 +65,7 @@ class EconomyServiceConcurrencyTest extends TestBase {
         assertEquals(200, resp.getStatus(), "注册应成功");
         long userId = extractLong(resp.getEntity().toString(), "id");
         assertTrue(userId > 0, "userId 应大于 0");
-        var pi = ServiceRegistry.getPlayerService().createPlayer(userId, playerName);
+        var pi = ServiceRegistry.container().getPlayerService().createPlayer(userId, playerName);
         assertNotNull(pi, "角色创建不应为空");
         return pi.getId();
     }

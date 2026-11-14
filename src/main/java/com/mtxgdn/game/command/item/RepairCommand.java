@@ -3,7 +3,6 @@ package com.mtxgdn.game.command.item;
 import com.mtxgdn.common.result.OperationResult;
 import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandContext;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.game.entity.PlayerInfo;
 import com.mtxgdn.game.item.Item;
 import com.mtxgdn.game.item.ItemRegistry;
@@ -54,13 +53,13 @@ public class RepairCommand extends Command {
     }
 
     private void doRepair(CommandContext ctx, PlayerInfo p, String slot) {
-        OperationResult result = ServiceRegistry.getDurabilityService().repair(p.getId(), slot);
+        OperationResult result = services().getDurabilityService().repair(p.getId(), slot);
         ctx.reply(result.message());
     }
 
     private String buildPanel(PlayerInfo p) {
-        DurabilityService durability = ServiceRegistry.getDurabilityService();
-        Map<String, String> equipment = ServiceRegistry.getItemService().getEquipment(p.getId());
+        DurabilityService durability = services().getDurabilityService();
+        Map<String, String> equipment = services().getItemService().getEquipment(p.getId());
         StringBuilder sb = new StringBuilder();
         sb.append(I18n.t("equip.repair_panel_title")).append("\n");
 

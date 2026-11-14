@@ -1,6 +1,5 @@
 package com.mtxgdn.game.service;
 
-import com.mtxgdn.common.service.ServiceRegistry;
 
 import com.mtxgdn.db.CraftingDAO;
 import com.mtxgdn.db.DatabaseManager;
@@ -20,9 +19,18 @@ import com.mtxgdn.api.CraftingApi;
 
 public class CraftingService implements CraftingApi {
 
+    /** 服务查询面：由容器注入，替代 ServiceRegistry 静态调用。 */
+    private final com.mtxgdn.common.service.ServiceLookup services;
+
+    public CraftingService(com.mtxgdn.common.service.ServiceLookup services) {
+        this.services = services;
+        this.playerService = services.getPlayerService();
+        this.itemService = services.getItemService();
+    }
+
     private static final GameLogger LOG = GameLogger.getLogger(CraftingService.class);
-    private final PlayerService playerService = ServiceRegistry.getPlayerService();
-    private final ItemService itemService = ServiceRegistry.getItemService();
+    private final PlayerService playerService;
+    private final ItemService itemService;
     private final Random random = new Random();
 
     /** {@code recipes} 表的读写入口（无状态，可共享）。 */
@@ -160,7 +168,7 @@ public class CraftingService implements CraftingApi {
                 com.mtxgdn.entity.Player p = playerService.getPlayerById(playerId);
                 if (p != null) {
                     p.setCraftCount(p.getCraftCount() + 1);
-                    new com.mtxgdn.game.service.TitleService().checkAndGrantTitles(p);
+                    services.getTitleService().checkAndGrantTitles(p);
                 }
             } catch (Exception ignored) {
             }

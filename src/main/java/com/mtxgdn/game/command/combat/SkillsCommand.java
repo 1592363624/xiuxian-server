@@ -5,7 +5,6 @@ import com.mtxgdn.common.command.CommandContext;
 import com.mtxgdn.game.entity.PlayerInfo;
 import com.mtxgdn.game.entity.Skill;
 import com.mtxgdn.db.SkillDAO;
-import com.mtxgdn.common.service.ServiceRegistry;
 
 import java.util.List;
 import com.mtxgdn.i18n.I18n;
@@ -25,8 +24,8 @@ public class SkillsCommand extends Command {
     public void execute(CommandContext ctx) {
         PlayerInfo p = requirePlayerInfo(ctx);
         if (p == null) return;
-        var skillService = ServiceRegistry.getSkillService();
-        var guideService = ServiceRegistry.getGuideService();
+        var skillService = services().getSkillService();
+        var guideService = services().getGuideService();
         List<Skill> allSkills = skillService.getAllSkills();
         if (allSkills.isEmpty()) { ctx.reply(I18n.t("combat.no_skills_available")); return; }
         StringBuilder sb = new StringBuilder();
@@ -56,7 +55,7 @@ public class SkillsCommand extends Command {
             return;
         }
 
-        var skillService = ServiceRegistry.getSkillService();
+        var skillService = services().getSkillService();
         Skill skill = skillService.getPlayerSkill(p.getId(), skillId);
         if (skill == null) {
             ctx.reply(I18n.t("combat.you_have_not_learned"));

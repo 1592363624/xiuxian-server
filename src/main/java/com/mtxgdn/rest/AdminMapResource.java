@@ -1,9 +1,7 @@
 package com.mtxgdn.rest;
 
-import com.mtxgdn.game.map.WildernessStats;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.db.DatabaseManager;
 import com.mtxgdn.db.MapDAO;
 import com.mtxgdn.game.config.GameConfigLoader;
@@ -47,7 +45,7 @@ import static com.mtxgdn.rest.AdminSupport.reloadMapCacheIfNeeded;
  *
  * <p>类级路径 {@code /admin} + 方法级 {@code /map/locations/{id}} 拼出来的地址与
  * 拆分前逐字一致（Jersey 的路径拼接规则）。改完地图表后的缓存热重载仍走
- * {@link AdminSupport#reloadMapCacheIfNeeded(String)}，逻辑一行未动。</p>
+ * {@link AdminSupport#reloadMapCacheIfNeeded(ServiceLookup, String)}，逻辑一行未动。</p>
  *
  * <p>野外分片视图另拆到 {@link AdminWildernessResource}（{@code /admin/map/wilderness}），
  * 它读的是分片文件而不是数据库，依赖集合完全不同；事件权重偏置另拆到
@@ -55,7 +53,7 @@ import static com.mtxgdn.rest.AdminSupport.reloadMapCacheIfNeeded;
  * {@code map_location_event_bias} 这张独立的表。</p>
  */
 @Path("/admin")
-public class AdminMapResource {
+public class AdminMapResource extends BaseResource {
 
     /** map_locations / map_connections / 探索记录都归 MapDAO。 */
     private static final MapDAO MAP_DAO = new MapDAO();
@@ -76,7 +74,7 @@ public class AdminMapResource {
     public Response getMapLocations() {
         JsonObject out = new JsonObject();
         try {
-            var mapService = ServiceRegistry.getMapService();
+            var mapService = services.getMapService();
             mapService.ensureInitialized();
 
             // 已知世界与野外同在一张表，但后台必须分开计数：
@@ -238,7 +236,7 @@ public class AdminMapResource {
             }
 
             // 改完立即热重载：否则地图缓存还是旧值，管理员会以为没改上
-            reloadMapCacheIfNeeded("map_locations");
+            reloadMapCacheIfNeeded(services, "map_locations");
 
             JsonObject data = new JsonObject();
             data.addProperty("updated", affected);
@@ -338,7 +336,7 @@ public class AdminMapResource {
                 return id;
             });
 
-            reloadMapCacheIfNeeded("map_locations");
+            reloadMapCacheIfNeeded(services, "map_locations");
 
             JsonObject data = new JsonObject();
             data.addProperty("id", createdId);
@@ -392,7 +390,7 @@ public class AdminMapResource {
                 return MAP_DAO.deleteLocationById(conn, id);
             });
 
-            reloadMapCacheIfNeeded("map_locations");
+            reloadMapCacheIfNeeded(services, "map_locations");
 
             JsonObject data = new JsonObject();
             data.addProperty("deleted", affected);
@@ -444,7 +442,7 @@ public class AdminMapResource {
                 return null;
             });
 
-            reloadMapCacheIfNeeded("map_connections");
+            reloadMapCacheIfNeeded(services, "map_connections");
 
             JsonObject data = new JsonObject();
             data.addProperty("from", from);
@@ -485,7 +483,7 @@ public class AdminMapResource {
                 return Response.ok(gson.toJson(out)).build();
             }
 
-            reloadMapCacheIfNeeded("map_connections");
+            reloadMapCacheIfNeeded(services, "map_connections");
 
             JsonObject data = new JsonObject();
             data.addProperty("deleted", affected);

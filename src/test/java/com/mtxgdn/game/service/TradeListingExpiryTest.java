@@ -12,10 +12,8 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -39,8 +37,8 @@ class TradeListingExpiryTest extends TestBase {
     static void setUpMarket() {
         try {
             com.mtxgdn.game.item.ItemScanner.scanAndRegister();
-            tradeService = new TradeService();
-            itemService = ServiceRegistry.getItemService();
+            tradeService = new TradeService(ServiceRegistry.container());
+            itemService = ServiceRegistry.container().getItemService();
             userService = new UserService();
             ready = true;
         } catch (Throwable t) {
@@ -74,7 +72,7 @@ class TradeListingExpiryTest extends TestBase {
         assertEquals(200, resp.getStatus(), "注册应成功");
         long userId = extractLong(resp.getEntity().toString(), "id");
         assertTrue(userId > 0, "userId 应大于 0");
-        var pi = ServiceRegistry.getPlayerService().createPlayer(userId, playerName);
+        var pi = ServiceRegistry.container().getPlayerService().createPlayer(userId, playerName);
         assertNotNull(pi, "角色创建不应为空");
         return pi.getId();
     }
@@ -462,7 +460,7 @@ class TradeListingExpiryTest extends TestBase {
 
         // 基准灵根显式指定为无减免的四象灵根：createPlayer 随机抽灵根，
         // 若恰好抽到土金灵根（TRADE_FEE_HALF）则抽成减半，断言会随随机结果间歇失败。
-        ServiceRegistry.getPlayerService().updateSpiritualRoot(seller, SpiritualRoot.FOUR_ELEMENTS);
+        ServiceRegistry.container().getPlayerService().updateSpiritualRoot(seller, SpiritualRoot.FOUR_ELEMENTS);
 
         // 10000 × 5% = 500
         TradeResult listed = tradeService.listItem(seller, "mtxgdn:spirit_grass", 1, 10_000);
@@ -486,7 +484,7 @@ class TradeListingExpiryTest extends TestBase {
         // 基准灵根必须显式指定：createPlayer 会随机抽灵根，若恰好抽到土金灵根，
         // 基准抽成本身就是减半值，断言会随随机结果间歇性失败。
         // 四象灵根特效为 NONE，是干净的对照基线。
-        ServiceRegistry.getPlayerService().updateSpiritualRoot(seller, SpiritualRoot.FOUR_ELEMENTS);
+        ServiceRegistry.container().getPlayerService().updateSpiritualRoot(seller, SpiritualRoot.FOUR_ELEMENTS);
 
         // 先按普通灵根上架一笔，取基准抽成
         TradeResult normal = tradeService.listItem(seller, "mtxgdn:spirit_grass", 1, 10_000);
@@ -495,7 +493,7 @@ class TradeListingExpiryTest extends TestBase {
         assertEquals(500L, normalFee, "基准抽成应为 500（10000 × 5%，四象灵根无减免）");
 
         // 换成土金灵根（持有 TRADE_FEE_HALF）
-        ServiceRegistry.getPlayerService().updateSpiritualRoot(seller, SpiritualRoot.EARTHEN_GOLD);
+        ServiceRegistry.container().getPlayerService().updateSpiritualRoot(seller, SpiritualRoot.EARTHEN_GOLD);
 
         TradeResult half = tradeService.listItem(seller, "mtxgdn:spirit_grass", 1, 10_000);
         assertTrue(half.success(), "上架应成功");

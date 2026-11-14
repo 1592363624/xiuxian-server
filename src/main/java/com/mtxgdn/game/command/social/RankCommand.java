@@ -1,11 +1,9 @@
 package com.mtxgdn.game.command.social;
 
-import com.mtxgdn.common.service.ServiceRegistry;
 
 import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandContext;
 import com.mtxgdn.game.entity.PlayerInfo;
-import com.mtxgdn.game.service.PlayerService;
 
 import java.util.List;
 
@@ -33,7 +31,7 @@ public class RankCommand extends Command {
 
         String type = ctx.getArg().trim().toLowerCase();
 
-        var playerService = ServiceRegistry.getPlayerService();
+        var playerService = services().getPlayerService();
         List<PlayerInfo> players;
         String title;
         switch (type) {

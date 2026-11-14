@@ -4,7 +4,6 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.mtxgdn.common.GameErrorCode;
 import com.mtxgdn.common.GameMessage;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.game.entity.ChatMessage;
 import com.mtxgdn.game.entity.Friend;
 import com.mtxgdn.game.entity.PlayerInfo;
@@ -44,11 +43,11 @@ import static com.mtxgdn.rest.GameSupport.playerService;
  * 本类保留一份与拆分前逐字相同的副本。</p>
  */
 @Path("/game")
-public class GameSocialResource {
+public class GameSocialResource extends BaseResource {
 
-    private static final ChatService chatService = ServiceRegistry.getChatService();
+    private final ChatService chatService = services.getChatService();
 
-    private static final FriendService friendService = ServiceRegistry.getFriendService();
+    private final FriendService friendService = services.getFriendService();
 
     @Context
     private ContainerRequestContext requestContext;

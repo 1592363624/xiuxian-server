@@ -4,7 +4,6 @@ import com.mtxgdn.game.item.EquipResult;
 import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandContext;
 import com.mtxgdn.game.entity.PlayerInfo;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.i18n.I18n;
 
 public class UnequipCommand extends Command {
@@ -23,7 +22,7 @@ public class UnequipCommand extends Command {
         if (p == null) return;
         String slot = ctx.getArg().trim().toLowerCase();
         if (slot.isEmpty()) { ctx.reply(I18n.t("unequip.usage")); return; }
-        EquipResult result = ServiceRegistry.getItemService().unequipItem((int) p.getId(), slot);
+        EquipResult result = services().getItemService().unequipItem((int) p.getId(), slot);
         String msg = result.message() != null ? result.message() : "";
         if (msg.isEmpty()) msg = "卸下失败，请检查部位是否正确。";
         ctx.reply(msg);

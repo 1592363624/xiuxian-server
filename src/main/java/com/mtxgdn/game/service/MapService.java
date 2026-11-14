@@ -25,7 +25,6 @@ import com.mtxgdn.game.map.WildernessChunk;
 import com.mtxgdn.game.map.WildernessChunkStore;
 import com.mtxgdn.game.map.WildernessTerrain;
 import com.mtxgdn.entity.Player;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.util.GameLogger;
 
 import java.sql.Connection;
@@ -68,6 +67,9 @@ import com.mtxgdn.api.MapApi;
  * （整段地图加载、探索记录 + 首达奖励、一轮分片扫描、发物品 + 采集冷却）。</p>
  */
 public class MapService implements MapApi {
+
+    /** 服务查询面：由容器注入，替代 ServiceRegistry 静态调用。 */
+    private final com.mtxgdn.common.service.ServiceLookup services;
 
     private static final GameLogger LOG = GameLogger.getLogger(MapService.class);
 
@@ -193,8 +195,9 @@ public class MapService implements MapApi {
 
     private final PlayerService playerService;
 
-    public MapService() {
-        this.playerService = ServiceRegistry.getPlayerService();
+    public MapService(com.mtxgdn.common.service.ServiceLookup services) {
+        this.services = services;
+        this.playerService = services.getPlayerService();
     }
 
     /**
@@ -1018,7 +1021,7 @@ public class MapService implements MapApi {
                 long bonus = reward.getCompletionBonusSpiritStones();
                 if (bonus > 0) {
                     try {
-                        ServiceRegistry.getItemService().addSpiritStones(playerId, bonus);
+                        services.getItemService().addSpiritStones(playerId, bonus);
                         sb.append("\n🏆 你已走遍已知世界的全部 ").append(total)
                                 .append(" 个地点，额外获得 ").append(bonus).append(" 灵石！");
                     } catch (Exception e) {
@@ -1075,10 +1078,10 @@ public class MapService implements MapApi {
         long stones = applyRewardRatio(firstVisitSpiritStones(reward, loc), ratio);
         long exp = applyRewardRatio(firstVisitExperience(reward, loc), ratio);
         if (stones > 0) {
-            ServiceRegistry.getItemService().addSpiritStones(conn, playerId, stones);
+            services.getItemService().addSpiritStones(conn, playerId, stones);
         }
         if (exp > 0) {
-            ServiceRegistry.getPlayerService().addExperience(conn, playerId, exp);
+            services.getPlayerService().addExperience(conn, playerId, exp);
         }
     }
 
@@ -1290,13 +1293,13 @@ public class MapService implements MapApi {
         }
 
         long cost = getTeleportCost(currentLocId, targetLocationId);
-        long balance = ServiceRegistry.getItemService().getSpiritStoneCount(playerId);
+        long balance = services.getItemService().getSpiritStoneCount(playerId);
         if (balance < cost) {
             return TravelResult.rejected(I18n.t("map.teleporting_costs_spirit_stones_but", cost, balance));
         }
 
         // 先扣费再落库位置：扣费失败直接返回，避免"免费传送"
-        if (!ServiceRegistry.getItemService().removeSpiritStones(playerId, cost)) {
+        if (!services.getItemService().removeSpiritStones(playerId, cost)) {
             return TravelResult.rejected(I18n.t("map.failed_to_deduct_spirit_stones"));
         }
 
@@ -1304,7 +1307,7 @@ public class MapService implements MapApi {
         int updated = compareAndSetTravel(playerId, position, targetLocationId, now);
         if (updated == 0) {
             // 位置在扣费与写回之间被改动：把灵石退回去，不能既收钱又不办事
-            ServiceRegistry.getItemService().addSpiritStones(playerId, cost);
+            services.getItemService().addSpiritStones(playerId, cost);
             if (getPlayerLocationId(playerId) == targetLocationId) {
                 return TravelResult.rejected(I18n.t("map.you_are_already", target.getName()));
             }
@@ -1727,7 +1730,7 @@ public class MapService implements MapApi {
                 if (claimed == 0) {
                     return false;
                 }
-                return ServiceRegistry.getItemService().addItem(conn, playerId, itemKey, taken);
+                return services.getItemService().addItem(conn, playerId, itemKey, taken);
             });
             if (!granted) {
                 chunk.refund(slot, itemKey, taken);

@@ -1,5 +1,6 @@
 package com.mtxgdn.game.command.map;
 
+import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.TestBase;
 import com.mtxgdn.common.command.CommandContext;
 import com.mtxgdn.db.DatabaseManager;
@@ -34,7 +35,7 @@ class MapCommandRenderTest extends TestBase {
 
     @BeforeAll
     static void createCharacter() {
-        PlayerService playerService = new PlayerService();
+        PlayerService playerService = new PlayerService(ServiceRegistry.container());
         long userId = DatabaseManager.insertRow("users", java.util.Map.of(
                 "username", "map_render_user",
                 "password", org.mindrot.jbcrypt.BCrypt.hashpw(

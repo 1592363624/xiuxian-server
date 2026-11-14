@@ -8,10 +8,8 @@ import com.mtxgdn.common.command.RouteDefinition;
 import com.mtxgdn.game.entity.PlayerInfo;
 import com.mtxgdn.game.entity.Technique;
 import com.mtxgdn.common.result.OperationResult;
-import com.mtxgdn.common.service.ServiceRegistry;
 
 import java.util.List;
-import java.util.Map;
 import com.mtxgdn.i18n.I18n;
 
 public class TechniqueCommand extends Command {
@@ -38,7 +36,7 @@ public class TechniqueCommand extends Command {
     }
 
     private void listAll(CommandContext ctx, PlayerInfo p, String[] parts) {
-        var service = ServiceRegistry.getTechniqueService();
+        var service = services().getTechniqueService();
         List<Technique> techniques = service.getAllTechniques();
         StringBuilder sb = new StringBuilder();
         sb.append("=== 功法大全 ===\n");
@@ -55,7 +53,7 @@ public class TechniqueCommand extends Command {
     }
 
     private void myTechniques(CommandContext ctx, PlayerInfo p, String[] parts) {
-        var service = ServiceRegistry.getTechniqueService();
+        var service = services().getTechniqueService();
         List<Technique> techniques = service.getPlayerTechniques(p.getId());
         StringBuilder sb = new StringBuilder();
         sb.append("你的功法\n");
@@ -79,7 +77,7 @@ public class TechniqueCommand extends Command {
         long techniqueId;
         try { techniqueId = Long.parseLong(parts[1]); } catch (NumberFormatException e) { ctx.reply(I18n.t("technique.invalid_technique_id")); return; }
 
-        var service = ServiceRegistry.getTechniqueService();
+        var service = services().getTechniqueService();
         OperationResult result = service.learnTechnique(p.getId(), techniqueId);
         ctx.reply(result.message());
     }
@@ -89,7 +87,7 @@ public class TechniqueCommand extends Command {
         long techniqueId;
         try { techniqueId = Long.parseLong(parts[1]); } catch (NumberFormatException e) { ctx.reply(I18n.t("technique.invalid_technique_id")); return; }
 
-        var service = ServiceRegistry.getTechniqueService();
+        var service = services().getTechniqueService();
         OperationResult result = service.equipTechnique(p.getId(), techniqueId);
         ctx.reply(result.message());
     }
@@ -99,7 +97,7 @@ public class TechniqueCommand extends Command {
         long techniqueId;
         try { techniqueId = Long.parseLong(parts[1]); } catch (NumberFormatException e) { ctx.reply(I18n.t("technique.invalid_technique_id")); return; }
 
-        var service = ServiceRegistry.getTechniqueService();
+        var service = services().getTechniqueService();
         OperationResult result = service.unequipTechnique(p.getId(), techniqueId);
         ctx.reply(result.message());
     }
@@ -109,7 +107,7 @@ public class TechniqueCommand extends Command {
         long techniqueId;
         try { techniqueId = Long.parseLong(parts[1]); } catch (NumberFormatException e) { ctx.reply(I18n.t("technique.invalid_technique_id")); return; }
 
-        var service = ServiceRegistry.getTechniqueService();
+        var service = services().getTechniqueService();
         OperationResult result = service.upgradeTechnique(p.getId(), techniqueId);
         ctx.reply(result.message());
     }
@@ -128,7 +126,7 @@ public class TechniqueCommand extends Command {
     private JsonObject handleListHttp(RouteDefinition.RestContext ctx) {
         JsonObject result = new JsonObject();
         try {
-            var service = ServiceRegistry.getTechniqueService();
+            var service = services().getTechniqueService();
             List<Technique> techniques = service.getAllTechniques();
             JsonArray arr = new JsonArray();
             for (Technique t : techniques) {
@@ -167,7 +165,7 @@ public class TechniqueCommand extends Command {
     private JsonObject handleMyHttp(RouteDefinition.RestContext ctx) {
         JsonObject result = new JsonObject();
         try {
-            var service = ServiceRegistry.getTechniqueService();
+            var service = services().getTechniqueService();
             List<Technique> techniques = service.getPlayerTechniques(ctx.playerId());
             JsonArray arr = new JsonArray();
             for (Technique t : techniques) {
@@ -200,7 +198,7 @@ public class TechniqueCommand extends Command {
                 result.addProperty("message", I18n.t("technique.please_provide_a_valid_technique"));
                 return result;
             }
-            var service = ServiceRegistry.getTechniqueService();
+            var service = services().getTechniqueService();
             OperationResult data = service.learnTechnique(ctx.playerId(), techniqueId);
             result.addProperty("code", data.success() ? 200 : 400);
             result.addProperty("success", data.success());
@@ -234,7 +232,7 @@ public class TechniqueCommand extends Command {
                 result.addProperty("message", I18n.t("technique.please_provide_a_valid_technique"));
                 return result;
             }
-            var service = ServiceRegistry.getTechniqueService();
+            var service = services().getTechniqueService();
             OperationResult data = switch (op) {
                 case "equip" -> service.equipTechnique(ctx.playerId(), techniqueId);
                 case "unequip" -> service.unequipTechnique(ctx.playerId(), techniqueId);

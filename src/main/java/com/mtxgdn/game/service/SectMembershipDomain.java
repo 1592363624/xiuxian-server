@@ -9,7 +9,6 @@ import com.mtxgdn.game.entity.SectMember;
 import com.mtxgdn.common.result.OperationResult;
 import com.mtxgdn.i18n.I18n;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -42,7 +41,10 @@ final class SectMembershipDomain {
     /** {@code sect_applications} / {@code sect_members} 的读写入口（无状态，可共享）。 */
     private static final SectMembershipDAO MEMBERSHIP_DAO = new SectMembershipDAO();
 
-    SectMembershipDomain(PlayerService playerService, SectQueryDomain queryDomain) {
+    private final com.mtxgdn.common.service.ServiceLookup services;
+
+    SectMembershipDomain(com.mtxgdn.common.service.ServiceLookup services, PlayerService playerService, SectQueryDomain queryDomain) {
+        this.services = services;
         this.playerService = playerService;
         this.queryDomain = queryDomain;
     }
@@ -114,7 +116,7 @@ final class SectMembershipDomain {
             MEMBERSHIP_DAO.addMember(sect.getId(), app.getPlayerId());
             // 首次入宗授予「首席弟子」称号
             try {
-                new com.mtxgdn.game.service.TitleService().grantTitle(app.getPlayerId(), "senior_disciple");
+                services.getTitleService().grantTitle(app.getPlayerId(), "senior_disciple");
             } catch (Exception ignored) {
             }
         } else {

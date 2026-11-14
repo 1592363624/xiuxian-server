@@ -1,6 +1,5 @@
 package com.mtxgdn.game.service;
 
-import com.mtxgdn.common.service.ServiceRegistry;
 
 import com.mtxgdn.db.DatabaseManager;
 import com.mtxgdn.db.SkillDAO;
@@ -15,17 +14,24 @@ import com.mtxgdn.util.GameLogger;
 import java.sql.SQLException;
 
 
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import com.mtxgdn.i18n.I18n;
 import com.mtxgdn.api.SkillApi;
 
 public class SkillService implements SkillApi {
 
+    /** 服务查询面：由容器注入，替代 ServiceRegistry 静态调用。 */
+    private final com.mtxgdn.common.service.ServiceLookup services;
+
+    public SkillService(com.mtxgdn.common.service.ServiceLookup services) {
+        this.services = services;
+        this.playerService = services.getPlayerService();
+        this.itemService = services.getItemService();
+    }
+
     private static final GameLogger LOG = GameLogger.getLogger(SkillService.class);
-    private final PlayerService playerService = ServiceRegistry.getPlayerService();
-    private final ItemService itemService = ServiceRegistry.getItemService();
+    private final PlayerService playerService;
+    private final ItemService itemService;
 
     /** {@code skills} / {@code players_skills} 的读写入口（无状态，可共享）。 */
     private static final SkillDAO SKILL_DAO = new SkillDAO();
@@ -114,11 +120,11 @@ public class SkillService implements SkillApi {
                     I18n.t("skill.failed_to_learn_the_skill", e.getMessage()), 6106);
         }
 
-        ServiceRegistry.getDailyService().onSkillLearn(playerId);
+        services.getDailyService().onSkillLearn(playerId);
 
         // 学会第一个技能授予「剑道学徒」
         try {
-            new com.mtxgdn.game.service.TitleService().grantTitle(playerId, "sword_student");
+            services.getTitleService().grantTitle(playerId, "sword_student");
         } catch (Exception ignored) {
         }
         return LearnSkillResult.ok(

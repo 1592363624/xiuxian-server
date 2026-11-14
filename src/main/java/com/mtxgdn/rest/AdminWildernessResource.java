@@ -3,7 +3,6 @@ package com.mtxgdn.rest;
 import com.mtxgdn.game.map.WildernessStats;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.i18n.I18n;
 import com.mtxgdn.permission.RequirePermission;
 
@@ -34,7 +33,7 @@ import static com.mtxgdn.rest.AdminSupport.gson;
  * 逐字一致（Jersey 的路径拼接规则）。</p>
  */
 @Path("/admin")
-public class AdminWildernessResource {
+public class AdminWildernessResource extends BaseResource {
 
     /**
      * 手动给野外补货：把已采空的资源补回上限。
@@ -49,7 +48,7 @@ public class AdminWildernessResource {
     public Response restockWilderness() {
         JsonObject out = new JsonObject();
         try {
-            int chunks = ServiceRegistry.getMapService().restockWilderness();
+            int chunks = services.getMapService().restockWilderness();
             out.addProperty("code", 200);
             out.addProperty("message", I18n.t("admin.restocked_wilderness_shard_in_place", chunks));
             JsonObject data = new JsonObject();
@@ -76,7 +75,7 @@ public class AdminWildernessResource {
                                        @QueryParam("cy") String cyParam) {
         JsonObject out = new JsonObject();
         try {
-            var mapService = ServiceRegistry.getMapService();
+            var mapService = services.getMapService();
             JsonObject data = new JsonObject();
             // 与原 Map 逐键搬运保持一致：管理台把每个值都当字符串展示
             WildernessStats stats = mapService.getWildernessStats();

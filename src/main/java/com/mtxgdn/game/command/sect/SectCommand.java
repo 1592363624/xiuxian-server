@@ -2,7 +2,6 @@ package com.mtxgdn.game.command.sect;
 
 import com.mtxgdn.game.sect.WarResult;
 import com.mtxgdn.game.sect.ContestResult;
-import com.mtxgdn.common.service.ServiceRegistry;
 
 import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandContext;
@@ -24,7 +23,7 @@ import java.util.List;
 import com.mtxgdn.i18n.I18n;
 
 public class SectCommand extends Command {
-    private static final SectService sectService = ServiceRegistry.getSectService();
+    private final SectService sectService = services().getSectService();
 
     public SectCommand() {
         super(new String[]{"宗门", "sect"},

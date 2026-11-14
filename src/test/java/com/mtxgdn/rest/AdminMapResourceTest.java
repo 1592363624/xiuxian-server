@@ -44,7 +44,7 @@ class AdminMapResourceTest extends TestBase {
     /** 把青云村恢复成出厂值，避免用例之间互相污染（测试库跨轮次复用）。 */
     private void resetQingyunVillage() throws SQLException {
         // 先确保出厂数据已入库，否则 UPDATE 会打在空表上（0 行）而静默无效
-        ServiceRegistry.getMapService().ensureInitialized();
+        ServiceRegistry.container().getMapService().ensureInitialized();
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement ps = conn.prepareStatement(
                      "UPDATE map_locations SET name = ?, cultivation_bonus = ?, exploration_bonus = ?, "
@@ -56,7 +56,7 @@ class AdminMapResourceTest extends TestBase {
             ps.setLong(5, QINGYUN_VILLAGE);
             ps.executeUpdate();
         }
-        ServiceRegistry.getMapService().reload();
+        ServiceRegistry.container().getMapService().reload();
     }
 
     private JsonObject callGet() {
@@ -108,7 +108,7 @@ class AdminMapResourceTest extends TestBase {
     @Test
     @DisplayName("更新地点参数后地图缓存立即热重载")
     void testUpdateTriggersReload() {
-        assertEquals(1.00, ServiceRegistry.getMapService().getCultivationBonus(QINGYUN_VILLAGE), 1e-9);
+        assertEquals(1.00, ServiceRegistry.container().getMapService().getCultivationBonus(QINGYUN_VILLAGE), 1e-9);
 
         JsonObject body = new JsonObject();
         body.addProperty("cultivationBonus", 1.75);
@@ -117,9 +117,9 @@ class AdminMapResourceTest extends TestBase {
         assertEquals(200, out.get("code").getAsInt(), out.toString());
 
         // 关键断言：不重启进程也能读到新值（说明 reload 被触发了）
-        assertEquals(1.75, ServiceRegistry.getMapService().getCultivationBonus(QINGYUN_VILLAGE), 1e-9,
+        assertEquals(1.75, ServiceRegistry.container().getMapService().getCultivationBonus(QINGYUN_VILLAGE), 1e-9,
                 "更新后地图缓存未热重载");
-        assertEquals(1.40, ServiceRegistry.getMapService().getExplorationBonus(QINGYUN_VILLAGE), 1e-9);
+        assertEquals(1.40, ServiceRegistry.container().getMapService().getExplorationBonus(QINGYUN_VILLAGE), 1e-9);
     }
 
     @Test
@@ -145,7 +145,7 @@ class AdminMapResourceTest extends TestBase {
 
         assertEquals(400, out.get("code").getAsInt(), out.toString());
         assertTrue(out.get("message").getAsString().contains("0.1~100"), out.get("message").getAsString());
-        assertEquals(1.00, ServiceRegistry.getMapService().getCultivationBonus(QINGYUN_VILLAGE), 1e-9,
+        assertEquals(1.00, ServiceRegistry.container().getMapService().getCultivationBonus(QINGYUN_VILLAGE), 1e-9,
                 "被拒绝的更新不得落库");
     }
 

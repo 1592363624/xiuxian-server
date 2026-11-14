@@ -1,7 +1,6 @@
 package com.mtxgdn.game.item;
 
 import com.mtxgdn.game.map.TravelResult;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.game.entity.MapLocation;
 import com.mtxgdn.game.service.ItemService;
 import com.mtxgdn.game.service.MapService;
@@ -47,8 +46,9 @@ public class TeleportEffect extends ItemEffect {
     }
 
     @Override
-    public String execute(long playerId, PlayerService playerService, ItemService itemService) {
-        MapService mapService = ServiceRegistry.getMapService();
+    public String execute(long playerId, PlayerService playerService, ItemService itemService,
+                          com.mtxgdn.common.service.ServiceLookup services) {
+        MapService mapService = services.getMapService();
         MapLocation target = resolveDestination(mapService);
         if (target == null) {
             return "传送失败：目的地【" + destination + "】不存在";

@@ -5,7 +5,6 @@ import com.mtxgdn.game.entity.InventoryEntry;
 import com.mtxgdn.game.item.EquipResult;
 import com.mtxgdn.game.item.ExchangeResult;
 import com.mtxgdn.game.item.UseItemResult;
-import com.mtxgdn.common.service.ServiceRegistry;
 
 import com.mtxgdn.db.DatabaseManager;
 import com.mtxgdn.db.ItemDAO;
@@ -21,7 +20,6 @@ import com.mtxgdn.util.AppConfig;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import com.mtxgdn.i18n.I18n;
@@ -29,13 +27,21 @@ import com.mtxgdn.api.ItemApi;
 
 public class ItemService implements ItemApi {
 
+    /** 服务查询面：由容器注入，替代 ServiceRegistry 静态调用。 */
+    private final com.mtxgdn.common.service.ServiceLookup services;
+
+    public ItemService(com.mtxgdn.common.service.ServiceLookup services) {
+        this.services = services;
+        this.playerService = services.getPlayerService();
+    }
+
     private static final int BASE_CAPACITY = AppConfig.getInt("inventory.base_capacity", 30);
     private static final int CAPACITY_PER_LEVEL = AppConfig.getInt("inventory.capacity_per_level", 5);
 
     /** {@code players_items} / {@code players_equipment} 的读写入口（无状态，可共享）。 */
     private static final ItemDAO ITEM_DAO = new ItemDAO();
 
-    private final PlayerService playerService = ServiceRegistry.getPlayerService();
+    private final PlayerService playerService;
 
     // ==================== 背包容量 ====================
 
@@ -60,7 +66,7 @@ public class ItemService implements ItemApi {
                 }
             }
         }
-        com.mtxgdn.game.service.CaveService caveService = new com.mtxgdn.game.service.CaveService();
+        com.mtxgdn.game.service.CaveService caveService = services.getCaveService();
         bonus += caveService.getStorageBonus(playerId);
         return bonus;
     }
@@ -367,7 +373,7 @@ public class ItemService implements ItemApi {
             if (getSpiritStoneCount(playerId) >= 1_000_000L) {
                 com.mtxgdn.entity.Player p = playerService.getPlayerById(playerId);
                 if (p != null) {
-                    new com.mtxgdn.game.service.TitleService().checkAndGrantTitles(p);
+                    services.getTitleService().checkAndGrantTitles(p);
                 }
             }
         } catch (Exception ignored) {
@@ -553,9 +559,9 @@ public class ItemService implements ItemApi {
                 for (ItemEffect effect : item.getEffects()) {
                     String effectMsg;
                     if (effect instanceof BuffEffect be) {
-                        effectMsg = be.execute(conn, playerId, playerService, this);
+                        effectMsg = be.execute(conn, playerId, playerService, this, services);
                     } else {
-                        effectMsg = effect.execute(playerId, playerService, this);
+                        effectMsg = effect.execute(playerId, playerService, this, services);
                     }
                     if (effectMsg != null && !effectMsg.isEmpty()) {
                         msgBuilder.append(effectMsg);
@@ -598,7 +604,7 @@ public class ItemService implements ItemApi {
 
                 // 耐久归零的装备不允许卸下：否则"损坏→卸下→装上"就能免费重置耐久，
                 // 修理系统会被彻底绕过（耐久表是按 玩家+物品key 记的，卸下并不会清记录）。
-                if (com.mtxgdn.common.service.ServiceRegistry.getDurabilityService()
+                if (services.getDurabilityService()
                         .getDurability(conn, playerId, itemKey) <= 0) {
                     return EquipResult.fail(I18n.t("equip.unequip_broken",
                             DurabilityService.getSlotDisplayName(slot)));
@@ -677,7 +683,7 @@ public class ItemService implements ItemApi {
 
         // 阵图物品（聚灵阵图/护山大阵图/净化阵图）：使用 = 消耗 1 张布置对应 1 级阵法（不另扣灵石）
         if (com.mtxgdn.game.service.FormationService.treasureKeyToFormationKey(fullKey) != null) {
-            return com.mtxgdn.common.service.ServiceRegistry.getFormationService()
+            return services.getFormationService()
                     .placeFormationFromTreasure(playerId, fullKey);
         }
 
@@ -696,9 +702,9 @@ public class ItemService implements ItemApi {
                 for (ItemEffect effect : item.getEffects()) {
                     String effectMsg;
                     if (effect instanceof BuffEffect be) {
-                        effectMsg = be.execute(conn, playerId, playerService, this);
+                        effectMsg = be.execute(conn, playerId, playerService, this, services);
                     } else {
-                        effectMsg = effect.execute(playerId, playerService, this);
+                        effectMsg = effect.execute(playerId, playerService, this, services);
                     }
                     if (effectMsg != null && !effectMsg.isEmpty()) {
                         msgBuilder.append(effectMsg);

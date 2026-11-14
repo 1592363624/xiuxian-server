@@ -2,12 +2,10 @@ package com.mtxgdn.game.command.admin;
 
 import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandContext;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.game.entity.SpiritualRoot;
 import com.mtxgdn.game.service.PlayerService;
 import com.mtxgdn.permission.PermissionService;
 import com.mtxgdn.identity.QqBinding;
-import com.mtxgdn.identity.QqBindingService;
 import com.mtxgdn.i18n.I18n;
 
 public class SetRootCommand extends Command {
@@ -58,7 +56,7 @@ public class SetRootCommand extends Command {
             return;
         }
 
-        PlayerService playerService = ServiceRegistry.getPlayerService();
+        PlayerService playerService = services().getPlayerService();
         var p = playerService.getPlayerById(playerId);
         if (p == null) {
             ctx.reply(I18n.t("admin.player_not_found_id", playerId));

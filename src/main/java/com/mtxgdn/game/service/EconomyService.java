@@ -12,7 +12,6 @@ import com.mtxgdn.game.economy.PurifyResult;
 import com.mtxgdn.game.economy.RecycleResult;
 import com.mtxgdn.game.economy.ShopPurchaseResult;
 import com.mtxgdn.game.economy.SignInResult;
-import com.mtxgdn.common.service.ServiceRegistry;
 
 import com.mtxgdn.db.DatabaseManager;
 import com.mtxgdn.db.CaveDAO;
@@ -27,7 +26,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import com.mtxgdn.i18n.I18n;
@@ -43,11 +41,6 @@ public class EconomyService implements EconomyApi, com.mtxgdn.common.service.Bac
     private final com.mtxgdn.common.service.ServiceLookup services;
     private final PlayerService playerService;
     private final ItemService itemService;
-
-    /** 兼容旧调用点的构造器：走当前容器。 */
-    public EconomyService() {
-        this(com.mtxgdn.common.service.ServiceRegistry.container());
-    }
 
     public EconomyService(com.mtxgdn.common.service.ServiceLookup services) {
         this.services = services;

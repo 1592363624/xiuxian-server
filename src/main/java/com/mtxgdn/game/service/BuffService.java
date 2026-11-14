@@ -4,7 +4,6 @@ import com.mtxgdn.db.BuffDAO;
 import com.mtxgdn.game.buff.ActiveBuffView;
 import com.mtxgdn.game.buff.ActiveBuffsResult;
 import com.mtxgdn.db.DatabaseManager;
-import com.mtxgdn.common.service.ServiceRegistry;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -19,11 +18,6 @@ public class BuffService implements BuffApi, com.mtxgdn.common.service.Backgroun
 
     /** 服务查询面：由容器注入。 */
     private final com.mtxgdn.common.service.ServiceLookup services;
-
-    /** 兼容旧调用点的构造器：走当前容器。 */
-    public BuffService() {
-        this(com.mtxgdn.common.service.ServiceRegistry.container());
-    }
 
     public BuffService(com.mtxgdn.common.service.ServiceLookup services) {
         this.services = services;

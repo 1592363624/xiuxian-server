@@ -5,7 +5,6 @@ import com.mtxgdn.common.command.CommandContext;
 import com.mtxgdn.game.entity.PlayerInfo;
 import com.mtxgdn.game.item.Item;
 import com.mtxgdn.game.item.ItemRegistry;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.i18n.I18n;
 public class MarketCommand extends Command {
     public MarketCommand() { super(new String[]{"坊市", "market"}, "查看坊市交易挂单", "/坊市", "坊市", "game.player.info"); 
@@ -15,8 +14,8 @@ public class MarketCommand extends Command {
     public void execute(CommandContext ctx) {
         PlayerInfo p = requirePlayerInfo(ctx);
         if (p == null) return;
-        var tradeService = ServiceRegistry.getTradeService();
-        var guideService = ServiceRegistry.getGuideService();
+        var tradeService = services().getTradeService();
+        var guideService = services().getGuideService();
         var listings = tradeService.getActiveListings();
         if (listings.isEmpty()) {
             ctx.reply(I18n.t("market.market_nthe_market_is_empty")); return;

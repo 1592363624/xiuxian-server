@@ -5,8 +5,6 @@ import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandContext;
 import com.mtxgdn.game.entity.PlayerInfo;
 import com.mtxgdn.game.entity.Skill;
-import com.mtxgdn.common.service.ServiceRegistry;
-import java.util.Map;
 import com.mtxgdn.i18n.I18n;
 
 public class LearnSkillCommand extends Command {
@@ -26,7 +24,7 @@ public class LearnSkillCommand extends Command {
         String arg = ctx.getArg();
         if (arg == null || arg.trim().isEmpty()) { ctx.reply(I18n.t("combat.usage")); return; }
         long skillId;
-        var skillService = ServiceRegistry.getSkillService();
+        var skillService = services().getSkillService();
         try {
             skillId = Long.parseLong(arg.trim());
         }

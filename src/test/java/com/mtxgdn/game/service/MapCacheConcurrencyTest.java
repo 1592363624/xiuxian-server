@@ -33,7 +33,7 @@ class MapCacheConcurrencyTest extends TestBase {
     @Test
     @DisplayName("并发读地图 + 热重载不应抛异常")
     void concurrentReadsAndReloadDoNotThrow() throws Exception {
-        MapService mapService = ServiceRegistry.getMapService();
+        MapService mapService = ServiceRegistry.container().getMapService();
         // 先触发初始化，确保后面的读路径走的是"已有缓存"而不是首次加载
         assertNotNull(mapService.getLocation(1), "地点 1 应存在（出厂数据）");
         assertTrue(mapService.getAllLocations().size() > 0, "已知世界应有地点");

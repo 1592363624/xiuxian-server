@@ -6,8 +6,6 @@ import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandContext;
 import com.mtxgdn.game.entity.PlayerInfo;
 import com.mtxgdn.game.secretrealm.SecretRealm;
-import com.mtxgdn.game.service.NewbieGuideService;
-import com.mtxgdn.common.service.ServiceRegistry;
 import java.util.List;
 import com.mtxgdn.i18n.I18n;
 
@@ -33,7 +31,7 @@ public class SecretAreasCommand extends Command {
         PlayerInfo p = ctx.requirePlayer(userId);
         if (p == null) return;
 
-        var secretRealmService = ServiceRegistry.getSecretRealmService();
+        var secretRealmService = services().getSecretRealmService();
         List<SecretRealm> areas = secretRealmService.getAvailableAreas(userId);
 
         if (areas.isEmpty()) {
@@ -53,7 +51,7 @@ public class SecretAreasCommand extends Command {
         sb.append("使用 /进入秘境 <秘境名称或序号> 进入");
         ctx.reply(sb.toString());
 
-        GuideResult guide = ServiceRegistry.getGuideService()
+        GuideResult guide = services().getGuideService()
                 .checkAndAdvance((int) p.getId(), p, "secret_areas");
         if (guide.message != null) ctx.reply(guide.message);
     }

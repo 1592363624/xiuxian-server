@@ -7,9 +7,7 @@ import com.mtxgdn.common.command.RouteDefinition;
 import com.mtxgdn.game.service.RedeemCodeService;
 import com.mtxgdn.game.service.PlayerService;
 import com.mtxgdn.permission.PermissionService;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.identity.QqBinding;
-import com.mtxgdn.identity.QqBindingService;
 import com.mtxgdn.i18n.I18n;
 
 public class RedeemCommand extends Command {
@@ -17,8 +15,8 @@ public class RedeemCommand extends Command {
     private static final com.mtxgdn.util.GameLogger LOG =
             com.mtxgdn.util.GameLogger.getLogger(RedeemCommand.class);
 
-    private static final RedeemCodeService redeemCodeService = ServiceRegistry.getRedeemCodeService();
-    private static final PlayerService playerService = ServiceRegistry.getPlayerService();
+    private final RedeemCodeService redeemCodeService = services().getRedeemCodeService();
+    private final PlayerService playerService = services().getPlayerService();
 
     public RedeemCommand() {
         super(new String[]{"兑换", "redeem"},

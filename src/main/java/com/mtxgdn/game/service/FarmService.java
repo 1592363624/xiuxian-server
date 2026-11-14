@@ -1,7 +1,6 @@
 package com.mtxgdn.game.service;
 
 import com.mtxgdn.game.farm.FarmResult;
-import com.mtxgdn.common.service.ServiceRegistry;
 
 import com.mtxgdn.db.DatabaseManager;
 import com.mtxgdn.db.FarmDAO;
@@ -21,6 +20,15 @@ import com.mtxgdn.api.FarmApi;
 
 public class FarmService implements FarmApi {
 
+    /** 服务查询面：由容器注入，替代 ServiceRegistry 静态调用。 */
+    private final com.mtxgdn.common.service.ServiceLookup services;
+
+    public FarmService(com.mtxgdn.common.service.ServiceLookup services) {
+        this.services = services;
+        this.playerService = services.getPlayerService();
+        this.itemService = services.getItemService();
+    }
+
     private static final GameLogger LOG = GameLogger.getLogger(FarmService.class);
     private static final int DEFAULT_PLOTS = 4;
     private static final int MAX_PLOTS = 12;
@@ -36,10 +44,10 @@ public class FarmService implements FarmApi {
     /** 病虫害出现后 30 分钟未处理则升级为严重 */
     private static final long PEST_UPGRADE_MS = 30 * 60 * 1000L;
 
-    private final PlayerService playerService = ServiceRegistry.getPlayerService();
+    private final PlayerService playerService;
     /** farm_plots 表归 FarmDAO：服务层只剩"先结算、再校验、再写入"的编排。 */
     private final FarmDAO farmDAO = new FarmDAO();
-    private final ItemService itemService = ServiceRegistry.getItemService();
+    private final ItemService itemService;
     private static final Random random = new Random();
 
     /**

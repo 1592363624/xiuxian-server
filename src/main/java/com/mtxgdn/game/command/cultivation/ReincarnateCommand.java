@@ -6,11 +6,8 @@ import com.mtxgdn.db.DatabaseManager;
 import com.mtxgdn.entity.Player;
 import com.mtxgdn.game.entity.PlayerInfo;
 import com.mtxgdn.game.service.PlayerService;
-import com.mtxgdn.game.service.TitleService;
-import com.mtxgdn.common.service.ServiceRegistry;
 
 import java.sql.PreparedStatement;
-import java.sql.SQLException;
 import com.mtxgdn.i18n.I18n;
 
 /**
@@ -43,7 +40,7 @@ public class ReincarnateCommand extends Command {
         PlayerInfo p = ctx.requirePlayer(userId);
         if (p == null) return;
 
-        PlayerService playerService = ServiceRegistry.getPlayerService();
+        PlayerService playerService = services().getPlayerService();
         Player player = playerService.getPlayerByUserIdRaw(userId);
         if (player == null) {
             ctx.reply(I18n.t("cultivation.character_not_found"));
@@ -98,7 +95,7 @@ public class ReincarnateCommand extends Command {
 
         // 授予「逆天者」称号
         try {
-            ServiceRegistry.getTitleService().grantTitle(player.getId(), "heaven_defier");
+            services().getTitleService().grantTitle(player.getId(), "heaven_defier");
         } catch (Exception ignored) {
         }
 

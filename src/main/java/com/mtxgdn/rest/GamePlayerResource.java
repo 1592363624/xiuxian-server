@@ -10,14 +10,12 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.mtxgdn.common.GameErrorCode;
 import com.mtxgdn.common.GameMessage;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.game.config.GameConfigLoader;
 import com.mtxgdn.game.entity.PlayerInfo;
 import com.mtxgdn.game.entity.RealmConfig;
 import com.mtxgdn.game.entity.SpiritualRoot;
 import com.mtxgdn.game.service.BuffService;
 import com.mtxgdn.game.service.DailyService;
-import com.mtxgdn.game.service.OfflineRewardService;
 import com.mtxgdn.i18n.I18n;
 import com.mtxgdn.permission.RequirePermission;
 import com.mtxgdn.util.PageRequest;
@@ -30,7 +28,6 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
 import java.util.List;
-import java.util.Map;
 
 import static com.mtxgdn.rest.GameSupport.gson;
 import static com.mtxgdn.rest.GameSupport.actionLog;
@@ -55,9 +52,9 @@ import static com.mtxgdn.rest.GameSupport.getPlayerIdByUserId;
  * <p>跨域共用的静态字段与辅助方法在 {@link GameSupport}；本类只额外持有每日任务服务。</p>
  */
 @Path("/game")
-public class GamePlayerResource {
+public class GamePlayerResource extends BaseResource {
 
-    private static final DailyService dailyService = ServiceRegistry.getDailyService();
+    private final DailyService dailyService = services.getDailyService();
 
     @Context
     private ContainerRequestContext requestContext;
@@ -96,7 +93,7 @@ public class GamePlayerResource {
         }
 
         OfflineRewardResult offlineReward =
-                ServiceRegistry.getOfflineRewardService().processOfflineRewards(userId);
+                services.getOfflineRewardService().processOfflineRewards(userId);
 
         JsonObject data = gson.toJsonTree(player).getAsJsonObject();
 
@@ -349,7 +346,7 @@ public class GamePlayerResource {
         Long userId = getCurrentUserId();
         long playerId = getPlayerIdByUserId(userId);
 
-        BuffService buffService = ServiceRegistry.getBuffService();
+        BuffService buffService = services.getBuffService();
         ActiveBuffsResult result = buffService.getActiveBuffs(playerId);
 
         JsonObject data = new JsonObject();

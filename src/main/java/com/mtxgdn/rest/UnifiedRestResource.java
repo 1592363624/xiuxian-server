@@ -7,7 +7,6 @@ import com.mtxgdn.common.command.CommandRegistry;
 import com.mtxgdn.common.command.RouteDefinition;
 import com.mtxgdn.game.entity.PlayerInfo;
 import com.mtxgdn.game.service.PlayerService;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.permission.PermissionService;
 
 import jakarta.ws.rs.*;
@@ -31,10 +30,10 @@ import com.mtxgdn.i18n.I18n;
  * 新模块只需要在 Command 子类中覆写 {@code getRestEndpoints()} 即可同时获得 HTTP API。
  */
 @Path("/game")
-public class UnifiedRestResource {
+public class UnifiedRestResource extends BaseResource {
 
     private static final Gson gson = new Gson();
-    private static final PlayerService playerService = ServiceRegistry.getPlayerService();
+    private final PlayerService playerService = services.getPlayerService();
 
     // 按 HTTP 方法分组：method -> path -> RouteDefinition
     private static final Map<String, List<RouteDefEntry>> routesByMethod = new HashMap<>();

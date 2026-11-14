@@ -1,27 +1,5 @@
 package com.mtxgdn.game.entity;
 
-import com.mtxgdn.api.TradeApi;
-import com.mtxgdn.common.service.ServiceRegistry;
-import com.mtxgdn.db.DatabaseManager;
-import com.mtxgdn.db.TradeDAO;
-import com.mtxgdn.entity.Player;
-import com.mtxgdn.game.entity.SpiritualRoot;
-import com.mtxgdn.game.item.Item;
-import com.mtxgdn.game.item.ItemRegistry;
-import com.mtxgdn.game.trade.MarketQuote;
-import com.mtxgdn.game.trade.TradeResult;
-import com.mtxgdn.i18n.I18n;
-import com.mtxgdn.util.AppConfig;
-import com.mtxgdn.util.GameLogger;
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-import java.util.List;
-import java.util.Map;
 
 /**
  * 由 {TradeService} 的内部嵌套类提取而来。

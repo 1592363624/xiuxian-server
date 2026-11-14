@@ -24,7 +24,8 @@ public class RebirthEffect extends ItemEffect {
     }
 
     @Override
-    public String execute(long playerId, PlayerService playerService, ItemService itemService) {
+    public String execute(long playerId, PlayerService playerService, ItemService itemService,
+                          com.mtxgdn.common.service.ServiceLookup services) {
         if (fullRestore) {
             playerService.addHp(playerId, Integer.MAX_VALUE);
             playerService.addMp(playerId, Integer.MAX_VALUE);

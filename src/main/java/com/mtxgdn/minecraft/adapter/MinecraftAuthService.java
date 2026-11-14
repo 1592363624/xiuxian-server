@@ -1,9 +1,8 @@
 package com.mtxgdn.minecraft.adapter;
-
 import com.mtxgdn.common.service.ServiceRegistry;
+
 import com.mtxgdn.db.MinecraftAuthDAO;
 import com.mtxgdn.game.entity.PlayerInfo;
-import com.mtxgdn.game.service.NewbieGuideService;
 import com.mtxgdn.permission.PermissionService;
 import com.mtxgdn.util.GameLogger;
 import com.mtxgdn.util.PlayerActionLogger;
@@ -13,11 +12,18 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class MinecraftAuthService {
+    /**
+     * 服务查询面：本类由 {@code AdapterManager} 在启动期装配，容器已就绪；
+     * 这里是该适配器边界唯一的一处容器引用。
+     */
+    private final com.mtxgdn.common.service.ServiceLookup services =
+            com.mtxgdn.common.service.ServiceRegistry.container();
+
 
     private static final GameLogger log = GameLogger.getLogger(MinecraftAuthService.class);
     private static final PlayerActionLogger actionLog = PlayerActionLogger.getInstance();
 
-    private final MinecraftPlayerBindingService bindingService = ServiceRegistry.getMcBindingService();
+    private final MinecraftPlayerBindingService bindingService = services.getMcBindingService();
     private final MinecraftAuthDAO authDao = new MinecraftAuthDAO();
     private final Map<String, PendingSession> pendingSessions = new ConcurrentHashMap<>();
 
@@ -49,11 +55,11 @@ public class MinecraftAuthService {
                                   String arg, String cmdPrefix) {
         MinecraftPlayerBinding existingBinding = bindingService.findByMcUuid(mcUuid);
         if (existingBinding != null) {
-            if (ServiceRegistry.getPlayerService().getPlayerByUserId(existingBinding.getUserId()) == null) {
+            if (services.getPlayerService().getPlayerByUserId(existingBinding.getUserId()) == null) {
                 try {
-                    PlayerInfo player = ServiceRegistry.getPlayerService()
+                    PlayerInfo player = services.getPlayerService()
                             .createPlayer(existingBinding.getUserId(), arg.trim());
-                    String guide = NewbieGuideService.getWelcomeMessage(player);
+                    String guide = services.getGuideService().buildCreateMessage(player);
                     sender.sendPrivateMsg(mcName, guide);
                     actionLog.logCreatePlayer(existingBinding.getUserId(), player.getName());
                     return null;
@@ -141,8 +147,8 @@ public class MinecraftAuthService {
             }
             PermissionService.assignDefaultRole(userId);
             bindingService.bind(mcUuid, mcName, userId);
-            PlayerInfo player = ServiceRegistry.getPlayerService().createPlayer(userId, session.username);
-            String guide = NewbieGuideService.getWelcomeMessage(player);
+            PlayerInfo player = services.getPlayerService().createPlayer(userId, session.username);
+            String guide = services.getGuideService().buildCreateMessage(player);
             sender.sendPrivateMsg(mcName, guide);
             actionLog.logCreatePlayer(userId, session.username);
             return null;

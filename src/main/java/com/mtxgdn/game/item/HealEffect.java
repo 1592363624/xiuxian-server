@@ -33,7 +33,8 @@ public class HealEffect extends ItemEffect {
     }
 
     @Override
-    public String execute(long playerId, PlayerService playerService, ItemService itemService) {
+    public String execute(long playerId, PlayerService playerService, ItemService itemService,
+                          com.mtxgdn.common.service.ServiceLookup services) {
         StringBuilder sb = new StringBuilder();
         if (hpRestore > 0) {
             playerService.addHp(playerId, hpRestore);

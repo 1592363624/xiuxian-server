@@ -6,7 +6,6 @@ import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandContext;
 import com.mtxgdn.common.command.RouteDefinition;
 import com.mtxgdn.game.entity.PlayerInfo;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.i18n.I18n;
 
 public class SignInCommand extends Command {
@@ -26,7 +25,7 @@ public class SignInCommand extends Command {
         PlayerInfo p = ctx.requirePlayer(userId);
         if (p == null) return;
 
-        var eco = ServiceRegistry.getEconomyService();
+        var eco = services().getEconomyService();
         SignInResult result = eco.signIn(p.getId());
 
         StringBuilder sb = new StringBuilder();
@@ -53,7 +52,7 @@ public class SignInCommand extends Command {
     private JsonObject handleSignInHttp(RouteDefinition.RestContext ctx) {
         JsonObject result = new JsonObject();
         try {
-            var eco = ServiceRegistry.getEconomyService();
+            var eco = services().getEconomyService();
             SignInResult data = eco.signIn(ctx.playerId());
             boolean success = data.success();
             result.addProperty("code", success ? 200 : 400);

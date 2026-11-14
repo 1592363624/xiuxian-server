@@ -1,5 +1,6 @@
 package com.mtxgdn.game.service;
 
+import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.TestBase;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -13,7 +14,7 @@ class ItemServiceTest extends TestBase {
 
     @BeforeEach
     void setUp() {
-        itemService = new ItemService();
+        itemService = new ItemService(ServiceRegistry.container());
     }
 
     @Test

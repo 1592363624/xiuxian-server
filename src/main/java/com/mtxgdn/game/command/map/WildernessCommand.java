@@ -5,7 +5,6 @@ import com.google.gson.JsonObject;
 import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandContext;
 import com.mtxgdn.common.command.RouteDefinition;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.entity.Player;
 import com.mtxgdn.game.entity.MapLocation;
 import com.mtxgdn.game.entity.PlayerInfo;
@@ -28,7 +27,7 @@ import com.mtxgdn.i18n.I18n;
  */
 public class WildernessCommand extends Command {
 
-    private final MapService mapService = ServiceRegistry.getMapService();
+    private final MapService mapService = services().getMapService();
 
     public WildernessCommand() {
         super(new String[]{"野外", "wilderness", "wild"}, "查看当前野外分片与资源",
@@ -199,7 +198,7 @@ public class WildernessCommand extends Command {
             return out;
         }
 
-        Player player = ServiceRegistry.getPlayerService().getPlayerById(ctx.playerId());
+        Player player = services().getPlayerService().getPlayerById(ctx.playerId());
         if (player == null) {
             out.addProperty("code", 404);
             out.addProperty("success", false);

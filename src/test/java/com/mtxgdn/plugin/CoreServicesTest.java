@@ -37,10 +37,10 @@ class CoreServicesTest {
 
     @Test
     void 核心服务登记后可通过服务表取到同一个实例() {
-        PlayerApi fromRegistry = ServiceRegistry.getPlayerService();
+        PlayerApi fromRegistry = ServiceRegistry.container().getPlayerService();
         if (fromRegistry == null) return; // 未初始化服务注册表的纯单元测试环境下跳过
 
-        CoreServices.install();
+        CoreServices.install(ServiceRegistry.container());
 
         assertTrue(CoreServices.isInstalled());
         assertSame(fromRegistry, PluginServiceRegistry.getInstance().get(PlayerApi.class),
@@ -49,7 +49,7 @@ class CoreServicesTest {
 
     @Test
     void 插件登记的实现优先于静态单例() {
-        PlayerApi fromRegistry = ServiceRegistry.getPlayerService();
+        PlayerApi fromRegistry = ServiceRegistry.container().getPlayerService();
         if (fromRegistry == null) return;
 
         // 用 JDK 动态代理造一个假实现，模拟插件替换核心服务。
@@ -73,7 +73,7 @@ class CoreServicesTest {
         PluginContext ctx = PluginContext.createSharedContext(
                 new java.io.File("data"), getClass().getClassLoader());
 
-        PlayerApi fromRegistry = ServiceRegistry.getPlayerService();
+        PlayerApi fromRegistry = ServiceRegistry.container().getPlayerService();
         if (fromRegistry == null) return;
         assertSame(fromRegistry, ctx.getPlayerService(),
                 "没有服务表登记时必须回落，否则既有的单元测试会集体 NPE");
@@ -81,17 +81,17 @@ class CoreServicesTest {
 
     @Test
     void install是幂等的() {
-        CoreServices.install();
+        CoreServices.install(ServiceRegistry.container());
         assertTrue(PluginServiceRegistry.getInstance().size() > 0, "应至少登记了一批核心服务");
-        assertSame(0, CoreServices.install(), "第二次调用应直接返回 0，不重复登记");
+        assertSame(0, CoreServices.install(ServiceRegistry.container()), "第二次调用应直接返回 0，不重复登记");
     }
 
     @Test
     void 卸载后服务表里不再有核心服务() {
-        PlayerApi fromRegistry = ServiceRegistry.getPlayerService();
+        PlayerApi fromRegistry = ServiceRegistry.container().getPlayerService();
         if (fromRegistry == null) return;
 
-        CoreServices.install();
+        CoreServices.install(ServiceRegistry.container());
         assertNotNull(PluginServiceRegistry.getInstance().get(PlayerApi.class));
 
         CoreServices.uninstall();

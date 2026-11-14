@@ -1,6 +1,7 @@
 package com.mtxgdn.rest;
 
 import com.google.gson.Gson;
+import com.mtxgdn.common.service.ServiceLookup;
 import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.game.entity.PlayerInfo;
 import com.mtxgdn.game.service.ItemService;
@@ -29,6 +30,9 @@ import jakarta.ws.rs.WebApplicationException;
  */
 final class GameSupport {
 
+    /** 服务查询面：资源侧在类加载时绑定当前容器（测试每个类会换容器）。 */
+    static final ServiceLookup SERVICES = ServiceRegistry.container();
+
     /** 全玩家侧共用的 Gson 实例（Gson 无状态，可安全共享）。 */
     static final Gson gson = new Gson();
 
@@ -41,10 +45,10 @@ final class GameSupport {
      * <p>必须走 {@link ServiceRegistry}：直接构造会让 REST 通道拿到与其它通道
      * （WebSocket / QQ / Minecraft）互不可见的另一份实例。</p>
      */
-    static final PlayerService playerService = ServiceRegistry.getPlayerService();
+    static final PlayerService playerService = SERVICES.getPlayerService();
 
     /** 物品服务单例（同上，走注册表）。 */
-    static final ItemService itemService = ServiceRegistry.getItemService();
+    static final ItemService itemService = SERVICES.getItemService();
 
     private GameSupport() {
     }

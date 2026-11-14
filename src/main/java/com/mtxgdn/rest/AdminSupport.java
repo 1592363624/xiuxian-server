@@ -2,6 +2,7 @@ package com.mtxgdn.rest;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
+import com.mtxgdn.common.service.ServiceLookup;
 import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.game.service.ItemService;
 import com.mtxgdn.game.service.PlayerService;
@@ -24,6 +25,9 @@ import com.mtxgdn.util.GameLogger;
  */
 final class AdminSupport {
 
+    /** 服务查询面：资源侧在类加载时绑定当前容器（测试每个类会换容器）。 */
+    static final ServiceLookup SERVICES = ServiceRegistry.container();
+
     /** 全管理台共用的 Gson 实例（Gson 无状态，可安全共享）。 */
     static final Gson gson = new Gson();
 
@@ -36,10 +40,10 @@ final class AdminSupport {
      * <p>必须走 {@link ServiceRegistry}：直接构造会让管理台拿到与其它通道
      * （REST / WebSocket / QQ / Minecraft）互不可见的另一份实例。</p>
      */
-    static final PlayerService playerService = ServiceRegistry.getPlayerService();
+    static final PlayerService playerService = SERVICES.getPlayerService();
 
     /** 物品服务单例（同上，走注册表）。 */
-    static final ItemService itemService = ServiceRegistry.getItemService();
+    static final ItemService itemService = SERVICES.getItemService();
 
     private AdminSupport() {
     }
@@ -59,7 +63,7 @@ final class AdminSupport {
      * <p>此前后台改完 map_locations 必须重启进程才生效（MapService 只缓存内存，
      * 没有失效入口），管理员改完看不到变化会以为改错了。</p>
      */
-    static void reloadMapCacheIfNeeded(String tableName) {
+    static void reloadMapCacheIfNeeded(ServiceLookup services, String tableName) {
         if (tableName == null) return;
         String table = tableName.toLowerCase();
         if (!table.equals("map_locations")
@@ -69,7 +73,10 @@ final class AdminSupport {
             return;
         }
         try {
-            ServiceRegistry.getMapService().reload();
+            // 用调用方传进来的查询面（而不是类加载时捕获的 SERVICES）：
+            // 测试每个类都会换容器，静态捕获会让重载打在旧容器的 MapService 上，
+            // 表现为"管理员改完地图不生效"。
+            services.getMapService().reload();
         } catch (Exception e) {
             LOG.warn("地图表 " + table + " 已改动，但地图缓存重载失败: " + e.getMessage());
         }

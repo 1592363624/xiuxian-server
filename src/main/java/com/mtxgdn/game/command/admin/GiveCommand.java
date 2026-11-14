@@ -3,14 +3,12 @@ package com.mtxgdn.game.command.admin;
 import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandContext;
 import com.mtxgdn.common.command.CommandUtils;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.game.item.Item;
 import com.mtxgdn.game.item.ItemRegistry;
 import com.mtxgdn.game.service.ItemService;
 import com.mtxgdn.game.service.PlayerService;
 import com.mtxgdn.permission.PermissionService;
 import com.mtxgdn.identity.QqBinding;
-import com.mtxgdn.identity.QqBindingService;
 import com.mtxgdn.i18n.I18n;
 
 public class GiveCommand extends Command {
@@ -53,8 +51,8 @@ public class GiveCommand extends Command {
             return;
         }
 
-        PlayerService playerService = ServiceRegistry.getPlayerService();
-        ItemService itemService = ServiceRegistry.getItemService();
+        PlayerService playerService = services().getPlayerService();
+        ItemService itemService = services().getItemService();
         var p = playerService.getPlayerById(playerId);
         if (p == null) {
             ctx.reply(I18n.t("admin.player_not_found_id", playerId));

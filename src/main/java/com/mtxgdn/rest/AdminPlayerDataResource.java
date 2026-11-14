@@ -18,7 +18,6 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.Response;
 
 import java.util.List;
-import java.util.Map;
 
 /**
  * 管理台 · 玩家数据文件（一人一个 JSON 快照）接口。
@@ -36,7 +35,7 @@ import java.util.Map;
  * 拆分时顺手改成新码会把现网管理员的权限悄悄收走。</p>
  */
 @Path("/admin/player-data")
-public class AdminPlayerDataResource {
+public class AdminPlayerDataResource extends BaseResource {
 
     private static final Gson gson = new Gson();
 

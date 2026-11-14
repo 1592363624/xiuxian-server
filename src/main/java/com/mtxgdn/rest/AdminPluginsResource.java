@@ -36,7 +36,7 @@ import static com.mtxgdn.rest.AdminSupport.gson;
  * 逐字一致（Jersey 的路径拼接规则）。</p>
  */
 @Path("/admin")
-public class AdminPluginsResource {
+public class AdminPluginsResource extends BaseResource {
 
     // ========== 插件管理 API ==========
 

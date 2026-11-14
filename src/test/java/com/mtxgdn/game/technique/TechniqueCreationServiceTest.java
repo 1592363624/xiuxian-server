@@ -1,5 +1,6 @@
 package com.mtxgdn.game.technique;
 
+import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.TestBase;
 import com.mtxgdn.db.DatabaseManager;
 import com.mtxgdn.entity.Player;
@@ -85,7 +86,7 @@ class TechniqueCreationServiceTest extends TestBase {
         var r = service.create(player(USER_A, 8), req("test_可见性验证"));
         assertTrue(r.success(), r.message());
 
-        var all = new TechniqueService().getAllTechniques();
+        var all = new TechniqueService(ServiceRegistry.container()).getAllTechniques();
         boolean found = all.stream().anyMatch(t -> t.getId() == r.techniqueId());
         assertTrue(found,
                 "自创功法必须出现在 getAllTechniques 里，否则玩家学不到 —— "

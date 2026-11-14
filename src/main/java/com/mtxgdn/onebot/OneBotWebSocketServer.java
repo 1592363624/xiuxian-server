@@ -1,4 +1,5 @@
 package com.mtxgdn.onebot;
+import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.game.entity.OfflineRewardResult;
 
 
@@ -12,13 +13,10 @@ import com.google.gson.JsonObject;
 import com.mtxgdn.util.AppConfig;
 import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandRegistry;
-import com.mtxgdn.common.service.ServiceRegistry;
-import com.mtxgdn.db.DatabaseManager;
 import com.mtxgdn.db.UserServiceDAO;
 import com.mtxgdn.entity.User;
 import com.mtxgdn.db.UserAccountDAO;
 import com.mtxgdn.game.entity.PlayerInfo;
-import com.mtxgdn.game.service.NewbieGuideService;
 import com.mtxgdn.game.service.OfflineRewardService;
 import com.mtxgdn.onebot.command.OneBotCommandContext;
 import com.mtxgdn.permission.PermissionService;
@@ -36,8 +34,6 @@ import org.glassfish.grizzly.websockets.WebSocket;
 import org.glassfish.grizzly.websockets.WebSocketApplication;
 import org.mindrot.jbcrypt.BCrypt;
 
-import java.sql.Connection;
-import java.sql.Statement;
 import java.sql.Timestamp;
 import java.util.Map;
 import java.util.UUID;
@@ -45,6 +41,13 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class OneBotWebSocketServer extends WebSocketApplication
         implements OneBotMessageSender, OneBotAccountFlow {
+    /**
+     * 服务查询面：本类是启动期创建的长生命周期对象（由 {@code AdapterManager} 装配），
+     * 装配时容器已就绪；这里是该适配器边界唯一的一处容器引用。
+     */
+    private final com.mtxgdn.common.service.ServiceLookup services =
+            com.mtxgdn.common.service.ServiceRegistry.container();
+
 
     private static final Gson gson = new Gson();
     private static final GameLogger log = GameLogger.getLogger("OneBotServer");
@@ -403,7 +406,7 @@ public class OneBotWebSocketServer extends WebSocketApplication
     }
 
     private void processOfflineReward(WebSocket socket, String selfId, String senderQq, Long userId) {
-        OfflineRewardService offlineService = ServiceRegistry.getOfflineRewardService();
+        OfflineRewardService offlineService = services.getOfflineRewardService();
         OfflineRewardResult result = offlineService.processOfflineRewards(userId);
 
         if (!result.hasReward) {
@@ -786,12 +789,12 @@ public class OneBotWebSocketServer extends WebSocketApplication
         QqBinding existingBinding = bindingService.findByQq(senderQq);
         if (existingBinding != null) {
             // 检查是否"已绑定但无角色"的异常情况（上次注册时 createPlayer 失败）
-            if (ServiceRegistry.getPlayerService().getPlayerByUserId(existingBinding.getUserId()) == null) {
+            if (services.getPlayerService().getPlayerByUserId(existingBinding.getUserId()) == null) {
                 // 孤立的账号：跳过用户创建，直接补建角色
                 try {
-                    PlayerInfo player = ServiceRegistry.getPlayerService().createPlayer(
+                    PlayerInfo player = services.getPlayerService().createPlayer(
                             existingBinding.getUserId(), arg.trim());
-                    String guideMsg = NewbieGuideService.getWelcomeMessage(player);
+                    String guideMsg = services.getGuideService().buildCreateMessage(player);
                     replyToSource(socket, selfId, senderQq, sourceGroupId, guideMsg);
                     actionLog.logCreatePlayer(existingBinding.getUserId(), player.getName());
                 } catch (RuntimeException e) {
@@ -1031,9 +1034,9 @@ public class OneBotWebSocketServer extends WebSocketApplication
             return;
         }
         try {
-            PlayerInfo player = ServiceRegistry.getPlayerService().getPlayerByUserId(userId);
+            PlayerInfo player = services.getPlayerService().getPlayerByUserId(userId);
             if (player != null) {
-                ServiceRegistry.getPlayerService().deletePlayer(player.getId());
+                services.getPlayerService().deletePlayer(player.getId());
             }
             UserAccountDAO.deleteUser(userId);
             bindingService.unbindByQq(senderQq);
@@ -1068,8 +1071,8 @@ public class OneBotWebSocketServer extends WebSocketApplication
             }
             PermissionService.assignDefaultRole(userId);
             bindingService.bind(senderQq, userId);
-            PlayerInfo player = ServiceRegistry.getPlayerService().createPlayer(userId, session.username);
-            String guideMsg = NewbieGuideService.getWelcomeMessage(player);
+            PlayerInfo player = services.getPlayerService().createPlayer(userId, session.username);
+            String guideMsg = services.getGuideService().buildCreateMessage(player);
             replyToSource(socket, selfId, senderQq, session.sourceGroupId, guideMsg);
             actionLog.logCreatePlayer(userId, session.username);
         } catch (RuntimeException e) {

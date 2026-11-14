@@ -9,18 +9,19 @@ import com.mtxgdn.game.item.EnhanceResult;
 import com.mtxgdn.game.item.Item;
 import com.mtxgdn.game.item.ItemEffect;
 import com.mtxgdn.game.item.ItemRegistry;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.util.GameLogger;
 
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 import com.mtxgdn.i18n.I18n;
 import com.mtxgdn.api.EnhanceApi;
 
 public class EnhanceService implements EnhanceApi {
+
+    /** 服务查询面：由容器注入，替代 ServiceRegistry 静态调用。 */
+    private final com.mtxgdn.common.service.ServiceLookup services;
 
     private static final GameLogger LOG = GameLogger.getLogger(EnhanceService.class);
     private static final int MAX_ENHANCE_LEVEL = 15;
@@ -65,9 +66,10 @@ public class EnhanceService implements EnhanceApi {
     private static final double ENHANCE_SPD_MULTIPLIER = 0.04;
     private static final double ENHANCE_SPIRIT_MULTIPLIER = 0.04;
 
-    public EnhanceService() {
-        this.playerService = ServiceRegistry.getPlayerService();
-        this.itemService = ServiceRegistry.getItemService();
+    public EnhanceService(com.mtxgdn.common.service.ServiceLookup services) {
+        this.services = services;
+        this.playerService = services.getPlayerService();
+        this.itemService = services.getItemService();
     }
 
     public int getEnhanceLevel(long playerId, String slot) {

@@ -1,10 +1,10 @@
 package com.mtxgdn.qq;
+import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.game.entity.OfflineRewardResult;
 
 
 import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandRegistry;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.game.service.OfflineRewardService;
 import com.mtxgdn.identity.QqBinding;
 import com.mtxgdn.onebot.command.OneBotClientCommandContext;
@@ -40,6 +40,13 @@ import com.mtxgdn.util.StatsCollector;
  * 所以必须传<b>适配器门面本身</b>（拆分前传的就是 {@code this}）。</p>
  */
 final class QqMessageRouter {
+    /**
+     * 服务查询面：本类是启动期创建的长生命周期对象（由 {@code QqOfficialAdapter} 装配），
+     * 装配时容器已就绪；这里是该适配器边界唯一的一处容器引用。
+     */
+    private final com.mtxgdn.common.service.ServiceLookup services =
+            com.mtxgdn.common.service.ServiceRegistry.container();
+
 
     private final QqAdapterContext ctx;
     private final QqMessageSender sender;
@@ -210,7 +217,7 @@ final class QqMessageRouter {
     // ==================== 离线奖励 ====================
 
     private void processOfflineReward(String senderQq, Long userId) {
-        OfflineRewardService offlineService = ServiceRegistry.getOfflineRewardService();
+        OfflineRewardService offlineService = services.getOfflineRewardService();
         OfflineRewardResult result = offlineService.processOfflineRewards(userId);
 
         if (!result.hasReward) {

@@ -6,9 +6,9 @@ import com.mtxgdn.game.item.Item;
 import com.mtxgdn.game.item.ItemRegistry;
 import com.mtxgdn.game.service.ItemService;
 import com.mtxgdn.minecraft.adapter.MinecraftPlayerBinding;
-import com.mtxgdn.minecraft.adapter.MinecraftPlayerBindingService;
 import com.mtxgdn.identity.QqBinding;
 import com.mtxgdn.identity.QqBindingService;
+import com.mtxgdn.common.service.ServiceLookup;
 import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.i18n.GameLanguage;
 import com.mtxgdn.i18n.I18n;
@@ -21,6 +21,18 @@ public abstract class CommandContext {
     @FunctionalInterface
     public interface QqBindingLookup {
         QqBinding lookup(String id);
+    }
+
+    /**
+     * 服务查询面：上下文是"一条消息"级别的短生命周期对象，构造时绑定当前容器，
+     * 与改造前在方法里调 {@code ServiceRegistry.getXxx()} 的可观测行为一致。
+     * 由适配器（OneBot / QQ / Minecraft）创建，因此不需要再往下传构造参数。
+     */
+    private final ServiceLookup services = ServiceRegistry.container();
+
+    /** 供子类与同包类使用。 */
+    protected final ServiceLookup services() {
+        return services;
     }
 
     private final String senderId;
@@ -100,7 +112,7 @@ public abstract class CommandContext {
     public Long resolveBoundUserId() {
         QqBinding qqB = resolveQqBinding();
         if (qqB != null) return qqB.getUserId();
-        MinecraftPlayerBinding mcB = ServiceRegistry.getMcBindingService().findByMcUuid(senderId);
+        MinecraftPlayerBinding mcB = services.getMcBindingService().findByMcUuid(senderId);
         if (mcB != null) return mcB.getUserId();
         return null;
     }
@@ -117,7 +129,7 @@ public abstract class CommandContext {
     }
 
     public PlayerInfo requirePlayer(Long userId) {
-        PlayerInfo player = ServiceRegistry.getPlayerService().getPlayerByUserId(userId);
+        PlayerInfo player = services.getPlayerService().getPlayerByUserId(userId);
         if (player == null) {
             reply(I18n.t("game.no_player", lang()));
             return null;
@@ -153,7 +165,7 @@ public abstract class CommandContext {
     private Long resolveUserId() {
         QqBinding qqB = resolveQqBinding();
         if (qqB != null) return qqB.getUserId();
-        MinecraftPlayerBinding mcB = ServiceRegistry.getMcBindingService().findByMcUuid(senderId);
+        MinecraftPlayerBinding mcB = services.getMcBindingService().findByMcUuid(senderId);
         if (mcB != null) return mcB.getUserId();
         return null;
     }
@@ -169,12 +181,13 @@ public abstract class CommandContext {
         return I18nManager.serverDefault();
     }
     public static String formatPlayerStatus(PlayerInfo p) {
+        // 静态工具方法（几十个调用点传 PlayerInfo 进来），没有实例可用：取当前容器。
         var root = p.getSpiritualRoot();
         String rootStr = root != null
                 ? "【" + root.getDisplayName() + "】" + root.getTier().getDisplayName()
                         + " | " + root.getDescription()
                 : "无";
-        ItemService itemService = ServiceRegistry.getItemService();
+        ItemService itemService = ServiceRegistry.container().getItemService();
         return "【" + p.getName() + "】" +
                 "\n灵根: " + rootStr +
                 "\n境界: " + p.getRealmName() + " (Lv." + p.getLevel() + ")" +

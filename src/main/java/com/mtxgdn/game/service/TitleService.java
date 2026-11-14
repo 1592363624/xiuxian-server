@@ -1,6 +1,5 @@
 package com.mtxgdn.game.service;
 
-import com.mtxgdn.common.service.ServiceRegistry;
 
 import com.mtxgdn.db.TitleDAO;
 import com.mtxgdn.game.entity.Title;
@@ -14,15 +13,20 @@ import com.mtxgdn.api.TitleApi;
 
 public class TitleService implements TitleApi {
 
+    /** 服务查询面：由容器注入，替代 ServiceRegistry 静态调用。 */
+    private final com.mtxgdn.common.service.ServiceLookup services;
+
     private static final com.mtxgdn.util.GameLogger LOG =
             com.mtxgdn.util.GameLogger.getLogger(TitleService.class);
 
-    private final PlayerService playerService = ServiceRegistry.getPlayerService();
+    private final PlayerService playerService;
 
     /** {@code player_titles} 的读写入口（无状态，可共享）。 */
     private static final TitleDAO TITLE_DAO = new TitleDAO();
 
-    public TitleService() {
+    public TitleService(com.mtxgdn.common.service.ServiceLookup services) {
+        this.playerService = services.getPlayerService();
+        this.services = services;
         TitleRegistry.init();
     }
 
@@ -58,7 +62,7 @@ public class TitleService implements TitleApi {
             return granted;
         }
         long playerId = player.getId();
-        com.mtxgdn.game.service.ItemService itemService = new com.mtxgdn.game.service.ItemService();
+        com.mtxgdn.game.service.ItemService itemService = services.getItemService();
 
         // 境界类
         grantIf(granted, playerId, "immortal_venerable", player.getRealm() >= 5);   // 不朽尊者：化神

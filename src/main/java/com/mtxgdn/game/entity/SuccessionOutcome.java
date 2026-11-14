@@ -1,26 +1,5 @@
 package com.mtxgdn.game.entity;
 
-import com.mtxgdn.api.SectApi;
-import com.mtxgdn.common.result.OperationResult;
-import com.mtxgdn.common.service.ServiceRegistry;
-import com.mtxgdn.game.entity.Sect;
-import com.mtxgdn.game.entity.SectApplication;
-import com.mtxgdn.game.entity.SectMember;
-import com.mtxgdn.game.entity.SectWarehouseItem;
-import com.mtxgdn.game.item.Item;
-import com.mtxgdn.game.sect.ContestResult;
-import com.mtxgdn.game.sect.SalaryPayResult;
-import com.mtxgdn.game.sect.SectActionResult;
-import com.mtxgdn.game.sect.StepDownResult;
-import com.mtxgdn.game.sect.TreasuryDonateResult;
-import com.mtxgdn.game.sect.TreasuryInfo;
-import com.mtxgdn.game.sect.WarehouseDonateResult;
-import com.mtxgdn.game.sect.WarResult;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-import java.util.List;
-import java.util.Map;
 
 /**
  * 由 {SectService} 的内部嵌套类提取而来。

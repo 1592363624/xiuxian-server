@@ -2,7 +2,6 @@ package com.mtxgdn.rest;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.db.DatabaseManager;
 import com.mtxgdn.i18n.I18n;
 import com.mtxgdn.permission.RequirePermission;
@@ -37,13 +36,13 @@ import static com.mtxgdn.rest.AdminSupport.reloadMapCacheIfNeeded;
  * {@code admin.database.clear_players} / {@code admin.database.reset_all}）、
  * 返回结构全部保持原样，前端 {@code /api/admin/db|database|backup*} 不受影响。
  * 通用表管理改到地图表后的缓存热重载仍走
- * {@link AdminSupport#reloadMapCacheIfNeeded(String)}，逻辑一行未动。</p>
+ * {@link AdminSupport#reloadMapCacheIfNeeded(ServiceLookup, String)}，逻辑一行未动。</p>
  *
  * <p>类级路径 {@code /admin} + 方法级 {@code /db/tables/{tableName}} 拼出来的地址与
  * 拆分前逐字一致（Jersey 的路径拼接规则）。</p>
  */
 @Path("/admin")
-public class AdminDbResource {
+public class AdminDbResource extends BaseResource {
 
     @POST
     @Path("/database/clear_players")
@@ -77,9 +76,9 @@ public class AdminDbResource {
         System.out.println("[Admin] >>> POST /admin/database/reset_all");
         Map<String, Integer> counts = DatabaseManager.resetAllData();
 
-        ServiceRegistry.getSkillService().insertDefaultSkills();
-        ServiceRegistry.getTechniqueService().insertDefaultTechniques();
-        ServiceRegistry.getCraftingService().insertDefaultRecipes();
+        services.getSkillService().insertDefaultSkills();
+        services.getTechniqueService().insertDefaultTechniques();
+        services.getCraftingService().insertDefaultRecipes();
 
         int total = counts.values().stream().mapToInt(Integer::intValue).sum();
 
@@ -261,7 +260,7 @@ public class AdminDbResource {
             }
 
             long newId = DatabaseManager.insertRow(tableName, data);
-            reloadMapCacheIfNeeded(tableName);
+            reloadMapCacheIfNeeded(services, tableName);
 
             JsonObject result = new JsonObject();
             result.addProperty("code", 200);
@@ -308,7 +307,7 @@ public class AdminDbResource {
 
             int updated = DatabaseManager.updateRow(tableName, id, data);
             if (updated > 0) {
-                reloadMapCacheIfNeeded(tableName);
+                reloadMapCacheIfNeeded(services, tableName);
             }
 
             JsonObject result = new JsonObject();
@@ -343,7 +342,7 @@ public class AdminDbResource {
         try {
             int deleted = DatabaseManager.deleteRow(tableName, id);
             if (deleted > 0) {
-                reloadMapCacheIfNeeded(tableName);
+                reloadMapCacheIfNeeded(services, tableName);
             }
 
             JsonObject result = new JsonObject();
@@ -399,9 +398,9 @@ public class AdminDbResource {
             Map<String, Integer> counts = DatabaseManager.importData(body);
 
             // 重新初始化默认数据
-            ServiceRegistry.getSkillService().insertDefaultSkills();
-            ServiceRegistry.getTechniqueService().insertDefaultTechniques();
-            ServiceRegistry.getCraftingService().insertDefaultRecipes();
+            services.getSkillService().insertDefaultSkills();
+            services.getTechniqueService().insertDefaultTechniques();
+            services.getCraftingService().insertDefaultRecipes();
 
             JsonObject result = new JsonObject();
             result.addProperty("code", 200);

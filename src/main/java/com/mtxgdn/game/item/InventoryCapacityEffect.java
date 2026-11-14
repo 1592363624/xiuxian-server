@@ -23,7 +23,8 @@ public class InventoryCapacityEffect extends ItemEffect {
     }
 
     @Override
-    public String execute(long playerId, PlayerService playerService, ItemService itemService) {
+    public String execute(long playerId, PlayerService playerService, ItemService itemService,
+                          com.mtxgdn.common.service.ServiceLookup services) {
         return "背包容量 +" + capacityBonus + " 格";
     }
 

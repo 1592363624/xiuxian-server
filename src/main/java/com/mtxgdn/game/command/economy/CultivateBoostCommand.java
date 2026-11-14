@@ -6,9 +6,7 @@ import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandContext;
 import com.mtxgdn.common.command.RouteDefinition;
 import com.mtxgdn.game.entity.PlayerInfo;
-import com.mtxgdn.common.service.ServiceRegistry;
 
-import java.util.Map;
 import com.mtxgdn.i18n.I18n;
 
 public class CultivateBoostCommand extends Command {
@@ -30,7 +28,7 @@ public class CultivateBoostCommand extends Command {
 
         String arg = ctx.getArg().trim();
         if (arg.isEmpty()) {
-            long stones = ServiceRegistry.getItemService().getSpiritStoneCount(p.getId());
+            long stones = services().getItemService().getSpiritStoneCount(p.getId());
             ctx.reply(I18n.t("economy.spirit_stone_cultivation_boost_nevery", stones));
             return;
         }
@@ -41,7 +39,7 @@ public class CultivateBoostCommand extends Command {
                 ctx.reply(I18n.t("economy.the_amount_of_spirit_stones"));
                 return;
             }
-            var eco = ServiceRegistry.getEconomyService();
+            var eco = services().getEconomyService();
             BoostResult result = eco.boostCultivation(p.getId(), stonesToBurn);
             ctx.reply(result.message());
         } catch (NumberFormatException e) {
@@ -61,7 +59,7 @@ public class CultivateBoostCommand extends Command {
                 result.addProperty("message", I18n.t("economy.please_provide_a_valid_number"));
                 return result;
             }
-            var eco = ServiceRegistry.getEconomyService();
+            var eco = services().getEconomyService();
             BoostResult data = eco.boostCultivation(ctx.playerId(), stonesToBurn);
             result.addProperty("code", data.success() ? 200 : 400);
             result.addProperty("success", data.success());

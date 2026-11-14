@@ -2,7 +2,6 @@ package com.mtxgdn.minecraft.adapter;
 
 import com.mtxgdn.common.command.CommandContext;
 import com.mtxgdn.game.entity.PlayerInfo;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.i18n.I18n;
 
 /**
@@ -57,7 +56,7 @@ public class MinecraftCommandContext extends CommandContext {
 
     @Override
     public Long requireBinding() {
-        MinecraftPlayerBinding mcB = ServiceRegistry.getMcBindingService().findByMcUuid(mcUuid);
+        MinecraftPlayerBinding mcB = services().getMcBindingService().findByMcUuid(mcUuid);
         if (mcB != null) {
             return mcB.getUserId();
         }
@@ -67,7 +66,7 @@ public class MinecraftCommandContext extends CommandContext {
 
     @Override
     public PlayerInfo requirePlayer(Long userId) {
-        PlayerInfo player = ServiceRegistry.getPlayerService().getPlayerByUserId(userId);
+        PlayerInfo player = services().getPlayerService().getPlayerByUserId(userId);
         if (player == null) {
             reply(com.mtxgdn.i18n.I18n.t("game.no_player").replace(
                     "/register", cmdPrefix + "register"));
@@ -87,7 +86,7 @@ public class MinecraftCommandContext extends CommandContext {
     public com.mtxgdn.i18n.GameLanguage lang() {
         try {
             MinecraftPlayerBinding mcB =
-                    ServiceRegistry.getMcBindingService().findByMcUuid(mcUuid);
+                    services().getMcBindingService().findByMcUuid(mcUuid);
             if (mcB == null) {
                 return com.mtxgdn.i18n.I18nManager.serverDefault();
             }

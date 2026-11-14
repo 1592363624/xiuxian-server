@@ -12,7 +12,6 @@ import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
 import java.sql.PreparedStatement;
-import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -41,8 +40,8 @@ class BuffLazyExpiryTest extends TestBase {
     @BeforeAll
     static void setUpBuff() {
         try {
-            buffService = new BuffService();
-            playerService = ServiceRegistry.getPlayerService();
+            buffService = new BuffService(ServiceRegistry.container());
+            playerService = ServiceRegistry.container().getPlayerService();
             userService = new UserService();
             ready = true;
         } catch (Throwable t) {

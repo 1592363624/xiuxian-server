@@ -35,7 +35,7 @@ import static com.mtxgdn.rest.AdminSupport.reloadMapCacheIfNeeded;
  * 逐字一致（Jersey 的路径拼接规则）。</p>
  */
 @Path("/admin")
-public class AdminMapEventBiasResource {
+public class AdminMapEventBiasResource extends BaseResource {
 
     private static final MapDAO MAP_DAO = new MapDAO();
 
@@ -67,7 +67,7 @@ public class AdminMapEventBiasResource {
             // 「不用 UPSERT 语法」的理由写在 MapDAO.replaceEventBias 的注释里。
             MAP_DAO.replaceEventBias(locationId, eventKey, multiplier);
 
-            reloadMapCacheIfNeeded("map_location_event_bias");
+            reloadMapCacheIfNeeded(services, "map_location_event_bias");
 
             JsonObject data = new JsonObject();
             data.addProperty("locationId", locationId);
@@ -105,7 +105,7 @@ public class AdminMapEventBiasResource {
                 return Response.ok(gson.toJson(out)).build();
             }
 
-            reloadMapCacheIfNeeded("map_location_event_bias");
+            reloadMapCacheIfNeeded(services, "map_location_event_bias");
 
             JsonObject data = new JsonObject();
             data.addProperty("deleted", affected);

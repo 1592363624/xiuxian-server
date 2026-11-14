@@ -1,7 +1,6 @@
 package com.mtxgdn.game.service;
 
 import com.mtxgdn.common.result.OperationResult;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.db.DurabilityDAO;
 import com.mtxgdn.game.item.BuffEffect;
 import com.mtxgdn.game.item.Item;
@@ -35,6 +34,13 @@ import com.mtxgdn.api.DurabilityApi;
  * </ol>
  */
 public class DurabilityService implements DurabilityApi {
+
+    /** 服务查询面：由容器注入，替代 ServiceRegistry 静态调用。 */
+    private final com.mtxgdn.common.service.ServiceLookup services;
+
+    public DurabilityService(com.mtxgdn.common.service.ServiceLookup services) {
+        this.services = services;
+    }
 
     private static final GameLogger LOG = GameLogger.getLogger(DurabilityService.class);
 
@@ -156,7 +162,7 @@ public class DurabilityService implements DurabilityApi {
         if (amount <= 0) {
             return;
         }
-        Map<String, String> equipment = ServiceRegistry.getItemService().getEquipment(playerId);
+        Map<String, String> equipment = services.getItemService().getEquipment(playerId);
         if (equipment.isEmpty()) {
             return;
         }
@@ -178,7 +184,7 @@ public class DurabilityService implements DurabilityApi {
     public OperationResult repair(long playerId, String slot) {
         boolean all = "all".equalsIgnoreCase(slot) || "全部".equals(slot) || "所有".equals(slot);
 
-        Map<String, String> equipment = ServiceRegistry.getItemService().getEquipment(playerId);
+        Map<String, String> equipment = services.getItemService().getEquipment(playerId);
         if (equipment.isEmpty()) {
             return OperationResult.fail(I18n.t("equip.repair_no_equipment"));
         }
@@ -215,7 +221,7 @@ public class DurabilityService implements DurabilityApi {
             return OperationResult.fail(I18n.t("equip.repair_full"));
         }
 
-        ItemService itemService = ServiceRegistry.getItemService();
+        ItemService itemService = services.getItemService();
         if (!itemService.removeSpiritStones(playerId, totalCost)) {
             return OperationResult.fail(I18n.t("equip.repair_no_stones", totalCost));
         }

@@ -94,6 +94,28 @@ public abstract class Command {
         this(names, description, usage, category, null, false, true);
     }
 
+    // ==================== 服务查询面（取代 ServiceRegistry 静态调用） ====================
+
+    /**
+     * 由 {@link CommandScanner} 在注册时注入的服务查询面。
+     *
+     * <p>指令是通过反射无参构造出来的，没法声明构造参数，所以在"扫描注册"这个
+     * 边界上补一次显式注入。测试里直接 {@code new XxxCommand()} 时没有注入，
+     * 回落到当前容器 —— 与改造前 {@code ServiceRegistry.getXxx()} 的语义一致。</p>
+     */
+    private com.mtxgdn.common.service.ServiceLookup boundServices;
+
+    /** 本指令使用的服务查询面；未注入时取当前容器。 */
+    protected final com.mtxgdn.common.service.ServiceLookup services() {
+        com.mtxgdn.common.service.ServiceLookup bound = this.boundServices;
+        return bound != null ? bound : com.mtxgdn.common.service.ServiceRegistry.container();
+    }
+
+    /** 注册时由 {@link CommandScanner} 调用（同包，非公开 API）。 */
+    final void bindServices(com.mtxgdn.common.service.ServiceLookup services) {
+        this.boundServices = services;
+    }
+
     // ==================== 内置模块门控 ====================
 
     /**

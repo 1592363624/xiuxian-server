@@ -1,6 +1,5 @@
 package com.mtxgdn.game.item;
 
-import com.mtxgdn.common.service.ServiceRegistry;
 
 import com.mtxgdn.game.service.BuffService;
 import com.mtxgdn.game.service.ItemService;
@@ -74,11 +73,12 @@ public class BuffEffect extends ItemEffect {
     }
 
     @Override
-    public String execute(long playerId, PlayerService playerService, ItemService itemService) {
+    public String execute(long playerId, PlayerService playerService, ItemService itemService,
+                          com.mtxgdn.common.service.ServiceLookup services) {
         StringBuilder sb = new StringBuilder();
 
         if (durationSeconds > 0) {
-            BuffService buffService = ServiceRegistry.getBuffService();
+            BuffService buffService = services.getBuffService();
             // 同种丹药使用同一 buffId：重复使用只刷新时长，不重复叠加属性
             buffService.addBuff(playerId, "buff_" + attackBonus + "_" + defenseBonus + "_" + speedBonus + "_" + spiritBonus,
                 attackBonus, defenseBonus, speedBonus, spiritBonus, durationSeconds);
@@ -112,11 +112,12 @@ public class BuffEffect extends ItemEffect {
         return sb.toString();
     }
 
-    public String execute(Connection conn, long playerId, PlayerService playerService, ItemService itemService) throws SQLException {
+    public String execute(Connection conn, long playerId, PlayerService playerService, ItemService itemService,
+                          com.mtxgdn.common.service.ServiceLookup services) throws SQLException {
         StringBuilder sb = new StringBuilder();
 
         if (durationSeconds > 0) {
-            BuffService buffService = ServiceRegistry.getBuffService();
+            BuffService buffService = services.getBuffService();
             // 必须用带 Connection 的重载：这里是别人的事务（使用/装备丹药装备的流程）。
             // 若调用自开事务的版本，增益行会提前提交 —— 外层事务随后回滚时，
             // 玩家已经白得了一个增益，而且没有任何东西会去撤销它。

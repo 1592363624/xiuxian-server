@@ -1,6 +1,6 @@
 package data.mtxgdn.explorationevent;
-
 import com.mtxgdn.common.service.ServiceRegistry;
+
 
 import com.mtxgdn.entity.Player;
 import com.mtxgdn.game.entity.ExplorationResult;
@@ -27,7 +27,7 @@ public class MonsterEvent extends ExplorationEvent {
         result.setEventDescription("遭遇妖兽");
 
         Monster monster = Monster.random(player.getRealm(), random);
-        CombatService combatService = ServiceRegistry.getCombatService();
+        CombatService combatService = com.mtxgdn.common.service.ServiceRegistry.container().getCombatService();
         PveCombatResult pveResult = combatService.pveFight(player.getId(), monster);
 
         result.setMonsterDefeated(pveResult.isPlayerWon());

@@ -1,6 +1,5 @@
 package com.mtxgdn.game.service;
 
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.db.DatabaseManager;
 import com.mtxgdn.entity.Player;
 import com.mtxgdn.game.config.GameConfigLoader;
@@ -19,6 +18,9 @@ import java.util.Random;
 import com.mtxgdn.api.RealmApi;
 
 public class RealmService implements RealmApi {
+
+    /** 服务查询面：由容器注入，替代 ServiceRegistry 静态调用。 */
+    private final com.mtxgdn.common.service.ServiceLookup services;
 
     private final PlayerService playerService;
     private Random random = new Random();
@@ -89,13 +91,22 @@ public class RealmService implements RealmApi {
      */
     public static final double TRIBULATION_PILL_BONUS = 10.0;
 
-    public RealmService(PlayerService playerService) {
+    public RealmService(com.mtxgdn.common.service.ServiceLookup services) {
+        this(services, services.getPlayerService());
+    }
+
+    /**
+     * 指定 PlayerService 的构造器：调用方（测试 / WebSocket 静态持有者）同时显式
+     * 传入自己绑定的查询面，服务本身不再回落到静态容器。
+     */
+    public RealmService(com.mtxgdn.common.service.ServiceLookup services, PlayerService playerService) {
+        this.services = services;
         this.playerService = playerService;
     }
 
     /** 灵石与丹药的读写都走 ItemService：灵石有四档且各有硬上限，自己拼 SQL 一定会算错。 */
     private ItemService itemService() {
-        return ServiceRegistry.getItemService();
+        return services.getItemService();
     }
 
     // ==================== 配置 ====================
@@ -659,13 +670,13 @@ public class RealmService implements RealmApi {
         // 大境界突破成功授予「破天者」称号 + 集中检查境界/战力类称号（不朽尊者/逆天者/大道之主/混沌帝尊/剑道宗师）
         if (majorBreakthrough) {
             try {
-                ServiceRegistry.getTitleService().grantTitle(player.getId(), "sky_breaker");
+                services.getTitleService().grantTitle(player.getId(), "sky_breaker");
             } catch (Exception ignored) {
                 // 称号授予失败不影响突破
             }
         }
         try {
-            ServiceRegistry.getTitleService().checkAndGrantTitles(player);
+            services.getTitleService().checkAndGrantTitles(player);
         } catch (Exception ignored) {
         }
 

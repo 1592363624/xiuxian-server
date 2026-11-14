@@ -44,7 +44,7 @@ import static com.mtxgdn.rest.AdminSupport.playerService;
  * （Jersey 的路径拼接规则）。</p>
  */
 @Path("/admin")
-public class AdminAuthResource {
+public class AdminAuthResource extends BaseResource {
 
     @Context
     private HttpHeaders httpHeaders;

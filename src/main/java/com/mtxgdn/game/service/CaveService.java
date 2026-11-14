@@ -2,7 +2,6 @@ package com.mtxgdn.game.service;
 import com.mtxgdn.game.entity.HeartDemonResult;
 
 
-import com.mtxgdn.common.service.ServiceRegistry;
 
 import com.mtxgdn.db.CaveDAO;
 import com.mtxgdn.db.DatabaseManager;
@@ -16,7 +15,6 @@ import com.mtxgdn.game.entity.Cave;
 import com.mtxgdn.util.GameLogger;
 
 import java.sql.SQLException;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import com.mtxgdn.i18n.I18n;
@@ -42,10 +40,6 @@ public class CaveService implements CaveApi, com.mtxgdn.common.service.Backgroun
      * <p>生产代码一律用 {@link #CaveService(com.mtxgdn.common.service.ServiceLookup)}，
      * 由 {@code ServiceContainer} 显式注入。</p>
      */
-    public CaveService() {
-        this(com.mtxgdn.common.service.ServiceRegistry.container());
-    }
-
     public CaveService(com.mtxgdn.common.service.ServiceLookup services) {
         this.services = services;
         this.playerService = services.getPlayerService();

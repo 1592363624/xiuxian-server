@@ -37,10 +37,10 @@ import static com.mtxgdn.rest.AdminSupport.gson;
  * 拆分前逐字一致（Jersey 的路径拼接规则）。</p>
  */
 @Path("/admin")
-public class AdminRedeemCodeResource {
+public class AdminRedeemCodeResource extends BaseResource {
 
-    private static final com.mtxgdn.game.service.RedeemCodeService redeemCodeService =
-            new com.mtxgdn.game.service.RedeemCodeService();
+    private final com.mtxgdn.game.service.RedeemCodeService redeemCodeService =
+            services.getRedeemCodeService();
 
     // ========== 兑换码管理 API ==========
 

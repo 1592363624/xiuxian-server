@@ -4,7 +4,6 @@ import com.mtxgdn.game.cave.CaveCollectResult;
 import com.mtxgdn.game.cave.CaveCreateResult;
 import com.mtxgdn.game.cave.CaveLevelUpResult;
 import com.mtxgdn.game.cave.CaveMeditateResult;
-import com.mtxgdn.common.service.ServiceRegistry;
 
 import com.google.gson.JsonObject;
 import com.mtxgdn.common.command.Command;
@@ -16,7 +15,7 @@ import com.mtxgdn.game.service.CaveService;
 import com.mtxgdn.i18n.I18n;
 
 public class CaveCommand extends Command {
-    private static final CaveService caveService = ServiceRegistry.getCaveService();
+    private final CaveService caveService = services().getCaveService();
     private static final com.google.gson.Gson GSON = new com.google.gson.Gson();
 
     public CaveCommand() {

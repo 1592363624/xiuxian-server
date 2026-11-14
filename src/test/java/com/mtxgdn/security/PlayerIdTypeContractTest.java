@@ -1,8 +1,5 @@
 package com.mtxgdn.security;
 
-import com.mtxgdn.db.DatabaseManager;
-import com.mtxgdn.game.service.PlayerService;
-import com.mtxgdn.common.service.ServiceRegistry;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

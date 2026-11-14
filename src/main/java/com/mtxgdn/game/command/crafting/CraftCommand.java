@@ -11,10 +11,8 @@ import com.mtxgdn.game.entity.PlayerInfo;
 import com.mtxgdn.game.entity.Recipe;
 import com.mtxgdn.game.item.Item;
 import com.mtxgdn.game.item.ItemRegistry;
-import com.mtxgdn.common.service.ServiceRegistry;
 
 import java.util.List;
-import java.util.Map;
 import com.mtxgdn.i18n.I18n;
 
 public class CraftCommand extends Command {
@@ -50,7 +48,7 @@ public class CraftCommand extends Command {
     }
 
     private void showDefault(CommandContext ctx, PlayerInfo p) {
-        var service = ServiceRegistry.getCraftingService();
+        var service = services().getCraftingService();
         List<Recipe> recipes = service.getAllRecipes();
         StringBuilder sb = new StringBuilder();
         sb.append("=== 合成系统 ===\n");
@@ -63,7 +61,7 @@ public class CraftCommand extends Command {
     }
 
     private void listRecipes(CommandContext ctx, PlayerInfo p, String[] parts) {
-        var service = ServiceRegistry.getCraftingService();
+        var service = services().getCraftingService();
         List<Recipe> recipes = service.getAllRecipes();
         StringBuilder sb = new StringBuilder();
         sb.append("=== 合成配方 (共").append(recipes.size()).append("种) ===\n\n");
@@ -106,7 +104,7 @@ public class CraftCommand extends Command {
             return;
         }
 
-        var service = ServiceRegistry.getCraftingService();
+        var service = services().getCraftingService();
         List<Recipe> recipes = service.getRecipesByCategory(category);
         StringBuilder sb = new StringBuilder();
         sb.append("=== ").append(categoryLabel(category)).append("配方 ===\n");
@@ -128,13 +126,13 @@ public class CraftCommand extends Command {
         long recipeId;
         try { recipeId = Long.parseLong(parts[1]); } catch (NumberFormatException e) { ctx.reply(I18n.t("crafting.invalid_recipe_id")); return; }
 
-        var service = ServiceRegistry.getCraftingService();
+        var service = services().getCraftingService();
         CraftResult result = service.craft(p.getId(), recipeId);
         ctx.reply(result.message());
     }
 
     private void showProficiency(CommandContext ctx, PlayerInfo p, String[] parts) {
-        var service = ServiceRegistry.getCraftingService();
+        var service = services().getCraftingService();
         CraftProficiencyInfo info = service.getProficiencyInfo(p.getId());
         StringBuilder sb = new StringBuilder();
         sb.append("=== 合成熟练度 ===\n");
@@ -173,7 +171,7 @@ public class CraftCommand extends Command {
     private JsonObject handleListHttp(RouteDefinition.RestContext ctx) {
         JsonObject result = new JsonObject();
         try {
-            var service = ServiceRegistry.getCraftingService();
+            var service = services().getCraftingService();
             String category = ctx.queryParam("category");
             List<Recipe> recipes;
             if (category != null && !category.isEmpty()) {
@@ -228,7 +226,7 @@ public class CraftCommand extends Command {
                 result.addProperty("message", I18n.t("crafting.please_provide_a_valid_recipe"));
                 return result;
             }
-            var service = ServiceRegistry.getCraftingService();
+            var service = services().getCraftingService();
             CraftResult data = service.craft(ctx.playerId(), recipeId);
             result.addProperty("code", 200);
             result.addProperty("success", data.success());

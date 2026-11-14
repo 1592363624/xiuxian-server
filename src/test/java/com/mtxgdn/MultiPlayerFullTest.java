@@ -13,13 +13,9 @@ import com.mtxgdn.common.result.OperationResult;
 import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.db.DatabaseManager;
 import com.mtxgdn.game.item.ItemScanner;
-import com.mtxgdn.game.item.ItemRegistry;
-import com.mtxgdn.game.item.Item;
 import com.mtxgdn.game.service.*;
 import com.mtxgdn.game.entity.*;
 import com.mtxgdn.entity.Player;
-import com.mtxgdn.game.secretrealm.SecretRealm;
-import com.mtxgdn.permission.PermissionService;
 import com.mtxgdn.service.UserService;
 import com.mtxgdn.util.JwtUtil;
 
@@ -27,9 +23,6 @@ import org.junit.jupiter.api.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 import jakarta.ws.rs.core.Response;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.util.*;
 
 /**
@@ -116,28 +109,28 @@ public class MultiPlayerFullTest {
 
         // 初始化服务
         userService = new UserService();
-        playerService = new PlayerService();
-        realmService = new RealmService(playerService);
-        itemService = new ItemService();
-        explorationService = new ExplorationService(playerService);
-        secretRealmService = new SecretRealmService(playerService);
-        combatService = new CombatService();
-        tradeService = new TradeService();
-        sectService = new SectService();
-        friendService = new FriendService();
+        playerService = new PlayerService(ServiceRegistry.container());
+        realmService = new RealmService(ServiceRegistry.container(), playerService);
+        itemService = new ItemService(ServiceRegistry.container());
+        explorationService = new ExplorationService(ServiceRegistry.container(), playerService);
+        secretRealmService = new SecretRealmService(ServiceRegistry.container(), playerService);
+        combatService = new CombatService(ServiceRegistry.container());
+        tradeService = new TradeService(ServiceRegistry.container());
+        sectService = new SectService(ServiceRegistry.container());
+        friendService = new FriendService(ServiceRegistry.container());
         chatService = new ChatService();
-        skillService = new SkillService();
-        techniqueService = new TechniqueService();
-        dailyService = new DailyService();
-        economyService = new EconomyService();
-        farmService = new FarmService();
-        caveService = new CaveService();
+        skillService = new SkillService(ServiceRegistry.container());
+        techniqueService = new TechniqueService(ServiceRegistry.container());
+        dailyService = new DailyService(ServiceRegistry.container());
+        economyService = new EconomyService(ServiceRegistry.container());
+        farmService = new FarmService(ServiceRegistry.container());
+        caveService = new CaveService(ServiceRegistry.container());
         energyService = new EnergyService();
-        buffService = new BuffService();
+        buffService = new BuffService(ServiceRegistry.container());
         teamService = TeamService.getInstance();
-        mapService = new MapService();
-        craftingService = new CraftingService();
-        titleService = new TitleService();
+        mapService = new MapService(ServiceRegistry.container());
+        craftingService = new CraftingService(ServiceRegistry.container());
+        titleService = new TitleService(ServiceRegistry.container());
 
         // 初始化游戏数据
         skillService.insertDefaultSkills();

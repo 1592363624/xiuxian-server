@@ -1,5 +1,6 @@
 package com.mtxgdn.plugin;
 
+import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.game.sect.WarResult;
 import com.mtxgdn.game.service.SectService;
 import com.mtxgdn.i18n.I18nManager;
@@ -15,7 +16,6 @@ import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -104,7 +104,7 @@ class ExperimentalPluginGateTest {
         BuiltInPluginRegistry registry = BuiltInPluginRegistry.getInstance();
         assertTrue(registry.disablePlugin(SECT_WAR), "应能停用实验性插件");
 
-        WarResult blocked = new SectService().declareWar(1L, 2L);
+        WarResult blocked = new SectService(ServiceRegistry.container()).declareWar(1L, 2L);
         assertFalse(blocked.success());
         String blockedMessage = blocked.message();
         // 不直接断言中文文案：文案本身由语言包决定，改了措辞不该让门控测试变红。
@@ -148,7 +148,7 @@ class ExperimentalPluginGateTest {
     /** 调用宗门战并返回其消息；门控放行后的异常也转为消息文本，便于统一断言。 */
     private String warResultMessage() {
         try {
-            WarResult result = new SectService().declareWar(1L, 2L);
+            WarResult result = new SectService(ServiceRegistry.container()).declareWar(1L, 2L);
             return result.message();
         } catch (RuntimeException e) {
             return String.valueOf(e.getMessage());

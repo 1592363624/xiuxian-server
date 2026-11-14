@@ -80,7 +80,7 @@ public class ServiceContainer implements ServiceLookup {
         if (realmService == null) {
             synchronized (this) {
                 if (realmService == null) {
-                    realmService = new RealmService(getPlayerService());
+                    realmService = new RealmService(this);
                 }
             }
         }
@@ -91,7 +91,7 @@ public class ServiceContainer implements ServiceLookup {
         if (itemService == null) {
             synchronized (this) {
                 if (itemService == null) {
-                    itemService = new ItemService();
+                    itemService = new ItemService(this);
                 }
             }
         }
@@ -102,7 +102,7 @@ public class ServiceContainer implements ServiceLookup {
         if (secretRealmService == null) {
             synchronized (this) {
                 if (secretRealmService == null) {
-                    secretRealmService = new SecretRealmService(getPlayerService());
+                    secretRealmService = new SecretRealmService(this);
                 }
             }
         }
@@ -113,7 +113,7 @@ public class ServiceContainer implements ServiceLookup {
         if (explorationService == null) {
             synchronized (this) {
                 if (explorationService == null) {
-                    explorationService = new ExplorationService(getPlayerService());
+                    explorationService = new ExplorationService(this);
                 }
             }
         }
@@ -124,7 +124,7 @@ public class ServiceContainer implements ServiceLookup {
         if (guideService == null) {
             synchronized (this) {
                 if (guideService == null) {
-                    guideService = new NewbieGuideService();
+                    guideService = new NewbieGuideService(this);
                 }
             }
         }
@@ -135,7 +135,7 @@ public class ServiceContainer implements ServiceLookup {
         if (skillService == null) {
             synchronized (this) {
                 if (skillService == null) {
-                    skillService = new SkillService();
+                    skillService = new SkillService(this);
                 }
             }
         }
@@ -146,7 +146,7 @@ public class ServiceContainer implements ServiceLookup {
         if (combatService == null) {
             synchronized (this) {
                 if (combatService == null) {
-                    combatService = new CombatService();
+                    combatService = new CombatService(this);
                 }
             }
         }
@@ -157,7 +157,7 @@ public class ServiceContainer implements ServiceLookup {
         if (dailyService == null) {
             synchronized (this) {
                 if (dailyService == null) {
-                    dailyService = new DailyService();
+                    dailyService = new DailyService(this);
                 }
             }
         }
@@ -179,7 +179,7 @@ public class ServiceContainer implements ServiceLookup {
         if (heartDemonService == null) {
             synchronized (this) {
                 if (heartDemonService == null) {
-                    heartDemonService = new HeartDemonService();
+                    heartDemonService = new HeartDemonService(this);
                 }
             }
         }
@@ -201,7 +201,7 @@ public class ServiceContainer implements ServiceLookup {
         if (friendService == null) {
             synchronized (this) {
                 if (friendService == null) {
-                    friendService = new FriendService();
+                    friendService = new FriendService(this);
                 }
             }
         }
@@ -212,7 +212,7 @@ public class ServiceContainer implements ServiceLookup {
         if (enhanceService == null) {
             synchronized (this) {
                 if (enhanceService == null) {
-                    enhanceService = new EnhanceService();
+                    enhanceService = new EnhanceService(this);
                 }
             }
         }
@@ -223,7 +223,7 @@ public class ServiceContainer implements ServiceLookup {
         if (craftingService == null) {
             synchronized (this) {
                 if (craftingService == null) {
-                    craftingService = new CraftingService();
+                    craftingService = new CraftingService(this);
                 }
             }
         }
@@ -234,7 +234,7 @@ public class ServiceContainer implements ServiceLookup {
         if (techniqueService == null) {
             synchronized (this) {
                 if (techniqueService == null) {
-                    techniqueService = new TechniqueService();
+                    techniqueService = new TechniqueService(this);
                 }
             }
         }
@@ -278,7 +278,7 @@ public class ServiceContainer implements ServiceLookup {
         if (titleService == null) {
             synchronized (this) {
                 if (titleService == null) {
-                    titleService = new TitleService();
+                    titleService = new TitleService(this);
                 }
             }
         }
@@ -322,7 +322,7 @@ public class ServiceContainer implements ServiceLookup {
         if (farmService == null) {
             synchronized (this) {
                 if (farmService == null) {
-                    farmService = new FarmService();
+                    farmService = new FarmService(this);
                 }
             }
         }
@@ -344,7 +344,7 @@ public class ServiceContainer implements ServiceLookup {
         if (mapService == null) {
             synchronized (this) {
                 if (mapService == null) {
-                    mapService = new MapService();
+                    mapService = new MapService(this);
                 }
             }
         }
@@ -355,7 +355,7 @@ public class ServiceContainer implements ServiceLookup {
         if (worldBossService == null) {
             synchronized (this) {
                 if (worldBossService == null) {
-                    worldBossService = new WorldBossService();
+                    worldBossService = new WorldBossService(this);
                 }
             }
         }
@@ -366,7 +366,7 @@ public class ServiceContainer implements ServiceLookup {
         if (durabilityService == null) {
             synchronized (this) {
                 if (durabilityService == null) {
-                    durabilityService = new DurabilityService();
+                    durabilityService = new DurabilityService(this);
                 }
             }
         }
@@ -385,7 +385,7 @@ public class ServiceContainer implements ServiceLookup {
         if (offlineRewardService == null) {
             synchronized (this) {
                 if (offlineRewardService == null) {
-                    offlineRewardService = new OfflineRewardService();
+                    offlineRewardService = new OfflineRewardService(this);
                 }
             }
         }
@@ -397,7 +397,7 @@ public class ServiceContainer implements ServiceLookup {
         if (redeemCodeService == null) {
             synchronized (this) {
                 if (redeemCodeService == null) {
-                    redeemCodeService = new RedeemCodeService();
+                    redeemCodeService = new RedeemCodeService(this);
                 }
             }
         }

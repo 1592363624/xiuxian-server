@@ -1,8 +1,8 @@
 package com.mtxgdn.minecraft.adapter;
+import com.mtxgdn.common.service.ServiceRegistry;
 
 import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandRegistry;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.util.AppConfig;
 import com.mtxgdn.util.GameLogger;
 import com.mtxgdn.util.RateLimiter;
@@ -16,6 +16,13 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class MinecraftAdapter implements MinecraftMessageSender {
+    /**
+     * 服务查询面：本类由 {@code AdapterManager} 在启动期装配，容器已就绪；
+     * 这里是该适配器边界唯一的一处容器引用。
+     */
+    private final com.mtxgdn.common.service.ServiceLookup services =
+            com.mtxgdn.common.service.ServiceRegistry.container();
+
 
     private static final GameLogger log = GameLogger.getLogger("McAdapter");
 
@@ -26,7 +33,7 @@ public class MinecraftAdapter implements MinecraftMessageSender {
     }
 
     private final MinecraftServerProcess serverProcess;
-    private final MinecraftPlayerBindingService bindingService = ServiceRegistry.getMcBindingService();
+    private final MinecraftPlayerBindingService bindingService = services.getMcBindingService();
     private final MinecraftAuthService authService = new MinecraftAuthService();
     private final Map<String, String> nameToUuid = new ConcurrentHashMap<>();
     private volatile boolean running = false;

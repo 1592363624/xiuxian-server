@@ -1,6 +1,6 @@
 package com.mtxgdn.i18n;
-
 import com.mtxgdn.common.service.ServiceRegistry;
+
 import com.mtxgdn.game.entity.PlayerInfo;
 
 /**
@@ -27,7 +27,7 @@ public final class LanguageResolver {
 
     /** 按玩家 ID 解析语言。查不到玩家或无偏好时回落到服务端默认。 */
     public static GameLanguage forPlayer(long playerId) {
-        PlayerInfo player = ServiceRegistry.getPlayerService().getPlayerInfoById(playerId);
+        PlayerInfo player = com.mtxgdn.common.service.ServiceRegistry.container().getPlayerService().getPlayerInfoById(playerId);
         if (player == null) {
             return I18nManager.serverDefault();
         }
@@ -36,7 +36,7 @@ public final class LanguageResolver {
 
     /** 按用户 ID 解析语言（先取该用户的角色，再取角色偏好）。 */
     public static GameLanguage forUser(long userId) {
-        PlayerInfo player = ServiceRegistry.getPlayerService().getPlayerByUserId(userId);
+        PlayerInfo player = com.mtxgdn.common.service.ServiceRegistry.container().getPlayerService().getPlayerByUserId(userId);
         if (player == null) {
             return I18nManager.serverDefault();
         }

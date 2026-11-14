@@ -1,6 +1,5 @@
 package com.mtxgdn.game.service;
 
-import com.mtxgdn.db.DatabaseManager;
 import com.mtxgdn.db.EnergyDAO;
 import com.mtxgdn.game.item.Item;
 import com.mtxgdn.game.item.ItemRegistry;

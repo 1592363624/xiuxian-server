@@ -34,8 +34,8 @@ class BuffEffectTransactionTest extends TestBase {
 
     private static final AtomicInteger SEQ = new AtomicInteger();
 
-    private final PlayerService playerService = ServiceRegistry.getPlayerService();
-    private final ItemService itemService = ServiceRegistry.getItemService();
+    private final PlayerService playerService = ServiceRegistry.container().getPlayerService();
+    private final ItemService itemService = ServiceRegistry.container().getItemService();
 
     @Test
     @DisplayName("外层事务回滚时，增益行与属性加成必须一起回滚")
@@ -49,7 +49,7 @@ class BuffEffectTransactionTest extends TestBase {
 
         try {
             DatabaseManager.runTransaction(conn -> {
-                effect.execute(conn, playerId, playerService, itemService);
+                effect.execute(conn, playerId, playerService, itemService, ServiceRegistry.container());
                 throw new IllegalStateException("故意失败，触发回滚");
             });
         } catch (RuntimeException expected) {
@@ -73,7 +73,7 @@ class BuffEffectTransactionTest extends TestBase {
         BuffEffect effect = BuffEffect.of(30, 0, 0, 0, 600);
 
         DatabaseManager.runTransaction(conn -> {
-            effect.execute(conn, playerId, playerService, itemService);
+            effect.execute(conn, playerId, playerService, itemService, ServiceRegistry.container());
             return true;
         });
 

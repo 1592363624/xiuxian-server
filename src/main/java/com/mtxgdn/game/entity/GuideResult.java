@@ -1,9 +1,5 @@
 package com.mtxgdn.game.entity;
 
-import com.mtxgdn.api.GuideApi;
-import com.mtxgdn.common.service.ServiceRegistry;
-import com.mtxgdn.game.entity.PlayerInfo;
-import com.mtxgdn.game.entity.SpiritualRoot;
 
 /**
  * 由 {NewbieGuideService} 的内部嵌套类提取而来。

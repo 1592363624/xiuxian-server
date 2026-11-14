@@ -86,7 +86,7 @@ class PlayerDaoExtractionTest extends TestBase {
     private static final java.util.regex.Pattern CONNECTION_METHOD_DECL =
             java.util.regex.Pattern.compile("(?m)^[ \\t]*(?:public|private|protected)[^;{}\\n]*\\(Connection conn");
 
-    private final PlayerService playerService = ServiceRegistry.getPlayerService();
+    private final PlayerService playerService = ServiceRegistry.container().getPlayerService();
 
     private static final AtomicInteger SEQ = new AtomicInteger();
 
@@ -99,8 +99,8 @@ class PlayerDaoExtractionTest extends TestBase {
      * <ul>
      *   <li>{@code public static void shutdown()} 删除 —— 调度器不再由服务自己启停，
      *       静态 shutdown 正是"换容器换不掉线程"的根源；</li>
-     *   <li>{@code public PlayerService(ServiceLookup)} 新增 —— 容器注入服务查询面的入口，
-     *       无参构造保留给测试与旧调用点；</li>
+     *   <li>{@code public PlayerService(ServiceLookup)} 新增 —— 容器注入服务查询面的唯一入口
+     *       （无参构造已删除：服务不再回落到静态容器，测试也显式传查询面）；</li>
      *   <li>{@code startBackgroundTasks()} / {@code stopBackgroundTasks()} 新增 ——
      *       {@code BackgroundTaskOwner} 契约，由 {@code ServiceContainer} 统一调用。</li>
      * </ul>
@@ -109,7 +109,6 @@ class PlayerDaoExtractionTest extends TestBase {
      */
     private static final List<String> GOLDEN_SERVICE_API = List.of(
             "public static final int MAX_PLAYER_NAME_LENGTH",
-            "public com.mtxgdn.game.service.PlayerService()",
             "public com.mtxgdn.game.service.PlayerService(com.mtxgdn.common.service.ServiceLookup)",
             "public void startBackgroundTasks()",
             "public void stopBackgroundTasks()",

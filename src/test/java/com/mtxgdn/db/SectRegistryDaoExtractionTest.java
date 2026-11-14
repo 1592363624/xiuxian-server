@@ -182,7 +182,7 @@ class SectRegistryDaoExtractionTest extends DaoExtractionAssertions {
         assertFalse(dao.contains("I18n"), "DAO 不该做国际化");
         assertFalse(dao.contains("TitleService"), "授予称号是业务，留在服务层");
         String service = stripComments(read(servicePath()));
-        assertTrue(service.contains("new com.mtxgdn.game.service.TitleService().grantTitle"),
+        assertTrue(service.contains("getTitleService().grantTitle"),
                 "创建成功授予「开山祖师」称号仍留在服务层");
         assertTrue(service.contains("sectName.trim().length() < 2"),
                 "宗门名长度校验留在服务层");

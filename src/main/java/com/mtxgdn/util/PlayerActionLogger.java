@@ -2,7 +2,6 @@ package com.mtxgdn.util;
 
 import com.mtxgdn.db.PlayerActionLogDAO;
 
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.file.Files;

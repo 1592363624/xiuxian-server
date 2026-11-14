@@ -5,7 +5,6 @@ import com.mtxgdn.common.command.CommandContext;
 import com.mtxgdn.game.entity.PlayerInfo;
 import com.mtxgdn.game.item.Item;
 import com.mtxgdn.game.item.ItemRegistry;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.i18n.I18n;
 
 public class MyListingsCommand extends Command {
@@ -16,7 +15,7 @@ public class MyListingsCommand extends Command {
     public void execute(CommandContext ctx) {
         Long userId = ctx.requireBinding(); if (userId == null) return;
         PlayerInfo p = ctx.requirePlayer(userId); if (p == null) return;
-        var listings = ServiceRegistry.getTradeService().getPlayerListings(p.getId());
+        var listings = services().getTradeService().getPlayerListings(p.getId());
         if (listings.isEmpty()) { ctx.reply(I18n.t("market.my_listings_nyou")); return; }
         StringBuilder sb = new StringBuilder(); sb.append("===== 我的挂单 =====\n");
         for (var l : listings) {

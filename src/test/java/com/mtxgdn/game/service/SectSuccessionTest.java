@@ -1,4 +1,5 @@
 package com.mtxgdn.game.service;
+import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.game.entity.SuccessionOutcome;
 
 
@@ -8,7 +9,6 @@ import com.mtxgdn.TestBase;
 import com.mtxgdn.db.DatabaseManager;
 import com.mtxgdn.game.entity.Sect;
 import com.mtxgdn.game.entity.SectMember;
-import com.mtxgdn.common.result.OperationResult;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -16,8 +16,6 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -45,7 +43,7 @@ class SectSuccessionTest extends TestBase {
     private static final long DAY_MS = 24L * 60 * 60 * 1000;
     private static final AtomicInteger SEQ = new AtomicInteger();
 
-    private final SectService sectService = new SectService();
+    private final SectService sectService = new SectService(ServiceRegistry.container());
 
     // ==================== 退位与继位 ====================
 

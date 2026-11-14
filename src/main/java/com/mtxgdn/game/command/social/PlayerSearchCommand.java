@@ -2,7 +2,6 @@ package com.mtxgdn.game.command.social;
 
 import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandContext;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.game.entity.PlayerInfo;
 
 import java.util.List;
@@ -38,7 +37,7 @@ public class PlayerSearchCommand extends Command {
             return;
         }
 
-        var playerService = ServiceRegistry.getPlayerService();
+        var playerService = services().getPlayerService();
         List<PlayerInfo> results = playerService.searchPlayersByName(keyword, MAX_RESULTS, 0);
 
         if (results.isEmpty()) {

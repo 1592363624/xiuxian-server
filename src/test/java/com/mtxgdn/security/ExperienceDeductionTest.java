@@ -3,7 +3,6 @@ package com.mtxgdn.security;
 import com.mtxgdn.TestBase;
 import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.entity.Player;
-import com.mtxgdn.game.entity.PlayerInfo;
 import com.mtxgdn.game.service.PlayerService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -35,7 +34,7 @@ class ExperienceDeductionTest extends TestBase {
 
     @BeforeEach
     void setUp() throws Exception {
-        playerService = ServiceRegistry.getPlayerService();
+        playerService = ServiceRegistry.container().getPlayerService();
         assertNotNull(playerService, "PlayerService 应可用");
         // players.user_id 有外键约束，必须先建 users 行（用独立连接建，
         // 避免并入 PlayerService 的事务语义）。

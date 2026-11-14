@@ -1,5 +1,6 @@
 package com.mtxgdn.game.item;
 
+import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.game.service.RealmService;
 import com.mtxgdn.i18n.GameLanguage;
 import com.mtxgdn.i18n.I18nContext;
@@ -54,7 +55,7 @@ class TribulationPillConsistencyTest {
     @Test
     @DisplayName("服用提示语里的百分比同样取自常量")
     void effectMessageUsesConstant() {
-        String msg = TribulationPillEffect.of().execute(1L, null, null);
+        String msg = TribulationPillEffect.of().execute(1L, null, null, ServiceRegistry.container());
         assertNotNull(msg);
         double shown = extractPercent(msg);
         assertEquals(RealmService.TRIBULATION_PILL_BONUS, shown, 0.001,

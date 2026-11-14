@@ -13,7 +13,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -42,7 +41,7 @@ class PlayerIdDomainTest extends TestBase {
 
     private static final AtomicInteger SEQ = new AtomicInteger();
 
-    private final PlayerService playerService = ServiceRegistry.getPlayerService();
+    private final PlayerService playerService = ServiceRegistry.container().getPlayerService();
 
     @Test
     @DisplayName("按账号 id 与按角色 id 查询必须命中各自的角色，不能串号")
@@ -91,10 +90,10 @@ class PlayerIdDomainTest extends TestBase {
 
         long skillId = insertFreeSkill("测试技能" + n);
 
-        LearnSkillResult result = new SkillService().learnSkill(playerId, skillId);
+        LearnSkillResult result = new SkillService(ServiceRegistry.container()).learnSkill(playerId, skillId);
         assertTrue(result.success(),
                 "learnSkill(playerId) 应成功；若失败且 message 是「角色不存在」，说明又按 user_id 查了：" + result);
-        assertTrue(new SkillService().hasSkill(playerId, skillId), "技能应已写入 players_skills");
+        assertTrue(new SkillService(ServiceRegistry.container()).hasSkill(playerId, skillId), "技能应已写入 players_skills");
     }
 
     // ==================== 夹具 ====================

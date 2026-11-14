@@ -6,8 +6,6 @@ import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandContext;
 import com.mtxgdn.game.entity.PlayerInfo;
 import com.mtxgdn.game.entity.SecretRealmResult;
-import com.mtxgdn.game.service.NewbieGuideService;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.util.PlayerActionLogger;
 import com.mtxgdn.i18n.I18n;
 
@@ -39,7 +37,7 @@ public class SecretEnterCommand extends Command {
             return;
         }
 
-        var secretRealmService = ServiceRegistry.getSecretRealmService();
+        var secretRealmService = services().getSecretRealmService();
         var actionLog = PlayerActionLogger.getInstance();
 
         SecretRealmResult result = secretRealmService.enterSecretRealm(userId, areaName);
@@ -60,7 +58,7 @@ public class SecretEnterCommand extends Command {
         } else { sb.append(result.getMessage()); }
         ctx.reply(sb.toString());
 
-        GuideResult guide = ServiceRegistry.getGuideService()
+        GuideResult guide = services().getGuideService()
                 .checkAndAdvance((int) p.getId(), p, "secret_enter");
         if (guide.message != null) ctx.reply(guide.message);
     }

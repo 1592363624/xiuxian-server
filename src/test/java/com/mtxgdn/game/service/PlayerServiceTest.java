@@ -1,5 +1,6 @@
 package com.mtxgdn.game.service;
 
+import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.TestBase;
 import com.mtxgdn.game.entity.SpiritualRoot;
 import org.junit.jupiter.api.BeforeEach;
@@ -15,7 +16,7 @@ class PlayerServiceTest extends TestBase {
 
     @BeforeEach
     void setUp() {
-        playerService = new PlayerService();
+        playerService = new PlayerService(ServiceRegistry.container());
     }
 
     @ParameterizedTest(name = "safeParseSpiritualRoot({0}) should return {1}")

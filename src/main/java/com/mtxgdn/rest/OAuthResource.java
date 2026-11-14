@@ -44,7 +44,7 @@ import com.mtxgdn.i18n.I18n;
  * 详见 {@link com.mtxgdn.oauth.OAuthAccess}。</p>
  */
 @Path("/auth/oauth")
-public class OAuthResource {
+public class OAuthResource extends BaseResource {
 
     private static final Gson gson = new Gson();
 

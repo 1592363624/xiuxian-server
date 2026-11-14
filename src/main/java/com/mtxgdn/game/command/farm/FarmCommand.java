@@ -1,7 +1,6 @@
 package com.mtxgdn.game.command.farm;
 
 import com.mtxgdn.game.farm.FarmResult;
-import com.mtxgdn.common.service.ServiceRegistry;
 
 import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandContext;
@@ -20,8 +19,8 @@ import java.util.Map;
 
 public class FarmCommand extends Command {
 
-    private final FarmService farmService = ServiceRegistry.getFarmService();
-    private final ItemService itemService = ServiceRegistry.getItemService();
+    private final FarmService farmService = services().getFarmService();
+    private final ItemService itemService = services().getItemService();
 
     public FarmCommand() {
         super(new String[]{"种田", "farm"}, "种田系统", "/种田 [查看/种植/浇水/施肥/收获/清理/扩建/种子/一键浇水/一键施肥/一键收获/杀虫]", "探索");

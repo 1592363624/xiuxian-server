@@ -2,7 +2,6 @@ package com.mtxgdn.game.command.social;
 
 import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandContext;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.game.entity.PlayerInfo;
 import com.mtxgdn.util.PlayerActionLogger;
 
@@ -45,7 +44,7 @@ public class PrivateMessageCommand extends Command {
         String targetName = parts[0].trim();
         String content = parts[1].trim();
 
-        var playerService = ServiceRegistry.getPlayerService();
+        var playerService = services().getPlayerService();
         List<PlayerInfo> targets = playerService.searchPlayersByName(targetName, 1, 0);
         if (targets.isEmpty()) {
             ctx.reply(I18n.t("social.player_not_found", targetName));
@@ -58,7 +57,7 @@ public class PrivateMessageCommand extends Command {
             return;
         }
 
-        ServiceRegistry.getChatService().sendPrivateMessage(p.getId(), p.getName(), target.getId(), content);
+        services().getChatService().sendPrivateMessage(p.getId(), p.getName(), target.getId(), content);
         PlayerActionLogger.getInstance().logChat(userId, p.getName(), "[私聊→" + target.getName() + "] " + content);
         ctx.reply(I18n.t("social.private_message_sent", target.getName()));
     }

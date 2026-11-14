@@ -4,10 +4,8 @@ import com.mtxgdn.game.entity.GuideResult;
 
 import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandContext;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.game.entity.PlayerInfo;
 import com.mtxgdn.game.entity.RealmBreakthroughResult;
-import com.mtxgdn.game.service.NewbieGuideService;
 import com.mtxgdn.game.service.RealmService;
 import com.mtxgdn.util.PlayerActionLogger;
 
@@ -53,8 +51,8 @@ public class BreakthroughCommand extends Command {
     }
 
     private void doBreakthrough(CommandContext ctx, PlayerInfo p) {
-        var realmService = ServiceRegistry.getRealmService();
-        var playerService = ServiceRegistry.getPlayerService();
+        var realmService = services().getRealmService();
+        var playerService = services().getPlayerService();
         var actionLog = PlayerActionLogger.getInstance();
         Long userId = p.getUserId();
 
@@ -82,7 +80,7 @@ public class BreakthroughCommand extends Command {
             PlayerInfo updated = playerService.getPlayerByUserId(userId);
             sb.append("\n\n").append(CommandContext.formatPlayerStatus(updated));
 
-            GuideResult guide = ServiceRegistry.getGuideService()
+            GuideResult guide = services().getGuideService()
                     .checkAndAdvance((int) updated.getId(), updated, "breakthrough");
             if (guide.message != null) sb.append("\n\n💡 ").append(guide.message);
         } else if (result.isHasTribulation()) {
@@ -93,7 +91,7 @@ public class BreakthroughCommand extends Command {
     }
 
     private void handlePreview(CommandContext ctx, PlayerInfo p, String[] parts) {
-        RealmBreakthroughResult result = ServiceRegistry.getRealmService().previewBreakthrough(p.getUserId());
+        RealmBreakthroughResult result = services().getRealmService().previewBreakthrough(p.getUserId());
         StringBuilder sb = new StringBuilder("===== 突破预览 =====\n");
         sb.append(result.getMessage());
         appendSection(sb, "成功率构成", result.getSuccessRateBreakdown());
@@ -102,13 +100,13 @@ public class BreakthroughCommand extends Command {
     }
 
     private void handleConsolidate(CommandContext ctx, PlayerInfo p, String[] parts) {
-        var realmService = ServiceRegistry.getRealmService();
+        var realmService = services().getRealmService();
         RealmBreakthroughResult result = realmService.consolidate(p.getUserId());
         StringBuilder sb = new StringBuilder("===== 极境凝实 =====\n");
         sb.append(result.getMessage());
         if (result.isSuccess()) {
             appendSection(sb, "过程", result.getTribulationLog());
-            appendConsolidationStatus(sb, ServiceRegistry.getPlayerService().getPlayerByUserId(p.getUserId()));
+            appendConsolidationStatus(sb, services().getPlayerService().getPlayerByUserId(p.getUserId()));
         } else {
             appendConsolidationStatus(sb, p);
         }

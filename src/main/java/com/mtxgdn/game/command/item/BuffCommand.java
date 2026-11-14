@@ -2,7 +2,6 @@ package com.mtxgdn.game.command.item;
 
 import com.mtxgdn.game.buff.ActiveBuffView;
 import com.mtxgdn.game.buff.ActiveBuffsResult;
-import com.mtxgdn.common.service.ServiceRegistry;
 
 import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandContext;
@@ -10,7 +9,6 @@ import com.mtxgdn.game.entity.PlayerInfo;
 import com.mtxgdn.game.service.BuffService;
 
 import java.util.List;
-import java.util.Map;
 
 public class BuffCommand extends Command {
     public BuffCommand() {
@@ -27,7 +25,7 @@ public class BuffCommand extends Command {
         PlayerInfo p = ctx.requirePlayer(userId);
         if (p == null) return;
 
-        BuffService buffService = ServiceRegistry.getBuffService();
+        BuffService buffService = services().getBuffService();
         ActiveBuffsResult result = buffService.getActiveBuffs(p.getId());
         List<ActiveBuffView> buffs = result.buffs();
         int count = result.count();

@@ -13,7 +13,6 @@ import org.junit.jupiter.api.Test;
 
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -45,7 +44,7 @@ class CultivationRestartTest extends TestBase {
 
     @BeforeAll
     static void setUpCultivation() {
-        playerService = ServiceRegistry.getPlayerService();
+        playerService = ServiceRegistry.container().getPlayerService();
         userService = new UserService();
     }
 
@@ -123,7 +122,7 @@ class CultivationRestartTest extends TestBase {
         forceRawState(pid, true, System.currentTimeMillis() - 3600_000L);
 
         // 重启后重新读取（新 PlayerService 实例等价于进程重启后的全新读取）
-        PlayerService fresh = new PlayerService();
+        PlayerService fresh = new PlayerService(ServiceRegistry.container());
         var player = fresh.getPlayerById(pid);
         assertNotNull(player, "重启后应能读到角色");
         assertTrue(player.isCultivating(), "重启后仍应处于闭关中（不需要玩家重新闭关）");

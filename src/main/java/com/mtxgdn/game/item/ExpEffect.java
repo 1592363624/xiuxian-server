@@ -23,7 +23,8 @@ public class ExpEffect extends ItemEffect {
     }
 
     @Override
-    public String execute(long playerId, PlayerService playerService, ItemService itemService) {
+    public String execute(long playerId, PlayerService playerService, ItemService itemService,
+                          com.mtxgdn.common.service.ServiceLookup services) {
         playerService.addExperience(playerId, expGain);
         return "获得了 " + expGain + " 点经验，";
     }

@@ -1,7 +1,6 @@
 package com.mtxgdn.game.command.economy;
 
 import com.mtxgdn.game.item.ExchangeResult;
-import com.mtxgdn.common.service.ServiceRegistry;
 
 import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandContext;
@@ -9,12 +8,11 @@ import com.mtxgdn.game.entity.PlayerInfo;
 import com.mtxgdn.game.item.CurrencyEffect;
 import com.mtxgdn.game.service.ItemService;
 
-import java.util.Map;
 import com.mtxgdn.i18n.I18n;
 
 public class StoneExchangeCommand extends Command {
 
-    private final ItemService itemService = ServiceRegistry.getItemService();
+    private final ItemService itemService = services().getItemService();
 
     private static final String[] STONE_NAMES = CurrencyEffect.GRADE_NAMES;
 

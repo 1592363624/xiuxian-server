@@ -7,7 +7,6 @@ import com.mtxgdn.game.item.ItemRegistry;
 import com.mtxgdn.game.item.ItemType;
 import com.mtxgdn.util.GameLogger;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 

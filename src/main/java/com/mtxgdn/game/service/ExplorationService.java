@@ -7,12 +7,9 @@ import com.mtxgdn.game.entity.ExplorationResult;
 import com.mtxgdn.game.entity.SpiritualRoot;
 import com.mtxgdn.game.explorationevent.ExplorationEvent;
 import com.mtxgdn.game.explorationevent.ExplorationEventRegistry;
-import com.mtxgdn.common.service.ServiceRegistry;
 
-import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -21,6 +18,9 @@ import com.mtxgdn.api.ExplorationApi;
 
 public class ExplorationService implements ExplorationApi {
 
+    /** 服务查询面：由容器注入，替代 ServiceRegistry 静态调用。 */
+    private final com.mtxgdn.common.service.ServiceLookup services;
+
     /** 游历基础冷却 5 分钟（原 60 秒导致每天可刷上千次，灵石/物品产出失控） */
     public static final long BASE_COOLDOWN_MS = 300_000;
 
@@ -28,14 +28,18 @@ public class ExplorationService implements ExplorationApi {
     private final ItemService itemService;
     private final Random random = new Random();
 
-    public ExplorationService() {
-        this.playerService = ServiceRegistry.getPlayerService();
-        this.itemService = ServiceRegistry.getItemService();
+    public ExplorationService(com.mtxgdn.common.service.ServiceLookup services) {
+        this(services, services.getPlayerService());
     }
 
-    public ExplorationService(PlayerService playerService) {
+    /**
+     * 指定 PlayerService 的构造器：调用方（测试 / WebSocket 静态持有者）同时显式
+     * 传入自己绑定的查询面，服务本身不再回落到静态容器。
+     */
+    public ExplorationService(com.mtxgdn.common.service.ServiceLookup services, PlayerService playerService) {
+        this.services = services;
         this.playerService = playerService;
-        this.itemService = ServiceRegistry.getItemService();
+        this.itemService = services.getItemService();
     }
 
     /**
@@ -47,7 +51,7 @@ public class ExplorationService implements ExplorationApi {
         if (locId > 0) {
             return locId;
         }
-        return ServiceRegistry.getMapService().getPlayerLocationId(player.getId());
+        return services.getMapService().getPlayerLocationId(player.getId());
     }
 
     /**
@@ -99,7 +103,7 @@ public class ExplorationService implements ExplorationApi {
         }
 
         // 所在地界：既决定事件抽取的权重偏置，也决定收益倍率
-        MapService mapService = ServiceRegistry.getMapService();
+        MapService mapService = services.getMapService();
         long locationId = resolveLocationId(player);
         String locationName = mapService.getLocationName(locationId);
         Map<String, Double> locationBias = mapService.getEventBias(locationId);
@@ -141,7 +145,7 @@ public class ExplorationService implements ExplorationApi {
         }
 
         // 今日天象游历收益倍率（星辰耀天 ×1.2 / 万籁俱寂 ×1.05），按已结算收益追加
-        CelestialPhenomenon celestial = com.mtxgdn.game.service.DailyService.getTodayPhenomenonStatic();
+        CelestialPhenomenon celestial = services.getDailyService().getTodayPhenomenon();
         if (celestial.getExplorationMultiplier() > 1.0 && result.isSuccess()) {
             long cGold = (long) (result.getGoldGained() * (celestial.getExplorationMultiplier() - 1));
             long cSS = (long) (result.getSpiritStonesGained() * (celestial.getExplorationMultiplier() - 1));
@@ -176,7 +180,7 @@ public class ExplorationService implements ExplorationApi {
             }
         }
 
-        ServiceRegistry.getDailyService().onExplore(player.getId(), result.getEventType());
+        services.getDailyService().onExplore(player.getId(), result.getEventType());
 
         // 插件事件：游历结束
         com.mtxgdn.plugin.event.PluginEventManager.fireQuietly(

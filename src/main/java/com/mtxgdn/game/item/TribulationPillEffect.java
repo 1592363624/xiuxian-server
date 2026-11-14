@@ -15,7 +15,8 @@ import com.mtxgdn.game.service.RealmService;
 public class TribulationPillEffect extends ItemEffect {
 
     @Override
-    public String execute(long playerId, PlayerService playerService, ItemService itemService) {
+    public String execute(long playerId, PlayerService playerService, ItemService itemService,
+                          com.mtxgdn.common.service.ServiceLookup services) {
         return "服下渡劫丹，药力护体！下次突破大境界时将自动生效（成功率 +"
                 + String.format("%.0f", RealmService.TRIBULATION_PILL_BONUS) + "%）";
     }

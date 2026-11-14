@@ -5,7 +5,6 @@ import com.mtxgdn.common.command.CommandContext;
 import com.mtxgdn.game.entity.PlayerInfo;
 import com.mtxgdn.game.item.Item;
 import com.mtxgdn.game.item.ItemRegistry;
-import com.mtxgdn.common.service.ServiceRegistry;
 import java.util.Map;
 
 public class EquippedCommand extends Command {
@@ -21,9 +20,9 @@ public class EquippedCommand extends Command {
         if (userId == null) return;
         PlayerInfo p = ctx.requirePlayer(userId);
         if (p == null) return;
-        var itemService = ServiceRegistry.getItemService();
-        var guideService = ServiceRegistry.getGuideService();
-        var durabilityService = ServiceRegistry.getDurabilityService();
+        var itemService = services().getItemService();
+        var guideService = services().getGuideService();
+        var durabilityService = services().getDurabilityService();
         Map<String, String> equipment = itemService.getEquipment((int) p.getId());
         StringBuilder sb = new StringBuilder();
         sb.append("===== 已装备 =====\n");

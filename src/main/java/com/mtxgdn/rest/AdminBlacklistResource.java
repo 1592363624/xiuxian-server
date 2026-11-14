@@ -32,7 +32,7 @@ import static com.mtxgdn.rest.AdminSupport.gson;
  * 拆分前逐字一致（Jersey 的路径拼接规则）。</p>
  */
 @Path("/admin")
-public class AdminBlacklistResource {
+public class AdminBlacklistResource extends BaseResource {
 
     // ========== 黑名单管理 API ==========
 

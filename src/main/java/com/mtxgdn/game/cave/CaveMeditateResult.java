@@ -2,7 +2,6 @@ package com.mtxgdn.game.cave;
 import com.mtxgdn.game.entity.HeartDemonResult;
 
 
-import com.mtxgdn.game.service.HeartDemonService;
 
 /**
  * 洞中冥想的结果。

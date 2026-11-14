@@ -5,12 +5,10 @@ import com.mtxgdn.plugin.BuiltInPluginRegistry;
 import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandContext;
 import com.mtxgdn.common.command.RouteDefinition;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.game.service.EnergyService;
 import com.mtxgdn.game.service.PlayerService;
 import com.mtxgdn.permission.PermissionService;
 import com.mtxgdn.identity.QqBinding;
-import com.mtxgdn.identity.QqBindingService;
 import com.mtxgdn.i18n.I18n;
 
 public class EnergyAdminCommand extends Command {
@@ -71,14 +69,14 @@ public class EnergyAdminCommand extends Command {
             return;
         }
 
-        PlayerService playerService = ServiceRegistry.getPlayerService();
+        PlayerService playerService = services().getPlayerService();
         var p = playerService.getPlayerById(playerId);
         if (p == null) {
             ctx.reply(I18n.t("admin.player_not_found_id", playerId));
             return;
         }
 
-        EnergyService energyService = ServiceRegistry.getEnergyService();
+        EnergyService energyService = services().getEnergyService();
         String action = parts[1];
 
         // 逐操作校验：查看沿用指令级 admin.status；设置/增加/减少是写操作，必须 admin.users.manage。
@@ -200,7 +198,7 @@ public class EnergyAdminCommand extends Command {
 
         try {
             long playerId = ctx.pathParamLong("playerId");
-            PlayerService playerService = ServiceRegistry.getPlayerService();
+            PlayerService playerService = services().getPlayerService();
             var p = playerService.getPlayerById(playerId);
             if (p == null) {
                 result.addProperty("code", 404);
@@ -208,7 +206,7 @@ public class EnergyAdminCommand extends Command {
                 return result;
             }
 
-            EnergyService energyService = ServiceRegistry.getEnergyService();
+            EnergyService energyService = services().getEnergyService();
             long energy = energyService.getEnergy(playerId);
 
             result.addProperty("code", 200);
@@ -241,7 +239,7 @@ public class EnergyAdminCommand extends Command {
                 return result;
             }
 
-            PlayerService playerService = ServiceRegistry.getPlayerService();
+            PlayerService playerService = services().getPlayerService();
             var p = playerService.getPlayerById(playerId);
             if (p == null) {
                 result.addProperty("code", 404);
@@ -249,7 +247,7 @@ public class EnergyAdminCommand extends Command {
                 return result;
             }
 
-            EnergyService energyService = ServiceRegistry.getEnergyService();
+            EnergyService energyService = services().getEnergyService();
             energyService.setEnergy(playerId, energy);
 
             result.addProperty("code", 200);
@@ -283,7 +281,7 @@ public class EnergyAdminCommand extends Command {
                 return result;
             }
 
-            PlayerService playerService = ServiceRegistry.getPlayerService();
+            PlayerService playerService = services().getPlayerService();
             var p = playerService.getPlayerById(playerId);
             if (p == null) {
                 result.addProperty("code", 404);
@@ -291,7 +289,7 @@ public class EnergyAdminCommand extends Command {
                 return result;
             }
 
-            EnergyService energyService = ServiceRegistry.getEnergyService();
+            EnergyService energyService = services().getEnergyService();
             energyService.addEnergy(playerId, amount);
 
             result.addProperty("code", 200);
@@ -326,7 +324,7 @@ public class EnergyAdminCommand extends Command {
                 return result;
             }
 
-            PlayerService playerService = ServiceRegistry.getPlayerService();
+            PlayerService playerService = services().getPlayerService();
             var p = playerService.getPlayerById(playerId);
             if (p == null) {
                 result.addProperty("code", 404);
@@ -334,7 +332,7 @@ public class EnergyAdminCommand extends Command {
                 return result;
             }
 
-            EnergyService energyService = ServiceRegistry.getEnergyService();
+            EnergyService energyService = services().getEnergyService();
             long current = energyService.getEnergy(playerId);
             if (current < amount) {
                 result.addProperty("code", 400);

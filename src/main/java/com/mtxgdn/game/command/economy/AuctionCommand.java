@@ -7,7 +7,6 @@ import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandContext;
 import com.mtxgdn.common.command.RouteDefinition;
 import com.mtxgdn.game.entity.PlayerInfo;
-import com.mtxgdn.common.service.ServiceRegistry;
 
 import java.util.List;
 import java.util.Map;
@@ -56,7 +55,7 @@ public class AuctionCommand extends Command {
     }
 
     private void listActiveAuctions(CommandContext ctx, PlayerInfo p) {
-        var eco = ServiceRegistry.getEconomyService();
+        var eco = services().getEconomyService();
         var items = eco.getActiveAuctionItems();
 
         StringBuilder sb = new StringBuilder();
@@ -73,7 +72,7 @@ public class AuctionCommand extends Command {
                   .append("\n");
             }
         }
-        long stones = ServiceRegistry.getItemService().getSpiritStoneCount(p.getId());
+        long stones = services().getItemService().getSpiritStoneCount(p.getId());
         sb.append("\n你的灵石: ").append(stones);
         sb.append("\n\n出售: /拍卖 出售 <物品名> <数量> <起价>");
         sb.append("\n出价: /拍卖 出价 <编号> <价格>");
@@ -97,7 +96,7 @@ public class AuctionCommand extends Command {
             try { hours = Integer.parseInt(parts[4]); } catch (NumberFormatException ignored) {}
         }
 
-        var eco = ServiceRegistry.getEconomyService();
+        var eco = services().getEconomyService();
         AuctionResult result = eco.createAuction(p.getId(), itemName, qty, startPrice, hours);
         ctx.reply(result.message());
     }
@@ -112,13 +111,13 @@ public class AuctionCommand extends Command {
             amount = Long.parseLong(parts[2]);
         } catch (NumberFormatException e) { ctx.reply(I18n.t("economy.invalid_id_or_price")); return; }
 
-        var eco = ServiceRegistry.getEconomyService();
+        var eco = services().getEconomyService();
         AuctionResult result = eco.placeBid(p.getId(), listingId, amount);
         ctx.reply(result.message());
     }
 
     private void myAuctions(CommandContext ctx, PlayerInfo p) {
-        var eco = ServiceRegistry.getEconomyService();
+        var eco = services().getEconomyService();
         var items = eco.getPlayerAuctionItems(p.getId());
 
         StringBuilder sb = new StringBuilder();
@@ -143,7 +142,7 @@ public class AuctionCommand extends Command {
     private JsonObject handleAuctionListHttp(RouteDefinition.RestContext ctx) {
         JsonObject result = new JsonObject();
         try {
-            var eco = ServiceRegistry.getEconomyService();
+            var eco = services().getEconomyService();
             List<Map<String, Object>> items = eco.getActiveAuctionItems();
             JsonArray arr = new JsonArray();
             for (var row : items) {
@@ -168,7 +167,7 @@ public class AuctionCommand extends Command {
     private JsonObject handleAuctionMyHttp(RouteDefinition.RestContext ctx) {
         JsonObject result = new JsonObject();
         try {
-            var eco = ServiceRegistry.getEconomyService();
+            var eco = services().getEconomyService();
             List<Map<String, Object>> items = eco.getPlayerAuctionItems(ctx.playerId());
             JsonArray arr = new JsonArray();
             for (var row : items) {
@@ -202,7 +201,7 @@ public class AuctionCommand extends Command {
                 result.addProperty("message", I18n.t("economy.please_provide_an_item_key"));
                 return result;
             }
-            var eco = ServiceRegistry.getEconomyService();
+            var eco = services().getEconomyService();
             AuctionResult data = eco.createAuction(ctx.playerId(), itemKey, quantity, startPrice, hours);
             result.addProperty("code", data.success() ? 200 : 400);
             result.addProperty("success", data.success());
@@ -226,7 +225,7 @@ public class AuctionCommand extends Command {
                 result.addProperty("message", I18n.t("economy.please_provide_a_valid_listing"));
                 return result;
             }
-            var eco = ServiceRegistry.getEconomyService();
+            var eco = services().getEconomyService();
             AuctionResult data = eco.placeBid(ctx.playerId(), listingId, amount);
             result.addProperty("code", data.success() ? 200 : 400);
             result.addProperty("success", data.success());

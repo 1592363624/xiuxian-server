@@ -96,7 +96,8 @@ public class CurrencyEffect extends ItemEffect {
     }
 
     @Override
-    public String execute(long playerId, PlayerService playerService, ItemService itemService) {
+    public String execute(long playerId, PlayerService playerService, ItemService itemService,
+                          com.mtxgdn.common.service.ServiceLookup services) {
         StringBuilder sb = new StringBuilder();
         if (goldGain > 0) {
             playerService.addGold(playerId, goldGain);

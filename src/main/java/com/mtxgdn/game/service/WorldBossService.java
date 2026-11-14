@@ -1,6 +1,5 @@
 package com.mtxgdn.game.service;
 
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.db.DatabaseManager;
 import com.mtxgdn.db.WorldBossDAO;
 import com.mtxgdn.entity.Player;
@@ -13,10 +12,7 @@ import com.mtxgdn.util.GameLogger;
 
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 import com.mtxgdn.game.worldboss.WorldBossChallengeResult;
@@ -52,6 +48,9 @@ import com.mtxgdn.api.WorldBossApi;
  */
 public class WorldBossService implements WorldBossApi {
 
+    /** 服务查询面：由容器注入，替代 ServiceRegistry 静态调用。 */
+    private final com.mtxgdn.common.service.ServiceLookup services;
+
     private static final GameLogger LOG = GameLogger.getLogger(WorldBossService.class);
 
     private static final WorldBossDAO WORLD_BOSS_DAO = new WorldBossDAO();
@@ -84,10 +83,11 @@ public class WorldBossService implements WorldBossApi {
     private final ItemService itemService;
     private final CombatService combatService;
 
-    public WorldBossService() {
-        this.playerService = ServiceRegistry.getPlayerService();
-        this.itemService = ServiceRegistry.getItemService();
-        this.combatService = ServiceRegistry.getCombatService();
+    public WorldBossService(com.mtxgdn.common.service.ServiceLookup services) {
+        this.services = services;
+        this.playerService = services.getPlayerService();
+        this.itemService = services.getItemService();
+        this.combatService = services.getCombatService();
     }
 
     // ==================== 配置 ====================

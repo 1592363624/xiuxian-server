@@ -5,7 +5,6 @@ import com.mtxgdn.game.item.EnhanceResult;
 import com.mtxgdn.TestBase;
 import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.db.DatabaseManager;
-import com.mtxgdn.entity.Player;
 import com.mtxgdn.game.item.ItemScanner;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
@@ -16,7 +15,6 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -45,9 +43,9 @@ class EnhanceBreakRollbackTest extends TestBase {
 
     private static final String SWORD = "mtxgdn:spirit_sword";
 
-    private final PlayerService playerService = ServiceRegistry.getPlayerService();
-    private final ItemService itemService = ServiceRegistry.getItemService();
-    private final EnhanceService enhanceService = ServiceRegistry.getEnhanceService();
+    private final PlayerService playerService = ServiceRegistry.container().getPlayerService();
+    private final ItemService itemService = ServiceRegistry.container().getItemService();
+    private final EnhanceService enhanceService = ServiceRegistry.container().getEnhanceService();
 
     @BeforeAll
     static void registerItems() {

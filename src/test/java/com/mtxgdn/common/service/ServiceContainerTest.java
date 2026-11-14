@@ -51,7 +51,7 @@ class ServiceContainerTest {
     void 门面始终指向当前容器() {
         ServiceContainer fresh = new ServiceContainer();
         ServiceRegistry.install(fresh);
-        assertSame(fresh.getPlayerService(), ServiceRegistry.getPlayerService(),
+        assertSame(fresh.getPlayerService(), ServiceRegistry.container().getPlayerService(),
                 "老代码走静态门面，必须看到当前容器里的那一套，否则新旧路径各拿一份状态");
         assertSame(fresh, ServiceRegistry.container());
         fresh.close();
@@ -59,9 +59,9 @@ class ServiceContainerTest {
 
     @Test
     void reset之后门面看到的是新实例() {
-        Object before = ServiceRegistry.getCombatService();
+        Object before = ServiceRegistry.container().getCombatService();
         ServiceRegistry.reset();
-        assertNotSame(before, ServiceRegistry.getCombatService(),
+        assertNotSame(before, ServiceRegistry.container().getCombatService(),
                 "reset 的用途就是让每个测试类拿到干净实例");
     }
 

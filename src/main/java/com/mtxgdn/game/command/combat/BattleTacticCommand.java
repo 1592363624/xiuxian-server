@@ -3,7 +3,6 @@ package com.mtxgdn.game.command.combat;
 import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandContext;
 import com.mtxgdn.game.entity.PlayerInfo;
-import com.mtxgdn.common.service.ServiceRegistry;
 
 import java.util.Set;
 import com.mtxgdn.i18n.I18n;
@@ -40,7 +39,7 @@ public class BattleTacticCommand extends Command {
             return;
         }
 
-        var playerService = ServiceRegistry.getPlayerService();
+        var playerService = services().getPlayerService();
         playerService.updateBattleStrategy(p.getId(), tactic);
 
         String display = switch (tactic) {
@@ -52,7 +51,7 @@ public class BattleTacticCommand extends Command {
     }
 
     private void showCurrent(CommandContext ctx, PlayerInfo p) {
-        var playerService = ServiceRegistry.getPlayerService();
+        var playerService = services().getPlayerService();
         var player = playerService.getPlayerByUserIdRaw(p.getUserId());
         String tactic = player != null ? player.getBattleStrategy() : "balanced";
         if (tactic == null) tactic = "balanced";

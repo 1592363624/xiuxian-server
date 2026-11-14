@@ -4,7 +4,6 @@ import com.mtxgdn.game.map.PlayerSurroundings;
 import com.mtxgdn.game.map.TravelResult;
 import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandContext;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.game.entity.PlayerInfo;
 import com.mtxgdn.game.entity.MapLocation;
 import com.mtxgdn.game.service.MapService;
@@ -20,7 +19,7 @@ import com.mtxgdn.i18n.I18n;
 
 public class MapCommand extends Command {
 
-    private final MapService mapService = ServiceRegistry.getMapService();
+    private final MapService mapService = services().getMapService();
 
     public MapCommand() {
         super(new String[]{"地图", "map"}, "查看游戏地图",

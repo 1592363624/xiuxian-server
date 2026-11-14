@@ -47,7 +47,7 @@ import static com.mtxgdn.rest.AdminSupport.gson;
  * 逐字一致（Jersey 的路径拼接规则）。</p>
  */
 @Path("/admin")
-public class AdminUserResource {
+public class AdminUserResource extends BaseResource {
 
     /** users 表归 UserServiceDAO，user_roles/user_permissions 归 PermissionDAO。 */
     private static final UserServiceDAO USER_DAO = new UserServiceDAO();

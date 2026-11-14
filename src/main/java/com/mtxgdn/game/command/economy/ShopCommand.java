@@ -7,7 +7,6 @@ import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandContext;
 import com.mtxgdn.common.command.RouteDefinition;
 import com.mtxgdn.game.entity.PlayerInfo;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.i18n.I18n;
 
 /**
@@ -32,7 +31,7 @@ public class ShopCommand extends Command {
         PlayerInfo p = ctx.requirePlayer(userId);
         if (p == null) return;
 
-        var eco = ServiceRegistry.getEconomyService();
+        var eco = services().getEconomyService();
         String arg = ctx.getArg();
         if (arg == null || arg.isBlank()) {
             ctx.reply(buildShopList());
@@ -55,7 +54,7 @@ public class ShopCommand extends Command {
     }
 
     private String buildShopList() {
-        var eco = ServiceRegistry.getEconomyService();
+        var eco = services().getEconomyService();
         String[][] items = eco.getShopItems();
         StringBuilder sb = new StringBuilder("🏪 灵石商店\n");
         sb.append("（灵石是修仙界硬通货，回复 /商店 <编号> 购买）\n\n");
@@ -70,7 +69,7 @@ public class ShopCommand extends Command {
 
     private JsonObject handleShopListHttp(RouteDefinition.RestContext ctx) {
         JsonObject result = new JsonObject();
-        var eco = ServiceRegistry.getEconomyService();
+        var eco = services().getEconomyService();
         String[][] items = eco.getShopItems();
         JsonArray list = new JsonArray();
         for (int i = 0; i < items.length; i++) {
@@ -98,7 +97,7 @@ public class ShopCommand extends Command {
                 return result;
             }
             int index = body.get("id").getAsInt();
-            var eco = ServiceRegistry.getEconomyService();
+            var eco = services().getEconomyService();
             ShopPurchaseResult data = eco.buyFromShop(ctx.playerId(), index);
             result.addProperty("code", data.success() ? 200 : 400);
             result.addProperty("success", data.success());

@@ -31,7 +31,7 @@ import static com.mtxgdn.rest.GameSupport.playerService;
  * {@code game.team.manage} / {@code game.team.view} 保持原样，返回结构未动。</p>
  */
 @Path("/game")
-public class GameTeamResource {
+public class GameTeamResource extends BaseResource {
 
     @Context
     private ContainerRequestContext requestContext;

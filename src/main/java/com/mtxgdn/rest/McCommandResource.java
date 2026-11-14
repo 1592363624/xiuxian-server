@@ -33,7 +33,7 @@ import java.nio.charset.StandardCharsets;
  * 与 OneBot 通道"信任 OneBot 客户端上报的 QQ 号"是同一套信任模型。
  */
 @Path("/mc-command")
-public class McCommandResource {
+public class McCommandResource extends BaseResource {
 
     private static final Gson gson = new Gson();
     private static final GameLogger log = GameLogger.getLogger("McCommandApi");

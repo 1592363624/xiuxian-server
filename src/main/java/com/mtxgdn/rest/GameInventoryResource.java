@@ -10,12 +10,10 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.mtxgdn.common.GameErrorCode;
 import com.mtxgdn.common.GameMessage;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.game.entity.Skill;
 import com.mtxgdn.game.item.Item;
 import com.mtxgdn.game.item.ItemRegistry;
 import com.mtxgdn.game.service.EnhanceService;
-import com.mtxgdn.game.service.ItemService;
 import com.mtxgdn.game.service.SkillService;
 import com.mtxgdn.i18n.I18n;
 import com.mtxgdn.permission.RequirePermission;
@@ -53,11 +51,11 @@ import static com.mtxgdn.rest.GameSupport.getPlayerIdByUserId;
  * 它们与背包/技能端点共享同一批服务引用，拆开反而要重复引用同一份依赖。</p>
  */
 @Path("/game")
-public class GameInventoryResource {
+public class GameInventoryResource extends BaseResource {
 
-    private static final SkillService skillService = ServiceRegistry.getSkillService();
+    private final SkillService skillService = services.getSkillService();
 
-    private static final EnhanceService enhanceService = ServiceRegistry.getEnhanceService();
+    private final EnhanceService enhanceService = services.getEnhanceService();
 
     @Context
     private ContainerRequestContext requestContext;

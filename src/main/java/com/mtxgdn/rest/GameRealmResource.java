@@ -7,7 +7,6 @@ import com.mtxgdn.game.cultivation.FinishCultivationResult;
 import com.google.gson.JsonObject;
 import com.mtxgdn.common.GameErrorCode;
 import com.mtxgdn.common.GameMessage;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.game.config.GameConfigLoader;
 import com.mtxgdn.game.entity.PlayerInfo;
 import com.mtxgdn.game.entity.RealmBreakthroughResult;
@@ -23,7 +22,6 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
-import java.util.Map;
 
 import static com.mtxgdn.rest.GameSupport.gson;
 import static com.mtxgdn.rest.GameSupport.actionLog;
@@ -49,11 +47,11 @@ import static com.mtxgdn.rest.GameSupport.getPlayerName;
  * 无法做成静态方法，因此各处保留一份内容逐字相同的副本。</p>
  */
 @Path("/game")
-public class GameRealmResource {
+public class GameRealmResource extends BaseResource {
 
-    private static final RealmService realmService = ServiceRegistry.getRealmService();
+    private final RealmService realmService = services.getRealmService();
 
-    private static final HeartDemonService heartDemonService = ServiceRegistry.getHeartDemonService();
+    private final HeartDemonService heartDemonService = services.getHeartDemonService();
 
     @Context
     private ContainerRequestContext requestContext;

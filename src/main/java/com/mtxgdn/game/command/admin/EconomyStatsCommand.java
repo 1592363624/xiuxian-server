@@ -3,9 +3,7 @@ package com.mtxgdn.game.command.admin;
 import com.mtxgdn.game.economy.EconomyStats;
 import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandContext;
-import com.mtxgdn.common.service.ServiceRegistry;
 
-import java.util.Map;
 
 /**
  * 管理员查看全服经济数据面板。
@@ -23,7 +21,7 @@ public class EconomyStatsCommand extends Command {
         if (userId == null) return;
         if (!ctx.checkPermission("admin.economy")) return;
 
-        var eco = ServiceRegistry.getEconomyService();
+        var eco = services().getEconomyService();
         EconomyStats stats = eco.getEconomyStats();
 
         StringBuilder sb = new StringBuilder();

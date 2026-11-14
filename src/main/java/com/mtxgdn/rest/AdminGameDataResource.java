@@ -48,7 +48,7 @@ import static com.mtxgdn.rest.AdminSupport.gson;
  * 返回字段也不同 —— 拆分时原样保留，没有合并。</p>
  */
 @Path("/admin")
-public class AdminGameDataResource {
+public class AdminGameDataResource extends BaseResource {
 
     @GET
     @Path("/spiritual-roots")

@@ -4,7 +4,6 @@ import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandContext;
 import com.mtxgdn.game.service.EquipmentDataChecker;
 import com.mtxgdn.identity.QqBinding;
-import com.mtxgdn.identity.QqBindingService;
 import com.mtxgdn.permission.PermissionService;
 import com.mtxgdn.i18n.I18n;
 

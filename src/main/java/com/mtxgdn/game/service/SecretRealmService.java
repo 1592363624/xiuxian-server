@@ -1,6 +1,5 @@
 package com.mtxgdn.game.service;
 
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.entity.Player;
 import com.mtxgdn.game.entity.BossForm;
 import com.mtxgdn.game.entity.Monster;
@@ -18,6 +17,9 @@ import com.mtxgdn.api.SecretRealmApi;
 
 public class SecretRealmService implements SecretRealmApi {
 
+    /** 服务查询面：由容器注入，替代 ServiceRegistry 静态调用。 */
+    private final com.mtxgdn.common.service.ServiceLookup services;
+
     private final PlayerService playerService;
     private final ItemService itemService;
     private final Random random = new Random();
@@ -29,14 +31,18 @@ public class SecretRealmService implements SecretRealmApi {
             "mtxgdn:heaven_pill", "mtxgdn:qiankun_zaohua_dan"
     };
 
-    public SecretRealmService() {
-        this.playerService = ServiceRegistry.getPlayerService();
-        this.itemService = ServiceRegistry.getItemService();
+    public SecretRealmService(com.mtxgdn.common.service.ServiceLookup services) {
+        this(services, services.getPlayerService());
     }
 
-    public SecretRealmService(PlayerService playerService) {
+    /**
+     * 指定 PlayerService 的构造器：调用方（测试 / WebSocket 静态持有者）同时显式
+     * 传入自己绑定的查询面，服务本身不再回落到静态容器。
+     */
+    public SecretRealmService(com.mtxgdn.common.service.ServiceLookup services, PlayerService playerService) {
+        this.services = services;
         this.playerService = playerService;
-        this.itemService = ServiceRegistry.getItemService();
+        this.itemService = services.getItemService();
     }
 
     public List<SecretRealm> getAvailableAreas(long userId) {
@@ -98,13 +104,13 @@ public class SecretRealmService implements SecretRealmApi {
         result.setArea(areaName);
         applyLocationBonus(player, result);
 
-        ServiceRegistry.getDailyService().onSecretRealm(player.getId());
+        services.getDailyService().onSecretRealm(player.getId());
 
         // 玩法计数 + 称号检查（秘境探险家）
         playerService.incrementSecretRealmCount(player.getId());
         try {
             player.setSecretRealmCount(player.getSecretRealmCount() + 1);
-            new com.mtxgdn.game.service.TitleService().checkAndGrantTitles(player);
+            services.getTitleService().checkAndGrantTitles(player);
         } catch (Exception ignored) {
         }
 
@@ -119,7 +125,7 @@ public class SecretRealmService implements SecretRealmApi {
         if (result == null || !result.isSuccess()) {
             return;
         }
-        MapService mapService = ServiceRegistry.getMapService();
+        MapService mapService = services.getMapService();
         long locationId = player.getCurrentLocationId() > 0
                 ? player.getCurrentLocationId()
                 : mapService.getPlayerLocationId(player.getId());
@@ -276,7 +282,7 @@ public class SecretRealmService implements SecretRealmApi {
 
         // 按区域境界生成怪物（原按玩家境界，导致高境界玩家在低阶秘境也遇强怪、区域难度形同虚设）
         Monster monster = Monster.random(area.getRequiredRealm(), random);
-        CombatService combatService = ServiceRegistry.getCombatService();
+        CombatService combatService = services.getCombatService();
         PveCombatResult pveResult = combatService.pveFight(player.getId(), monster);
 
         result.setMonsterDefeated(pveResult.isPlayerWon());
@@ -300,7 +306,7 @@ public class SecretRealmService implements SecretRealmApi {
         result.setEventDescription("遭遇秘境守护者");
 
         Monster boss = Monster.createBossForRealm(area.getRequiredRealm(), random);
-        CombatService combatService = ServiceRegistry.getCombatService();
+        CombatService combatService = services.getCombatService();
         PveCombatResult pveResult = combatService.pveFight(player.getId(), boss);
 
         result.setMonsterDefeated(pveResult.isPlayerWon());
@@ -583,7 +589,7 @@ public class SecretRealmService implements SecretRealmApi {
                 for (Player member : members) {
                     if (member.getHp() <= 0) continue;
 
-                    CombatService combatService = ServiceRegistry.getCombatService();
+                    CombatService combatService = services.getCombatService();
                     PveCombatResult pveResult = combatService.pveFight(member.getId(), monster);
 
                     if (pveResult.isPlayerWon()) {
@@ -621,7 +627,7 @@ public class SecretRealmService implements SecretRealmApi {
             log.add("所有小怪已清除，最终Boss出现！");
 
             List<BossForm> bossForms = BossForm.createFormsForRealm(area.getRequiredRealm());
-            CombatService combatService = ServiceRegistry.getCombatService();
+            CombatService combatService = services.getCombatService();
             RaidCombatResult raidResult = combatService.raidBossFight(memberIds, bossForms);
 
             if (raidResult.getBattleLog() != null) {
@@ -640,7 +646,7 @@ public class SecretRealmService implements SecretRealmApi {
                 double teamBonus = 1 + 0.2 * (memberCount - 1);
                 // 今日天象：战斗收益倍率作用于经验/金币，灵石倍率作用于灵石
                 com.mtxgdn.game.entity.CelestialPhenomenon phenom =
-                        com.mtxgdn.game.service.DailyService.getTodayPhenomenonStatic();
+                        services.getDailyService().getTodayPhenomenon();
                 long totalExp = phenom.applyCombat((long)(baseExp * teamBonus));
                 long totalGold = phenom.applyCombat((long)(baseGold * teamBonus));
                 long totalSpiritStones = phenom.applySpiritStone((long)(baseSpiritStones * teamBonus));
@@ -678,7 +684,7 @@ public class SecretRealmService implements SecretRealmApi {
                 }
 
                 if (raidResult.getLastHitPlayerId() > 0) {
-            ServiceRegistry.getTitleService().grantTitle(raidResult.getLastHitPlayerId(), "raid_conqueror");
+            services.getTitleService().grantTitle(raidResult.getLastHitPlayerId(), "raid_conqueror");
             log.add("🏆 【" + raidResult.getLastHitPlayerName() + "】获得了「副本征服者」称号！");
         }
 
@@ -692,7 +698,7 @@ public class SecretRealmService implements SecretRealmApi {
             result.setMessage("团队全军覆没");
         }
 
-        ServiceRegistry.getDailyService().onSecretRealm(leaderId);
+        services.getDailyService().onSecretRealm(leaderId);
         return result;
     }
 }

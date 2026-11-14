@@ -6,12 +6,9 @@ import com.mtxgdn.game.cultivation.BeginCultivationResult;
 import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandContext;
 import com.mtxgdn.game.entity.PlayerInfo;
-import com.mtxgdn.game.service.NewbieGuideService;
 import com.mtxgdn.game.service.SeasonService;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.util.PlayerActionLogger;
 
-import java.util.Map;
 
 public class CultivateCommand extends Command {
 
@@ -31,7 +28,7 @@ public class CultivateCommand extends Command {
         PlayerInfo p = requirePlayerInfo(ctx);
         if (p == null) return;
 
-        var playerService = ServiceRegistry.getPlayerService();
+        var playerService = services().getPlayerService();
         var actionLog = PlayerActionLogger.getInstance();
         Long userId = p.getUserId();
 
@@ -55,7 +52,7 @@ public class CultivateCommand extends Command {
                 + "闭关地点: " + result.locationName() + "（灵气 ×" + locationMultiplier + "）\n"
                 + "使用 /停止 结束打坐并结算灵力";
 
-        GuideResult guide = ServiceRegistry.getGuideService()
+        GuideResult guide = services().getGuideService()
                 .checkAndAdvance((int) p.getId(), p, "cultivate_start");
         if (guide.message != null) msg += "\n\n💡 " + guide.message;
 

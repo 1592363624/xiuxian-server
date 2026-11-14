@@ -1,6 +1,5 @@
 package com.mtxgdn.rest;
 
-import com.mtxgdn.common.service.ServiceRegistry;
 
 import com.google.gson.JsonObject;
 import com.mtxgdn.game.service.PlayerService;
@@ -20,10 +19,10 @@ import jakarta.ws.rs.core.Response;
 import com.mtxgdn.i18n.I18n;
 
 @Path("/auth")
-public class Auth {
+public class Auth extends BaseResource {
 
     private final UserService userService = new UserService();
-    private final PlayerService playerService = ServiceRegistry.getPlayerService();
+    private final PlayerService playerService = services.getPlayerService();
     private final VerificationCodeService verificationCodeService = new VerificationCodeService();
 
     @Context

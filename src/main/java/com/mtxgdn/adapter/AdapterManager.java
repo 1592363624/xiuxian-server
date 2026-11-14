@@ -7,7 +7,6 @@ import com.mtxgdn.onebot.OneBotScreenshotBot;
 import com.mtxgdn.onebot.OneBotWebSocketServer;
 import com.mtxgdn.qq.QqOfficialAdapter;
 import com.mtxgdn.server.ServerConfigurator;
-import com.mtxgdn.util.AppConfig;
 import com.mtxgdn.util.GameLogger;
 import com.mtxgdn.websocket.GameWebSocketApp;
 import org.glassfish.grizzly.http.server.HttpServer;

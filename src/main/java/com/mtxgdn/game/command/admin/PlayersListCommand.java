@@ -2,14 +2,12 @@ package com.mtxgdn.game.command.admin;
 
 import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandContext;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.game.entity.PlayerInfo;
 import com.mtxgdn.game.service.ItemService;
 import com.mtxgdn.game.service.PlayerService;
 import com.mtxgdn.permission.PermissionService;
 import com.mtxgdn.util.PageRequest;
 import com.mtxgdn.identity.QqBinding;
-import com.mtxgdn.identity.QqBindingService;
 
 import java.util.List;
 import com.mtxgdn.i18n.I18n;
@@ -36,8 +34,8 @@ public class PlayersListCommand extends Command {
             return;
         }
 
-        PlayerService playerService = ServiceRegistry.getPlayerService();
-        ItemService itemService = ServiceRegistry.getItemService();
+        PlayerService playerService = services().getPlayerService();
+        ItemService itemService = services().getItemService();
 
         String arg = ctx.getArg();
         int page = 1;

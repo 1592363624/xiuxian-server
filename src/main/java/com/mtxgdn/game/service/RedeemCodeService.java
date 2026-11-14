@@ -5,7 +5,6 @@ import com.mtxgdn.db.DatabaseManager;
 import com.mtxgdn.db.RedeemCodeDAO;
 import com.mtxgdn.game.entity.RedeemCode;
 import com.mtxgdn.game.item.ItemRegistry;
-import com.mtxgdn.common.service.ServiceRegistry;
 import java.sql.Timestamp;
 import java.util.List;
 import java.util.Map;
@@ -13,9 +12,18 @@ import com.mtxgdn.api.RedeemCodeApi;
 
 public class RedeemCodeService implements RedeemCodeApi {
 
+    /** 服务查询面：由容器注入，替代 ServiceRegistry 静态调用。 */
+    private final com.mtxgdn.common.service.ServiceLookup services;
+
+    public RedeemCodeService(com.mtxgdn.common.service.ServiceLookup services) {
+        this.services = services;
+        this.playerService = services.getPlayerService();
+        this.itemService = services.getItemService();
+    }
+
     private static final Gson gson = new Gson();
-    private final PlayerService playerService = ServiceRegistry.getPlayerService();
-    private final ItemService itemService = ServiceRegistry.getItemService();
+    private final PlayerService playerService;
+    private final ItemService itemService;
 
     /** {@code redeem_codes} / {@code redeemed_codes} 的读写入口（无状态，可共享）。 */
     private static final RedeemCodeDAO REDEEM_DAO = new RedeemCodeDAO();

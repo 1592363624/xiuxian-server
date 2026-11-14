@@ -7,9 +7,7 @@ import com.mtxgdn.common.command.CommandContext;
 import com.mtxgdn.common.command.RouteDefinition;
 import com.mtxgdn.game.entity.PlayerInfo;
 import com.mtxgdn.game.item.ItemRegistry;
-import com.mtxgdn.common.service.ServiceRegistry;
 
-import java.util.Map;
 import com.mtxgdn.i18n.I18n;
 
 public class RecycleCommand extends Command {
@@ -48,7 +46,7 @@ public class RecycleCommand extends Command {
         var item = ItemRegistry.resolve(itemName);
         if (item == null) { ctx.reply(I18n.t("economy.item_not_found_3")); return; }
 
-        var eco = ServiceRegistry.getEconomyService();
+        var eco = services().getEconomyService();
         RecycleResult result = eco.recycleItem(p.getId(), itemName, quantity);
         ctx.reply(result.message());
     }
@@ -80,7 +78,7 @@ public class RecycleCommand extends Command {
                 return result;
             }
 
-            var eco = ServiceRegistry.getEconomyService();
+            var eco = services().getEconomyService();
             RecycleResult data = eco.recycleItem(ctx.playerId(), itemKey, quantity);
             boolean success = data.success();
             result.addProperty("code", success ? 200 : 400);

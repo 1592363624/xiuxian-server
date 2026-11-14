@@ -1,12 +1,10 @@
 package com.mtxgdn.qq;
-
 import com.mtxgdn.common.service.ServiceRegistry;
-import com.mtxgdn.db.DatabaseManager;
+
 import com.mtxgdn.db.UserAccountDAO;
 import com.mtxgdn.db.UserServiceDAO;
 import com.mtxgdn.entity.User;
 import com.mtxgdn.game.entity.PlayerInfo;
-import com.mtxgdn.game.service.NewbieGuideService;
 import com.mtxgdn.onebot.OneBotSession;
 import com.mtxgdn.identity.QqBinding;
 import com.mtxgdn.permission.PermissionService;
@@ -48,6 +46,13 @@ import static com.mtxgdn.qq.QqSupport.log;
  * 都是从拆分前的方法体逐字搬过来的（连 {@code catch} 里的日志文案都没动）。</p>
  */
 final class QqAccountFlow {
+    /**
+     * 服务查询面：本类是启动期创建的长生命周期对象（由 {@code QqOfficialAdapter} 装配），
+     * 装配时容器已就绪；这里是该适配器边界唯一的一处容器引用。
+     */
+    private final com.mtxgdn.common.service.ServiceLookup services =
+            com.mtxgdn.common.service.ServiceRegistry.container();
+
 
     private final QqAdapterContext ctx;
     private final QqMessageSender sender;
@@ -63,11 +68,11 @@ final class QqAccountFlow {
     void handleRegister(OneBotSession session, String selfId, String senderQq, String arg, Long sourceGroupId) {
         QqBinding existingBinding = ctx.bindingService.findByQq(senderQq);
         if (existingBinding != null) {
-            if (ServiceRegistry.getPlayerService().getPlayerByUserId(existingBinding.getUserId()) == null) {
+            if (services.getPlayerService().getPlayerByUserId(existingBinding.getUserId()) == null) {
                 try {
-                    PlayerInfo player = ServiceRegistry.getPlayerService().createPlayer(
+                    PlayerInfo player = services.getPlayerService().createPlayer(
                             existingBinding.getUserId(), arg.trim());
-                    String guideMsg = NewbieGuideService.getWelcomeMessage(player);
+                    String guideMsg = services.getGuideService().buildCreateMessage(player);
                     sender.replyToSource(session, selfId, senderQq, sourceGroupId, guideMsg);
                     actionLog.logCreatePlayer(existingBinding.getUserId(), player.getName());
                 } catch (RuntimeException e) {
@@ -303,9 +308,9 @@ final class QqAccountFlow {
             return;
         }
         try {
-            PlayerInfo player = ServiceRegistry.getPlayerService().getPlayerByUserId(check.userId);
+            PlayerInfo player = services.getPlayerService().getPlayerByUserId(check.userId);
             if (player != null) {
-                ServiceRegistry.getPlayerService().deletePlayer(player.getId());
+                services.getPlayerService().deletePlayer(player.getId());
             }
             UserAccountDAO.deleteUser(check.userId);
             ctx.bindingService.unbindByQq(senderQq);
@@ -346,8 +351,8 @@ final class QqAccountFlow {
             }
             PermissionService.assignDefaultRole(userId);
             ctx.bindingService.bind(senderQq, userId);
-            PlayerInfo player = ServiceRegistry.getPlayerService().createPlayer(userId, ps.username);
-            String guideMsg = NewbieGuideService.getWelcomeMessage(player);
+            PlayerInfo player = services.getPlayerService().createPlayer(userId, ps.username);
+            String guideMsg = services.getGuideService().buildCreateMessage(player);
             sender.sendPrivateMsg(ctx.self, ctx.selfId, senderQq, guideMsg);
             actionLog.logCreatePlayer(userId, ps.username);
         } catch (RuntimeException e) {

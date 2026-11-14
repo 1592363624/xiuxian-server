@@ -6,7 +6,6 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.mtxgdn.common.GameErrorCode;
 import com.mtxgdn.common.GameMessage;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.game.entity.PlayerInfo;
 import com.mtxgdn.game.entity.Recipe;
 import com.mtxgdn.game.entity.Technique;
@@ -22,7 +21,6 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
 import java.util.List;
-import java.util.Map;
 
 import static com.mtxgdn.rest.GameSupport.gson;
 import static com.mtxgdn.rest.GameSupport.playerService;
@@ -43,11 +41,11 @@ import static com.mtxgdn.rest.GameSupport.playerService;
  * {@code game.crafting.craft} 全部保持原样，返回结构未动。</p>
  */
 @Path("/game")
-public class GameTechniqueResource {
+public class GameTechniqueResource extends BaseResource {
 
-    private static final TechniqueService techniqueService = ServiceRegistry.getTechniqueService();
+    private final TechniqueService techniqueService = services.getTechniqueService();
 
-    private static final CraftingService craftingService = ServiceRegistry.getCraftingService();
+    private final CraftingService craftingService = services.getCraftingService();
 
     @Context
     private ContainerRequestContext requestContext;

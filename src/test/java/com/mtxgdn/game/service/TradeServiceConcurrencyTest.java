@@ -4,7 +4,6 @@ import com.mtxgdn.game.trade.TradeResult;
 import com.mtxgdn.TestBase;
 import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.db.DatabaseManager;
-import com.mtxgdn.entity.Player;
 import com.mtxgdn.service.UserService;
 import jakarta.ws.rs.core.Response;
 import org.junit.jupiter.api.BeforeAll;
@@ -13,7 +12,6 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
@@ -48,8 +46,8 @@ class TradeServiceConcurrencyTest extends TestBase {
         try {
             // 物品必须先在 ItemRegistry 注册，否则 addItem/listItem 会抛"物品不存在"
             com.mtxgdn.game.item.ItemScanner.scanAndRegister();
-            tradeService = new TradeService();
-            itemService = ServiceRegistry.getItemService();
+            tradeService = new TradeService(ServiceRegistry.container());
+            itemService = ServiceRegistry.container().getItemService();
             userService = new UserService();
             runner = Executors.newFixedThreadPool(4);
             ready = true;
@@ -71,7 +69,7 @@ class TradeServiceConcurrencyTest extends TestBase {
         assertEquals(200, resp.getStatus(), "注册应成功: " + resp.getEntity());
         long userId = extractLong(resp.getEntity().toString(), "id");
         assertTrue(userId > 0, "userId 应大于 0");
-        var pi = ServiceRegistry.getPlayerService().createPlayer(userId, playerName);
+        var pi = ServiceRegistry.container().getPlayerService().createPlayer(userId, playerName);
         assertNotNull(pi, "角色创建不应为空");
         return pi.getId();
     }

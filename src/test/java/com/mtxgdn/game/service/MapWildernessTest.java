@@ -85,11 +85,11 @@ class MapWildernessTest extends TestBase {
     @BeforeEach
     void setUp() {
         WildernessChunkStore.get().setRootForTest(wildernessDir);
-        // 刻意用 ServiceRegistry 的单例而不是 new MapService()：CombatService.checkSafeZone 走的是
+        // 刻意用 ServiceRegistry 的单例而不是 new MapService(ServiceRegistry.container())：CombatService.checkSafeZone 走的是
         // 注册表里的那个实例，测试若另建一个实例，就会出现"测试里新建的地点，PVP 校验看不到"
         // —— 表现为玩家明明站在试炼场却被判定在安全区，且只在整套件运行时才复现（单跑本类时
         // 注册表单例恰好是本测试第一次触碰，缓存刚好是新的）。
-        mapService = ServiceRegistry.getMapService();
+        mapService = ServiceRegistry.container().getMapService();
         mapService.reload();
     }
 
@@ -495,13 +495,13 @@ class MapWildernessTest extends TestBase {
         long lowDanger = createTemporaryLocation(1, "试炼场-低危");
         long highDanger = createTemporaryLocation(4, "试炼场-极危");
 
-        long lowStonesBefore = ServiceRegistry.getItemService().getSpiritStoneCount(playerLow);
+        long lowStonesBefore = ServiceRegistry.container().getItemService().getSpiritStoneCount(playerLow);
         mapService.recordFirstVisit(playerLow, lowDanger);
-        long lowGain = ServiceRegistry.getItemService().getSpiritStoneCount(playerLow) - lowStonesBefore;
+        long lowGain = ServiceRegistry.container().getItemService().getSpiritStoneCount(playerLow) - lowStonesBefore;
 
-        long highStonesBefore = ServiceRegistry.getItemService().getSpiritStoneCount(playerHigh);
+        long highStonesBefore = ServiceRegistry.container().getItemService().getSpiritStoneCount(playerHigh);
         mapService.recordFirstVisit(playerHigh, highDanger);
-        long highGain = ServiceRegistry.getItemService().getSpiritStoneCount(playerHigh) - highStonesBefore;
+        long highGain = ServiceRegistry.container().getItemService().getSpiritStoneCount(playerHigh) - highStonesBefore;
 
         long expectedLow = reward.getSpiritStonesBase() + reward.getSpiritStonesPerDanger();
         long expectedHigh = reward.getSpiritStonesBase() + reward.getSpiritStonesPerDanger() * 4;
@@ -545,17 +545,17 @@ class MapWildernessTest extends TestBase {
         // 先解锁（recordFirstVisit 会顺带发首达奖励，因此余额要在解锁之后再读）
         // 用 grade=0 显式发放下品灵石：自动发放会折算成高品阶，扣费时的"破钱找零"
         // 会让"恰好扣除 cost"这个断言带上舍入误差
-        ServiceRegistry.getItemService().addSpiritStones(playerId, 100000, 0);
+        ServiceRegistry.container().getItemService().addSpiritStones(playerId, 100000, 0);
         assertNotNull(mapService.recordFirstVisit(playerId, WENDAO_PEAK));
 
-        long before = ServiceRegistry.getItemService().getSpiritStoneCount(playerId);
+        long before = ServiceRegistry.container().getItemService().getSpiritStoneCount(playerId);
         long cost = mapService.getTeleportCost(QINGYUN_VILLAGE, WENDAO_PEAK);
         assertTrue(cost > 0, "传送费用应为正数");
 
         TravelResult ok = mapService.teleportByUnlock(playerId, WENDAO_PEAK);
         assertTrue(ok.success(), "到过之后应可直传，实际: " + ok.message());
         assertEquals(WENDAO_PEAK, mapService.getPlayerLocationId(playerId), "传送后应落在目的地");
-        assertEquals(cost, before - ServiceRegistry.getItemService().getSpiritStoneCount(playerId),
+        assertEquals(cost, before - ServiceRegistry.container().getItemService().getSpiritStoneCount(playerId),
                 "应恰好扣除传送费用");
     }
 
@@ -565,9 +565,9 @@ class MapWildernessTest extends TestBase {
         long playerId = createPlayer(9, QINGYUN_VILLAGE);
         assertNotNull(mapService.recordFirstVisit(playerId, WENDAO_PEAK));
         // 把灵石清空，确保余额一定不够（首达奖励可能已经发过一些）
-        long balance = ServiceRegistry.getItemService().getSpiritStoneCount(playerId);
+        long balance = ServiceRegistry.container().getItemService().getSpiritStoneCount(playerId);
         if (balance > 0) {
-            ServiceRegistry.getItemService().removeSpiritStones(playerId, balance);
+            ServiceRegistry.container().getItemService().removeSpiritStones(playerId, balance);
         }
 
         TravelResult result = mapService.teleportByUnlock(playerId, WENDAO_PEAK);
@@ -597,7 +597,7 @@ class MapWildernessTest extends TestBase {
         MapLocation node = firstNodeWithResources();
         // 先"到过"该节点，确保拒绝的原因不是"没到过"而是"野外不可传送"
         long playerId = createPlayer(9, node.getId());
-        ServiceRegistry.getItemService().addSpiritStones(playerId, 100000, 0);
+        ServiceRegistry.container().getItemService().addSpiritStones(playerId, 100000, 0);
         assertNotNull(mapService.recordFirstVisit(playerId, node.getId()),
                 "前置条件：应当能记录野外首达");
         assertTrue(mapService.isExplored(playerId, node.getId()),
@@ -634,7 +634,7 @@ class MapWildernessTest extends TestBase {
     void testTeleportOutOfWildernessIsAllowed() throws SQLException {
         MapLocation node = firstNodeWithResources();
         long playerId = createPlayer(9, node.getId());
-        ServiceRegistry.getItemService().addSpiritStones(playerId, 100000, 0);
+        ServiceRegistry.container().getItemService().addSpiritStones(playerId, 100000, 0);
         // 解锁目的地（已知世界地点）
         assertNotNull(mapService.recordFirstVisit(playerId, QINGYUN_VILLAGE));
 
@@ -765,13 +765,13 @@ class MapWildernessTest extends TestBase {
         long target = createPlayer(5, locationId);
         // 双方都给足灵石：否则败者是"没钱的那一方"时掠夺必然为 0，测试会随机失败。
         // 用 grade=0 显式发放，避免自动折算成高品阶后扣费出现"破钱找零"的舍入误差
-        ServiceRegistry.getItemService().addSpiritStones(challenger, 10000, 0);
-        ServiceRegistry.getItemService().addSpiritStones(target, 10000, 0);
+        ServiceRegistry.container().getItemService().addSpiritStones(challenger, 10000, 0);
+        ServiceRegistry.container().getItemService().addSpiritStones(target, 10000, 0);
 
-        long challengerBefore = ServiceRegistry.getItemService().getSpiritStoneCount(challenger);
-        long targetBefore = ServiceRegistry.getItemService().getSpiritStoneCount(target);
+        long challengerBefore = ServiceRegistry.container().getItemService().getSpiritStoneCount(challenger);
+        long targetBefore = ServiceRegistry.container().getItemService().getSpiritStoneCount(target);
 
-        CombatResult result = new CombatService().pvpChallenge(challenger, target);
+        CombatResult result = new CombatService(ServiceRegistry.container()).pvpChallenge(challenger, target);
         assertTrue(result.isSuccess(), "试炼场应允许私斗，实际: " + result.getMessage());
 
         long loot = result.getSpiritStonesLooted();
@@ -779,7 +779,7 @@ class MapWildernessTest extends TestBase {
             long loserBefore = result.isChallengerWon() ? targetBefore : challengerBefore;
             long loserId = result.isChallengerWon() ? target : challenger;
             assertEquals(loserBefore - loot,
-                    ServiceRegistry.getItemService().getSpiritStoneCount(loserId),
+                    ServiceRegistry.container().getItemService().getSpiritStoneCount(loserId),
                     "败者应恰好损失被掠夺的灵石");
         }
         return loot;

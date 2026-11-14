@@ -5,7 +5,6 @@ import com.mtxgdn.common.command.CommandContext;
 import com.mtxgdn.game.entity.PlayerInfo;
 import com.mtxgdn.game.entity.Title;
 import com.mtxgdn.game.title.TitleRegistry;
-import com.mtxgdn.common.service.ServiceRegistry;
 
 import java.util.List;
 import java.util.Map;
@@ -39,7 +38,7 @@ public class TitleCommand extends Command {
     }
 
     private void showMyTitles(CommandContext ctx, PlayerInfo p) {
-        var ts = ServiceRegistry.getTitleService();
+        var ts = services().getTitleService();
         List<Map<String, Object>> titles = ts.getPlayerTitles(p.getId());
         Title equipped = ts.getEquippedTitle(p.getId());
 
@@ -110,7 +109,7 @@ public class TitleCommand extends Command {
             return;
         }
 
-        var ts = ServiceRegistry.getTitleService();
+        var ts = services().getTitleService();
         List<Map<String, Object>> titles = ts.getPlayerTitles(p.getId());
 
         String matchedKey = null;
@@ -133,7 +132,7 @@ public class TitleCommand extends Command {
     }
 
     private void unequipTitle(CommandContext ctx, PlayerInfo p, String[] parts) {
-        var ts = ServiceRegistry.getTitleService();
+        var ts = services().getTitleService();
         var result = ts.unequipTitle(p.getId());
         ctx.reply(result.message());
     }

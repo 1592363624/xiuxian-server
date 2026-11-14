@@ -36,7 +36,7 @@ import jakarta.ws.rs.core.Response;
  * 不允许一个接口用相对路径、另一个用绝对路径 —— 那会让部分客户端验签失败。</p>
  */
 @Path("/auth/oidc")
-public class OidcResource {
+public class OidcResource extends BaseResource {
 
     private static final Gson gson = new Gson();
 

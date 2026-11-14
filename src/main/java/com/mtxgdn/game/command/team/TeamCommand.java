@@ -5,9 +5,7 @@ import com.mtxgdn.common.command.CommandContext;
 import com.mtxgdn.game.entity.PlayerInfo;
 import com.mtxgdn.game.entity.SecretRealmResult;
 import com.mtxgdn.game.service.PlayerService;
-import com.mtxgdn.game.service.SecretRealmService;
 import com.mtxgdn.game.service.TeamService;
-import com.mtxgdn.common.service.ServiceRegistry;
 
 import java.util.List;
 import com.mtxgdn.i18n.I18n;
@@ -61,7 +59,7 @@ public class TeamCommand extends Command {
                     ctx.reply(I18n.t("team.usage"));
                     return;
                 }
-                PlayerService playerService = ServiceRegistry.getPlayerService();
+                PlayerService playerService = services().getPlayerService();
                 List<PlayerInfo> targets = playerService.searchPlayersByName(param.trim(), 1, 0);
                 if (targets.isEmpty()) {
                     ctx.reply(I18n.t("team.player_does_not_exist", param));
@@ -103,7 +101,7 @@ public class TeamCommand extends Command {
                     ctx.reply(I18n.t("team.you_are_not_in_any"));
                     return;
                 }
-                PlayerService playerService = ServiceRegistry.getPlayerService();
+                PlayerService playerService = services().getPlayerService();
                 StringBuilder sb = new StringBuilder("👥 队伍信息\n队伍ID: ").append(team.getTeamId())
                         .append("\n队长ID: ").append(team.getLeaderId())
                         .append("\n人数: ").append(team.getMemberCount()).append("/5\n成员: ");
@@ -119,7 +117,7 @@ public class TeamCommand extends Command {
                     ctx.reply(I18n.t("team.usage_2"));
                     return;
                 }
-                SecretRealmResult result = ServiceRegistry.getSecretRealmService().enterRaid(p.getId(), param.trim());
+                SecretRealmResult result = services().getSecretRealmService().enterRaid(p.getId(), param.trim());
                 StringBuilder sb = new StringBuilder();
                 if (result.isSuccess()) {
                     if (result.getLog() != null) {

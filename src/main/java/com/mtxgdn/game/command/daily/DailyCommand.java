@@ -4,7 +4,6 @@ import com.mtxgdn.game.daily.DailyInfo;
 import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandContext;
 import com.mtxgdn.game.entity.PlayerInfo;
-import com.mtxgdn.common.service.ServiceRegistry;
 
 public class DailyCommand extends Command {
     public DailyCommand() { super(new String[]{"天象", "daily"}, "查看今日天象与机缘", "/天象", "修炼", "game.player.info"); 
@@ -16,7 +15,7 @@ public class DailyCommand extends Command {
         if (userId == null) return;
         PlayerInfo p = ctx.requirePlayer(userId);
         if (p == null) return;
-        DailyInfo result = ServiceRegistry.getDailyService().getDailyInfo(p.getId());
+        DailyInfo result = services().getDailyService().getDailyInfo(p.getId());
         StringBuilder sb = new StringBuilder();
         sb.append("===== 今日天象 =====\n");
         sb.append("天象: ").append(result.phenomenon()).append("\n");

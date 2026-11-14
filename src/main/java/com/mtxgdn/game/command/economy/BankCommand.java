@@ -10,10 +10,8 @@ import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandContext;
 import com.mtxgdn.common.command.RouteDefinition;
 import com.mtxgdn.game.entity.PlayerInfo;
-import com.mtxgdn.common.service.ServiceRegistry;
 
 import java.util.List;
-import java.util.Map;
 import com.mtxgdn.i18n.I18n;
 
 /**
@@ -58,9 +56,9 @@ public class BankCommand extends Command {
     }
 
     private void showAccount(CommandContext ctx, PlayerInfo p) {
-        var eco = ServiceRegistry.getEconomyService();
+        var eco = services().getEconomyService();
         BankInfo info = eco.getBankInfo(p.getId());
-        long stones = ServiceRegistry.getItemService().getSpiritStoneCount(p.getId());
+        long stones = services().getItemService().getSpiritStoneCount(p.getId());
 
         List<DepositView> deposits = info.deposits();
         long totalPrincipal = info.totalPrincipal();
@@ -114,7 +112,7 @@ public class BankCommand extends Command {
             ctx.reply(I18n.t("economy.invalid_quantity")); return;
         }
 
-        var eco = ServiceRegistry.getEconomyService();
+        var eco = services().getEconomyService();
         BankDepositResult result = eco.bankDeposit(p.getId(), type, amount);
         ctx.reply(result.message());
     }
@@ -130,7 +128,7 @@ public class BankCommand extends Command {
             ctx.reply(I18n.t("economy.invalid_id")); return;
         }
 
-        var eco = ServiceRegistry.getEconomyService();
+        var eco = services().getEconomyService();
         BankWithdrawResult result = eco.bankWithdraw(p.getId(), depositId);
         ctx.reply(result.message());
     }
@@ -157,9 +155,9 @@ public class BankCommand extends Command {
     private JsonObject handleBankInfoHttp(RouteDefinition.RestContext ctx) {
         JsonObject result = new JsonObject();
         try {
-            var eco = ServiceRegistry.getEconomyService();
+            var eco = services().getEconomyService();
             BankInfo info = eco.getBankInfo(ctx.playerId());
-            long stones = ServiceRegistry.getItemService().getSpiritStoneCount(ctx.playerId());
+            long stones = services().getItemService().getSpiritStoneCount(ctx.playerId());
 
             JsonArray arr = new JsonArray();
             for (DepositView dep : info.deposits()) {
@@ -194,7 +192,7 @@ public class BankCommand extends Command {
                 result.addProperty("message", I18n.t("economy.please_provide_a_deposit_type"));
                 return result;
             }
-            var eco = ServiceRegistry.getEconomyService();
+            var eco = services().getEconomyService();
             BankDepositResult data = eco.bankDeposit(ctx.playerId(), type, amount);
             result.addProperty("code", data.success() ? 200 : 400);
             result.addProperty("success", data.success());
@@ -216,7 +214,7 @@ public class BankCommand extends Command {
                 result.addProperty("message", I18n.t("economy.please_provide_a_valid_deposit"));
                 return result;
             }
-            var eco = ServiceRegistry.getEconomyService();
+            var eco = services().getEconomyService();
             BankWithdrawResult data = eco.bankWithdraw(ctx.playerId(), depositId);
             result.addProperty("code", data.success() ? 200 : 400);
             result.addProperty("success", data.success());

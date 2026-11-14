@@ -4,7 +4,6 @@ import com.mtxgdn.game.trade.MarketQuote;
 import com.mtxgdn.common.command.Command;
 import com.mtxgdn.common.command.CommandContext;
 import com.mtxgdn.common.command.RouteDefinition;
-import com.mtxgdn.common.service.ServiceRegistry;
 import com.mtxgdn.game.entity.PlayerInfo;
 import com.google.gson.JsonObject;
 
@@ -60,7 +59,7 @@ public class MarketPriceCommand extends Command {
             return;
         }
 
-        MarketQuote quote = ServiceRegistry.getTradeService().getPriceHistory(itemKey, days);
+        MarketQuote quote = services().getTradeService().getPriceHistory(itemKey, days);
         if (!quote.success()) {
             ctx.reply(quote.message() != null ? quote.message() : I18n.t("market.quote_failed"));
             return;
@@ -110,7 +109,7 @@ public class MarketPriceCommand extends Command {
                 } catch (NumberFormatException ignored) {
                 }
             }
-            MarketQuote quote = ServiceRegistry.getTradeService().getPriceHistory(itemKey, days);
+            MarketQuote quote = services().getTradeService().getPriceHistory(itemKey, days);
             result.addProperty("code", quote.success() ? 200 : 400);
             result.addProperty("success", quote.success());
             result.addProperty("message", quote.message());
